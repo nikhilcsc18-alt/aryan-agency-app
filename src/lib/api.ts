@@ -367,31 +367,25 @@ export const api = {
   },
 
   async getRetailerLedger(id: string): Promise<{ retailer: Retailer; entries: any[]; finalBalance: number }> {
-<<<<<<< HEAD
+    if (
+      activeUserRole === 'retailer' &&
+      activeRetailerId &&
+      id !== activeRetailerId
+    ) {
+      throw new Error('Unauthorized: You can only access your own ledger.');
+    }
+
+    const safeRetailerId =
+      activeUserRole === 'retailer' && activeRetailerId
+        ? activeRetailerId
+        : id;
+
     return safeJsonFetch<{ retailer: Retailer; entries: any[]; finalBalance: number }>(
-      `/api/retailers/${id}/ledger`,
+      `/api/retailers/${safeRetailerId}/ledger`,
       {},
       { retailer: {} as any, entries: [], finalBalance: 0 }
     );
   },
-=======
-  if (
-    activeUserRole === 'retailer' &&
-    activeRetailerId &&
-    id !== activeRetailerId
-  ) {
-    throw new Error('Unauthorized: You can only access your own ledger.');
-  }
-
-  const safeRetailerId =
-    activeUserRole === 'retailer' && activeRetailerId
-      ? activeRetailerId
-      : id;
-
-  const res = await authFetch(`/api/retailers/${safeRetailerId}/ledger`);
-  return res.json();
-},
->>>>>>> pc-backup
 
   async deleteRetailer(id: string): Promise<{ success: boolean }> {
     if (isSupabaseConfigured) {

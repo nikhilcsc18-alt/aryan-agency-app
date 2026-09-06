@@ -216,7 +216,12 @@ const signInWithEmail = async (email: string, pass: string): Promise<{ success: 
             setIsAuthenticatedWithSupabase(true);
 
             const session = await supabaseService.getAuthSession().catch(() => null);
-            setApiAuthContext(session?.access_token || null, res.user.id, res.user.role);
+            setApiAuthContext(
+              session?.access_token || null,
+              res.user.id,
+              res.user.role,
+              res.user.retailerId || null
+            );
             setIsAuthModalOpen(false);
 
             console.log('[AuthContext] Supabase sign in successful:', res.user.email, 'Role:', res.user.role);
@@ -260,7 +265,7 @@ const signInWithEmail = async (email: string, pass: string): Promise<{ success: 
                 setAuthenticatedUser(matchedUser);
                 setCurrentUser(matchedUser);
                 setIsAuthenticatedWithSupabase(false);
-                setApiAuthContext(null, matchedUser.id, matchedUser.role);
+                setApiAuthContext(null, matchedUser.id, matchedUser.role, matchedUser.retailerId || null);
                 setIsAuthModalOpen(false);
 
                 return { success: true, user: matchedUser };
@@ -301,7 +306,7 @@ const signInWithEmail = async (email: string, pass: string): Promise<{ success: 
             setAuthenticatedUser(matchedUser);
             setCurrentUser(matchedUser);
             setIsAuthenticatedWithSupabase(false);
-            setApiAuthContext(null, matchedUser.id, matchedUser.role);
+            setApiAuthContext(null, matchedUser.id, matchedUser.role, matchedUser.retailerId || null);
             setIsAuthModalOpen(false);
 
             return { success: true, user: matchedUser };
@@ -331,40 +336,6 @@ const signInWithEmail = async (email: string, pass: string): Promise<{ success: 
       };
     }
   };
-=======
- const signInWithEmail = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
-  try {
-    setIsLoading(true);
-    const res = await supabaseService.signInWithEmail(email, pass);
->>>>>>> pc-backup
-
-    if (res.user) {
-      setAuthenticatedUser(res.user);
-      setCurrentUser(res.user);
-      setIsAuthenticatedWithSupabase(true);
-
-      const session = await supabaseService.getAuthSession().catch(() => null);
-
-      setApiAuthContext(
-        session?.access_token || null,
-        res.user.id,
-        res.user.role,
-        res.user.retailerId || null
-      );
-    }
-
-    setIsAuthModalOpen(false);
-    return { success: true };
-
-  } catch (err: any) {
-    return {
-      success: false,
-      error: err.message || 'Login failed. Please check your credentials.'
-    };
-  } finally {
-    setIsLoading(false);
-  }
-};
   const signUpWithEmail = async (
     email: string, 
     pass: string, 
