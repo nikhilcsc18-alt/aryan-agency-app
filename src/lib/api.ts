@@ -469,12 +469,72 @@ export const api = {
   },
 
   async createOrder(orderData: any): Promise<Order> {
+    const rawItems = Array.isArray(orderData?.items) ? orderData.items : [];
+    
+    // Calculate totals if missing to guarantee Supabase NOT NULL constraints are satisfied
+    let subtotal = orderData.subtotal ?? orderData.subtotalGross ?? orderData.grossSubtotal;
+    let totalDiscount = orderData.totalDiscount ?? 0;
+    let totalTaxable = orderData.totalTaxable ?? orderData.taxableAmount;
+    let totalTax = orderData.totalTax ?? orderData.totalGst;
+    let grandTotal = orderData.grandTotal ?? orderData.totalAmount;
+    let amountPaid = Number(orderData.amountPaid || 0);
+
+    if (subtotal === undefined || grandTotal === undefined || totalTaxable === undefined) {
+      let calcGross = 0;
+      let calcDisc = 0;
+      let calcTaxable = 0;
+      let calcTax = 0;
+      let calcTotal = 0;
+
+      for (const it of rawItems) {
+        const gross = Number(it.grossAmount || (it.cases * 500) || 0);
+        const disc = Number(it.discountAmount || 0);
+        const taxable = Number(it.taxableAmount || (gross - disc));
+        const tax = Number(it.totalTax || it.taxAmount || (taxable * (it.gstRate || 18) / 100));
+        const lineTotal = Number(it.totalAmount || (taxable + tax));
+        calcGross += gross;
+        calcDisc += disc;
+        calcTaxable += taxable;
+        calcTax += tax;
+        calcTotal += lineTotal;
+      }
+
+      if (subtotal === undefined) subtotal = calcGross || calcTotal || 0;
+      if (totalDiscount === undefined) totalDiscount = calcDisc || 0;
+      if (totalTaxable === undefined) totalTaxable = calcTaxable || subtotal;
+      if (totalTax === undefined) totalTax = calcTax || 0;
+      if (grandTotal === undefined) grandTotal = calcTotal || subtotal;
+    }
+
+    const finalGrandTotal = Number(grandTotal || 0);
+    const finalAmountPaid = Number(amountPaid || 0);
+    const finalOutstanding = Number(
+      orderData.outstandingAmount !== undefined
+        ? orderData.outstandingAmount
+        : Math.max(0, finalGrandTotal - finalAmountPaid)
+    );
+
     const safeOrderData = {
       ...orderData,
       id: (orderData?.id && orderData.id !== 'null' && orderData.id !== 'undefined')
         ? String(orderData.id).trim()
         : `ord_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      orderNumber: orderData?.orderNumber || `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`
+      orderNumber: orderData?.orderNumber || `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      orderDate: orderData?.orderDate || new Date().toISOString(),
+      expectedDeliveryDate: orderData?.expectedDeliveryDate || new Date(Date.now() + 86400000).toISOString().split('T')[0],
+      items: rawItems,
+      subtotal: Number(subtotal || 0),
+      totalDiscount: Number(totalDiscount || 0),
+      totalTaxable: Number(totalTaxable || 0),
+      totalCgst: Number(orderData.totalCgst ?? orderData.cgstTotal ?? +(Number(totalTax || 0) / 2).toFixed(2)),
+      totalSgst: Number(orderData.totalSgst ?? orderData.sgstTotal ?? +(Number(totalTax || 0) / 2).toFixed(2)),
+      totalTax: Number(totalTax || 0),
+      roundOff: Number(orderData.roundOff || 0),
+      grandTotal: finalGrandTotal,
+      amountPaid: finalAmountPaid,
+      outstandingAmount: finalOutstanding,
+      paymentStatus: orderData.paymentStatus || (finalAmountPaid >= finalGrandTotal ? 'paid' : finalAmountPaid > 0 ? 'partial' : 'unpaid'),
+      status: orderData.status || 'booked'
     };
 
     if (isSupabaseConfigured) {

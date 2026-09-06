@@ -195,19 +195,66 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
     e.preventDefault();
     if (!currentRetailer) return;
 
+    // Build fully calculated line items
+    const calculatedItems = itemBreakdowns.map((b: any) => {
+      const p = b.product;
+      const halfGst = +(b.gst / 2).toFixed(2);
+      return {
+        productId: p.id,
+        sku: p.sku,
+        productName: p.name,
+        brand: p.brand,
+        category: p.category,
+        hsnCode: p.hsnCode,
+        gstRate: p.gstRate,
+        cases: b.cases,
+        loosePcs: b.loose,
+        totalPieces: b.totalPcs,
+        unitPrice: p.wholesalePricePiece,
+        grossAmount: b.lineGross,
+        discountAmount: b.discount,
+        taxableAmount: b.taxable,
+        cgstAmount: halfGst,
+        sgstAmount: halfGst,
+        igstAmount: 0,
+        totalAmount: b.netLine,
+        schemeApplied: b.schemeTitle || undefined,
+        freePcsAwarded: b.freePcs || undefined
+      };
+    });
+
+    const halfTax = +(totalTax / 2).toFixed(2);
+    const roundOff = +(finalBillAmount - (grossSubtotal - totalDiscount)).toFixed(2);
+    const outstanding = Math.max(0, finalBillAmount - amountPaidNow);
+    const paymentStatus = amountPaidNow >= finalBillAmount ? 'paid' : amountPaidNow > 0 ? 'partial' : 'unpaid';
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+
     const payload = {
       retailerId: currentRetailer.id,
       retailerName: currentRetailer.storeName,
-      retailerPhone: currentRetailer.phone,
-      retailerAddress: currentRetailer.address,
-      beatName: currentRetailer.beatName,
+      retailerPhone: currentRetailer.phone || '',
+      retailerAddress: currentRetailer.address || '',
+      retailerGstin: currentRetailer.gstin || '',
+      beatName: currentRetailer.beatName || 'General Beat',
       salesmanId: currentSalesman?.id,
       salesmanName: currentSalesman?.name,
-      items: orderItems,
+      orderDate: new Date().toISOString(),
+      expectedDeliveryDate: tomorrow,
+      items: calculatedItems,
+      subtotal: grossSubtotal,
+      totalDiscount,
+      totalTaxable,
+      totalCgst: halfTax,
+      totalSgst: halfTax,
+      totalTax,
+      roundOff,
+      grandTotal: finalBillAmount,
       amountPaid: amountPaidNow,
+      outstandingAmount: outstanding,
       paymentMode,
+      paymentStatus,
       notes: orderNotes,
-      status: 'booked'
+      status: 'booked' as const
     };
 
     await onSubmitOrder(payload);

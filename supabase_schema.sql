@@ -164,6 +164,16 @@ CREATE TABLE IF NOT EXISTS orders (
 -- Guarantee orders.id and order_number defaults so orders.id is never NULL
 ALTER TABLE orders ALTER COLUMN id SET DEFAULT ('ord_' || replace(uuid_generate_v4()::text, '-', ''));
 ALTER TABLE orders ALTER COLUMN order_number SET DEFAULT ('ORD-2026-' || floor(1000 + random() * 9000)::text);
+ALTER TABLE orders ALTER COLUMN subtotal SET DEFAULT 0.00;
+ALTER TABLE orders ALTER COLUMN total_discount SET DEFAULT 0.00;
+ALTER TABLE orders ALTER COLUMN total_taxable SET DEFAULT 0.00;
+ALTER TABLE orders ALTER COLUMN total_cgst SET DEFAULT 0.00;
+ALTER TABLE orders ALTER COLUMN total_sgst SET DEFAULT 0.00;
+ALTER TABLE orders ALTER COLUMN total_tax SET DEFAULT 0.00;
+ALTER TABLE orders ALTER COLUMN grand_total SET DEFAULT 0.00;
+ALTER TABLE orders ALTER COLUMN amount_paid SET DEFAULT 0.00;
+ALTER TABLE orders ALTER COLUMN outstanding_amount SET DEFAULT 0.00;
+ALTER TABLE orders ALTER COLUMN expected_delivery_date SET DEFAULT CURRENT_DATE;
 
 -- ====================================================================
 -- 8. ORDER ITEMS TABLE (Normalized Line Items with Tax & Scheme Details)

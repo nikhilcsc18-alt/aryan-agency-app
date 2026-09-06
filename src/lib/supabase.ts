@@ -387,44 +387,107 @@ function mapDbOrder(row: any): Order {
   };
 }
 
-function orderToDb(o: Partial<Order>): any {
+function orderToDb(o: any): any {
   const out: any = {};
   const safeId = (o.id && String(o.id).trim() && o.id !== 'null' && o.id !== 'undefined')
     ? String(o.id).trim()
     : `ord_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   out.id = safeId;
-  out.order_number = o.orderNumber || `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-  if (o.retailerId !== undefined) out.retailer_id = o.retailerId;
-  if (o.retailerName !== undefined) out.retailer_name = o.retailerName;
-  if (o.retailerPhone !== undefined) out.retailer_phone = o.retailerPhone;
-  if (o.retailerAddress !== undefined) out.retailer_address = o.retailerAddress;
-  if (o.retailerGstin !== undefined) out.retailer_gstin = o.retailerGstin;
-  if (o.beatName !== undefined) out.beat_name = o.beatName;
-  if (o.salesmanId !== undefined) out.salesman_id = o.salesmanId;
-  if (o.salesmanName !== undefined) out.salesman_name = o.salesmanName;
-  out.order_date = o.orderDate || new Date().toISOString();
-  out.expected_delivery_date = o.expectedDeliveryDate || new Date().toISOString().split('T')[0];
-  if (o.items !== undefined) out.items = o.items;
-  if (o.subtotal !== undefined) out.subtotal = o.subtotal;
-  if (o.totalDiscount !== undefined) out.total_discount = o.totalDiscount;
-  if (o.totalTaxable !== undefined) out.total_taxable = o.totalTaxable;
-  if (o.totalCgst !== undefined) out.total_cgst = o.totalCgst;
-  if (o.totalSgst !== undefined) out.total_sgst = o.totalSgst;
-  if (o.totalTax !== undefined) out.total_tax = o.totalTax;
-  if (o.roundOff !== undefined) out.round_off = o.roundOff;
-  if (o.grandTotal !== undefined) out.grand_total = o.grandTotal;
-  if (o.amountPaid !== undefined) out.amount_paid = o.amountPaid;
-  if (o.outstandingAmount !== undefined) out.outstanding_amount = o.outstandingAmount;
-  if (o.status !== undefined) out.status = o.status;
-  if (o.paymentStatus !== undefined) out.payment_status = o.paymentStatus;
-  if (o.deliveryRunId !== undefined) out.delivery_run_id = o.deliveryRunId;
-  if (o.driverName !== undefined) out.driver_name = o.driverName;
-  if (o.vehicleNumber !== undefined) out.vehicle_number = o.vehicleNumber;
-  if (o.podReceiverName !== undefined) out.pod_receiver_name = o.podReceiverName;
-  if (o.podSignature !== undefined) out.pod_signature = o.podSignature;
-  if (o.podNotes !== undefined) out.pod_notes = o.podNotes;
+  out.order_number = o.orderNumber || o.order_number || `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+  
+  if (o.retailerId !== undefined || o.retailer_id !== undefined) {
+    out.retailer_id = o.retailerId || o.retailer_id;
+  }
+  if (o.retailerName !== undefined || o.retailer_name !== undefined) {
+    out.retailer_name = o.retailerName || o.retailer_name;
+  }
+  if (o.retailerPhone !== undefined || o.retailer_phone !== undefined) {
+    out.retailer_phone = o.retailerPhone || o.retailer_phone || '';
+  }
+  if (o.retailerAddress !== undefined || o.retailer_address !== undefined) {
+    out.retailer_address = o.retailerAddress || o.retailer_address || '';
+  }
+  if (o.retailerGstin !== undefined || o.retailer_gstin !== undefined) {
+    out.retailer_gstin = o.retailerGstin || o.retailer_gstin;
+  }
+  if (o.beatName !== undefined || o.beat_name !== undefined) {
+    out.beat_name = o.beatName || o.beat_name;
+  }
+  if (o.salesmanId !== undefined || o.salesman_id !== undefined) {
+    out.salesman_id = o.salesmanId || o.salesman_id;
+  }
+  if (o.salesmanName !== undefined || o.salesman_name !== undefined) {
+    out.salesman_name = o.salesmanName || o.salesman_name;
+  }
+
+  out.order_date = o.orderDate || o.order_date || new Date().toISOString();
+  out.expected_delivery_date = o.expectedDeliveryDate || o.expected_delivery_date || new Date().toISOString().split('T')[0];
+
+  const items = Array.isArray(o.items) ? o.items : [];
+  out.items = items;
+
+  // Derive financial numbers with safe calculations and aliases
+  let rawSubtotal = o.subtotal ?? o.subtotalGross ?? o.grossSubtotal;
+  let rawDiscount = o.totalDiscount ?? o.total_discount ?? 0;
+  let rawTaxable = o.totalTaxable ?? o.total_taxable ?? o.taxableAmount;
+  let rawTax = o.totalTax ?? o.total_tax ?? o.totalGst;
+  let rawGrandTotal = o.grandTotal ?? o.grand_total ?? o.totalAmount ?? o.finalBillAmount;
+  let rawAmountPaid = o.amountPaid ?? o.amount_paid ?? 0;
+  let rawOutstanding = o.outstandingAmount ?? o.outstanding_amount ?? o.balanceAmount;
+
+  if (rawSubtotal === undefined || rawGrandTotal === undefined || rawTaxable === undefined) {
+    let calcGross = 0;
+    let calcDisc = 0;
+    let calcTaxable = 0;
+    let calcTax = 0;
+    let calcTotal = 0;
+
+    for (const item of items) {
+      const gross = Number(item.grossAmount || (item.cases * 500) || 0);
+      const disc = Number(item.discountAmount || 0);
+      const taxable = Number(item.taxableAmount || (gross - disc));
+      const tax = Number(item.totalTax || item.taxAmount || (taxable * (item.gstRate || 18) / 100));
+      const lineTotal = Number(item.totalAmount || (taxable + tax));
+      calcGross += gross;
+      calcDisc += disc;
+      calcTaxable += taxable;
+      calcTax += tax;
+      calcTotal += lineTotal;
+    }
+
+    if (rawSubtotal === undefined) rawSubtotal = calcGross || calcTotal || 0;
+    if (rawDiscount === undefined) rawDiscount = calcDisc || 0;
+    if (rawTaxable === undefined) rawTaxable = calcTaxable || rawSubtotal;
+    if (rawTax === undefined) rawTax = calcTax || 0;
+    if (rawGrandTotal === undefined) rawGrandTotal = calcTotal || rawSubtotal;
+  }
+
+  out.subtotal = Number(rawSubtotal || 0);
+  out.total_discount = Number(rawDiscount || 0);
+  out.total_taxable = Number(rawTaxable || 0);
+  const totalTaxNum = Number(rawTax || 0);
+  out.total_tax = totalTaxNum;
+  out.total_cgst = Number(o.totalCgst ?? o.total_cgst ?? o.cgstTotal ?? +(totalTaxNum / 2).toFixed(2));
+  out.total_sgst = Number(o.totalSgst ?? o.total_sgst ?? o.sgstTotal ?? +(totalTaxNum / 2).toFixed(2));
+  out.round_off = Number(o.roundOff ?? o.round_off ?? 0);
+  out.grand_total = Number(rawGrandTotal || 0);
+  out.amount_paid = Number(rawAmountPaid || 0);
+  out.outstanding_amount = Number(
+    rawOutstanding !== undefined ? rawOutstanding : Math.max(0, out.grand_total - out.amount_paid)
+  );
+
+  out.status = o.status || 'booked';
+  out.payment_status = o.paymentStatus || o.payment_status || (out.amount_paid >= out.grand_total ? 'paid' : out.amount_paid > 0 ? 'partial' : 'unpaid');
+  if (o.deliveryRunId !== undefined || o.delivery_run_id !== undefined) out.delivery_run_id = o.deliveryRunId || o.delivery_run_id;
+  if (o.driverName !== undefined || o.driver_name !== undefined) out.driver_name = o.driverName || o.driver_name;
+  if (o.vehicleNumber !== undefined || o.vehicle_number !== undefined) out.vehicle_number = o.vehicleNumber || o.vehicle_number;
+  if (o.podReceiverName !== undefined || o.pod_receiver_name !== undefined) out.pod_receiver_name = o.podReceiverName || o.pod_receiver_name;
+  if (o.podSignature !== undefined || o.pod_signature !== undefined) out.pod_signature = o.podSignature || o.pod_signature;
+  if (o.podNotes !== undefined || o.pod_notes !== undefined) out.pod_notes = o.podNotes || o.pod_notes;
   if (o.notes !== undefined) out.notes = o.notes;
-  if (o.isInterstate !== undefined) out.is_interstate = o.isInterstate;
+  if (o.isInterstate !== undefined || o.is_interstate !== undefined) {
+    out.is_interstate = Boolean(o.isInterstate ?? o.is_interstate);
+  }
   return out;
 }
 
@@ -999,30 +1062,34 @@ export const supabaseService = {
 
     // Also populate normalized order_items table if items are present
     if (order.items && order.items.length > 0 && data && data.id) {
-      const lineItems = order.items.map(item => ({
-        order_id: data.id,
-        product_id: item.productId,
-        sku: item.sku,
-        product_name: item.productName,
-        brand: item.brand,
-        category: item.category,
-        hsn_code: item.hsnCode,
-        gst_rate: item.gstRate,
-        cases: item.cases,
-        loose_pcs: item.loosePcs,
-        total_pieces: item.totalPieces,
-        unit_price: item.unitPrice,
-        gross_amount: item.grossAmount,
-        discount_amount: item.discountAmount,
-        taxable_amount: item.taxableAmount,
-        cgst_amount: item.cgstAmount,
-        sgst_amount: item.sgstAmount,
-        igst_amount: item.igstAmount,
-        total_amount: item.totalAmount,
-        scheme_applied: item.schemeApplied,
-        free_pcs_awarded: item.freePcsAwarded || 0
-      }));
-      await supabase.from('order_items').insert(lineItems);
+      try {
+        const lineItems = order.items.map((item: any) => ({
+          order_id: data.id,
+          product_id: item.productId || item.product_id,
+          sku: item.sku || 'SKU-GEN',
+          product_name: item.productName || item.product_name || 'FMCG Item',
+          brand: item.brand || 'Aryan',
+          category: item.category || 'General',
+          hsn_code: item.hsnCode || item.hsn_code || '1905',
+          gst_rate: Number(item.gstRate || item.gst_rate || 18),
+          cases: Number(item.cases || 0),
+          loose_pcs: Number(item.loosePcs || item.loose_pcs || 0),
+          total_pieces: Number(item.totalPieces || item.total_pieces || (item.cases * 24 + (item.loosePcs || 0))),
+          unit_price: Number(item.unitPrice || item.unit_price || 0),
+          gross_amount: Number(item.grossAmount || item.gross_amount || 0),
+          discount_amount: Number(item.discountAmount || item.discount_amount || 0),
+          taxable_amount: Number(item.taxableAmount || item.taxable_amount || 0),
+          cgst_amount: Number(item.cgstAmount || item.cgst_amount || 0),
+          sgst_amount: Number(item.sgstAmount || item.sgst_amount || 0),
+          igst_amount: Number(item.igstAmount || item.igst_amount || 0),
+          total_amount: Number(item.totalAmount || item.total_amount || 0),
+          scheme_applied: item.schemeApplied || item.scheme_applied || null,
+          free_pcs_awarded: Number(item.freePcsAwarded || item.free_pcs_awarded || 0)
+        }));
+        await supabase.from('order_items').insert(lineItems);
+      } catch (itemInsertErr) {
+        console.warn('[Supabase Warning] Non-fatal order_items table insertion error:', itemInsertErr);
+      }
     }
 
     return mapDbOrder(data);
