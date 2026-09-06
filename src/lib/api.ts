@@ -443,25 +443,43 @@ export const api = {
 
   // Orders
   async getOrders(): Promise<Order[]> {
+    let ordersList: Order[] = [];
     if (isSupabaseConfigured) {
       try {
         const orders = await supabaseService.getOrders();
-        if (orders && orders.length > 0) return orders;
+        if (orders && orders.length > 0) ordersList = orders;
       } catch (e) {
         console.warn('Supabase getOrders fallback to local API:', e);
       }
     }
-    return safeJsonFetch<Order[]>('/api/orders', {}, []);
+    if (ordersList.length === 0) {
+      ordersList = await safeJsonFetch<Order[]>('/api/orders', {}, []);
+    }
+    return (ordersList || [])
+      .filter(o => Boolean(o && o.id && o.id !== 'null' && o.id !== 'undefined'))
+      .map(o => ({
+        ...o,
+        id: String(o.id).trim()
+      }));
   },
 
   async getOrder(id: string): Promise<Order | null> {
+    if (!id || id === 'null' || id === 'undefined') return null;
     return safeJsonFetch<Order | null>(`/api/orders/${id}`, {}, null);
   },
 
   async createOrder(orderData: any): Promise<Order> {
+    const safeOrderData = {
+      ...orderData,
+      id: (orderData?.id && orderData.id !== 'null' && orderData.id !== 'undefined')
+        ? String(orderData.id).trim()
+        : `ord_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      orderNumber: orderData?.orderNumber || `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`
+    };
+
     if (isSupabaseConfigured) {
       try {
-        const created = await supabaseService.createOrder(orderData);
+        const created = await supabaseService.createOrder(safeOrderData);
         if (created) return created;
       } catch (e) {
         console.warn('Supabase createOrder fallback to local API:', e);
@@ -470,11 +488,15 @@ export const api = {
     return safeMutationFetch<Order>('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(orderData)
+      body: JSON.stringify(safeOrderData)
     });
   },
 
   async deleteOrder(id: string): Promise<{ success: boolean }> {
+    if (!id || id === 'null' || id === 'undefined') {
+      console.warn('Attempted to delete order with null ID');
+      return { success: false };
+    }
     if (isSupabaseConfigured) {
       try {
         await supabaseService.deleteOrder(id);
@@ -486,6 +508,9 @@ export const api = {
   },
 
   async updateOrderStatus(id: string, statusOrData: any, extra?: any): Promise<Order> {
+    if (!id || id === 'null' || id === 'undefined') {
+      throw new Error('Invalid order ID: orders.id cannot be null');
+    }
     if (isSupabaseConfigured) {
       try {
         const status = typeof statusOrData === 'string' ? statusOrData : statusOrData.status;

@@ -45,7 +45,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [selectedBeat, setSelectedBeat] = useState<string>('all');
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
 
-  const roleScopedOrders = orders.filter(order => {
+  const validOrders = (orders || []).filter(order => Boolean(order && order.id && order.id !== 'null' && order.id !== 'undefined'));
+
+  const roleScopedOrders = validOrders.filter(order => {
     if (isAdmin || currentRole === 'accounts') return true;
     if (isSalesman) {
       return order.salesmanId === currentUser?.salesmanId || 
@@ -63,28 +65,24 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
   const baseOrders = (roleScopedOrders.length > 0 || isSalesman || isDelivery || isRetailer)
     ? roleScopedOrders
-    : orders;
+    : validOrders;
 
   const beats = Array.from(new Set(baseOrders.map(o => o.beatName))).filter(Boolean);
 
   const visibleOrders = currentUser?.role === 'retailer'
-  ? baseOrders.filter(order => order.retailerId === currentUser.retailerId)
-  : baseOrders;
+    ? baseOrders.filter(order => order.retailerId === currentUser.retailerId)
+    : baseOrders;
 
-const filteredOrders = visibleOrders.filter(order => {
+  const filteredOrders = visibleOrders.filter(order => {
+    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+    const matchesBeat = selectedBeat === 'all' || order.beatName === selectedBeat;
+    const matchesSearch =
+      (order.orderNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (order.retailerName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (order.salesmanName && order.salesmanName.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-
-  const matchesBeat = selectedBeat === 'all' || order.beatName === selectedBeat;
-
-  const matchesSearch =
-    order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    order.retailerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (order.salesmanName && order.salesmanName.toLowerCase().includes(searchQuery.toLowerCase()));
-
-  return matchesStatus && matchesBeat && matchesSearch;
-
-});
+    return matchesStatus && matchesBeat && matchesSearch;
+  });
 
   const getStatusBadge = (status: OrderStatus) => {
     switch (status) {

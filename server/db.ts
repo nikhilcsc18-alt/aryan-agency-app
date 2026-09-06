@@ -746,14 +746,17 @@ class Database {
 
   // Orders
   public getOrders(): Order[] {
-    return this.data.orders;
+    return (this.data.orders || [])
+      .filter(o => Boolean(o && o.id && o.id !== 'null' && o.id !== 'undefined'));
   }
 
   public getOrderById(id: string): Order | undefined {
+    if (!id || id === 'null' || id === 'undefined') return undefined;
     return this.data.orders.find(o => o.id === id);
   }
 
   public deleteOrder(id: string): boolean {
+    if (!id || id === 'null' || id === 'undefined') return false;
     const initLen = this.data.orders.length;
     this.data.orders = this.data.orders.filter(o => o.id !== id);
     if (this.data.orders.length !== initLen) {
@@ -764,6 +767,9 @@ class Database {
   }
 
   public saveOrder(order: Order): Order {
+    if (!order.id || order.id === 'null' || order.id === 'undefined') {
+      order.id = `ord_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    }
     const idx = this.data.orders.findIndex(o => o.id === order.id);
     const isNew = idx < 0;
 

@@ -345,9 +345,14 @@ function salesmanToDb(s: Partial<Salesman>): any {
 }
 
 function mapDbOrder(row: any): Order {
+  const safeId = (row.id && String(row.id).trim() && row.id !== 'null' && row.id !== 'undefined')
+    ? String(row.id).trim()
+    : `ord_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const safeOrderNumber = row.order_number || `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+
   return {
-    id: row.id,
-    orderNumber: row.order_number,
+    id: safeId,
+    orderNumber: safeOrderNumber,
     retailerId: row.retailer_id,
     retailerName: row.retailer_name,
     retailerPhone: row.retailer_phone || '',
@@ -356,8 +361,8 @@ function mapDbOrder(row: any): Order {
     beatName: row.beat_name,
     salesmanId: row.salesman_id,
     salesmanName: row.salesman_name,
-    orderDate: row.order_date,
-    expectedDeliveryDate: row.expected_delivery_date || '',
+    orderDate: row.order_date || new Date().toISOString(),
+    expectedDeliveryDate: row.expected_delivery_date || new Date().toISOString().split('T')[0],
     items: Array.isArray(row.items) ? row.items : [],
     subtotal: Number(row.subtotal || 0),
     totalDiscount: Number(row.total_discount || 0),
@@ -369,8 +374,8 @@ function mapDbOrder(row: any): Order {
     grandTotal: Number(row.grand_total || 0),
     amountPaid: Number(row.amount_paid || 0),
     outstandingAmount: Number(row.outstanding_amount || 0),
-    status: row.status,
-    paymentStatus: row.payment_status,
+    status: row.status || 'booked',
+    paymentStatus: row.payment_status || 'unpaid',
     deliveryRunId: row.delivery_run_id,
     driverName: row.driver_name,
     vehicleNumber: row.vehicle_number,
@@ -384,8 +389,11 @@ function mapDbOrder(row: any): Order {
 
 function orderToDb(o: Partial<Order>): any {
   const out: any = {};
-  if (o.id !== undefined) out.id = o.id;
-  if (o.orderNumber !== undefined) out.order_number = o.orderNumber;
+  const safeId = (o.id && String(o.id).trim() && o.id !== 'null' && o.id !== 'undefined')
+    ? String(o.id).trim()
+    : `ord_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  out.id = safeId;
+  out.order_number = o.orderNumber || `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
   if (o.retailerId !== undefined) out.retailer_id = o.retailerId;
   if (o.retailerName !== undefined) out.retailer_name = o.retailerName;
   if (o.retailerPhone !== undefined) out.retailer_phone = o.retailerPhone;
@@ -394,8 +402,8 @@ function orderToDb(o: Partial<Order>): any {
   if (o.beatName !== undefined) out.beat_name = o.beatName;
   if (o.salesmanId !== undefined) out.salesman_id = o.salesmanId;
   if (o.salesmanName !== undefined) out.salesman_name = o.salesmanName;
-  if (o.orderDate !== undefined) out.order_date = o.orderDate;
-  if (o.expectedDeliveryDate !== undefined) out.expected_delivery_date = o.expectedDeliveryDate;
+  out.order_date = o.orderDate || new Date().toISOString();
+  out.expected_delivery_date = o.expectedDeliveryDate || new Date().toISOString().split('T')[0];
   if (o.items !== undefined) out.items = o.items;
   if (o.subtotal !== undefined) out.subtotal = o.subtotal;
   if (o.totalDiscount !== undefined) out.total_discount = o.totalDiscount;
@@ -975,17 +983,22 @@ export const supabaseService = {
     if (!supabase) return null;
     const { data, error } = await supabase.from('orders').select('*').order('order_date', { ascending: false });
     if (error) throw error;
-    return (data || []).map(mapDbOrder);
+    return (data || [])
+      .filter(row => row && row.id && row.id !== 'null' && row.id !== 'undefined')
+      .map(mapDbOrder);
   },
 
   async createOrder(order: Partial<Order>): Promise<Order | null> {
     if (!supabase) return null;
     const dbPayload = orderToDb(order);
+    if (!dbPayload.id || dbPayload.id === 'null') {
+      dbPayload.id = `ord_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    }
     const { data, error } = await supabase.from('orders').insert(dbPayload).select().single();
     if (error) throw error;
 
     // Also populate normalized order_items table if items are present
-    if (order.items && order.items.length > 0 && data.id) {
+    if (order.items && order.items.length > 0 && data && data.id) {
       const lineItems = order.items.map(item => ({
         order_id: data.id,
         product_id: item.productId,
@@ -1017,6 +1030,10 @@ export const supabaseService = {
 
   async updateOrderStatus(id: string, status: string, extra?: any): Promise<Order | null> {
     if (!supabase) return null;
+    if (!id || id === 'null' || id === 'undefined') {
+      console.warn('[Supabase Warning] updateOrderStatus skipped: orders.id is null or invalid');
+      return null;
+    }
     const updatePayload: any = { status };
     if (extra) {
       if (extra.paymentStatus) updatePayload.payment_status = extra.paymentStatus;
@@ -1031,6 +1048,10 @@ export const supabaseService = {
 
   async deleteOrder(id: string): Promise<boolean | null> {
     if (!supabase) return null;
+    if (!id || id === 'null' || id === 'undefined') {
+      console.warn('[Supabase Warning] deleteOrder skipped: orders.id is null or invalid');
+      return false;
+    }
     const { error } = await supabase.from('orders').delete().eq('id', id);
     if (error) throw error;
     return true;
@@ -1039,6 +1060,9 @@ export const supabaseService = {
   // 8. Order Items
   async getOrderItems(orderId: string): Promise<OrderItem[] | null> {
     if (!supabase) return null;
+    if (!orderId || orderId === 'null' || orderId === 'undefined') {
+      return [];
+    }
     const { data, error } = await supabase.from('order_items').select('*').eq('order_id', orderId);
     if (error) throw error;
     return (data || []).map(mapDbOrderItem);

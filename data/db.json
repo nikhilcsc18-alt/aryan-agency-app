@@ -1,0 +1,649 @@
+{
+  "users": [
+    {
+      "id": "usr_admin",
+      "name": "Aryan Sharma",
+      "email": "aryan@aryanagency.in",
+      "phone": "+91 98450 12345",
+      "role": "admin",
+      "avatarUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80"
+    },
+    {
+      "id": "usr_sales_1",
+      "name": "Rajesh Kumar",
+      "email": "rajesh.sales@aryanagency.in",
+      "phone": "+91 98860 34567",
+      "role": "salesman",
+      "salesmanId": "slm_1",
+      "avatarUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
+    },
+    {
+      "id": "usr_sales_2",
+      "name": "Vikram Singh",
+      "email": "vikram.sales@aryanagency.in",
+      "phone": "+91 99001 56789",
+      "role": "salesman",
+      "salesmanId": "slm_2",
+      "avatarUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80"
+    },
+    {
+      "id": "usr_delivery_1",
+      "name": "Suresh Gowda (Van KA-05-AB-1234)",
+      "email": "suresh.van1@aryanagency.in",
+      "phone": "+91 97410 78901",
+      "role": "delivery",
+      "deliveryId": "del_1",
+      "avatarUrl": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80"
+    },
+    {
+      "id": "usr_accounts_1",
+      "name": "Pooja Agarwal (Accounts Head)",
+      "email": "pooja.accounts@aryanagency.in",
+      "phone": "+91 98450 67890",
+      "role": "accounts",
+      "avatarUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"
+    }
+  ],
+  "products": [
+    {
+      "id": "prd_1",
+      "sku": "PARLE-G-80G",
+      "name": "Parle-G Glucose Biscuit (80g)",
+      "brand": "Parle",
+      "category": "Biscuits & Bakery",
+      "hsnCode": "19053100",
+      "gstRate": 18,
+      "piecesPerCase": 60,
+      "mrpPiece": 10,
+      "wholesalePricePiece": 8.4,
+      "casePrice": 504,
+      "currentStockCases": 85,
+      "currentStockLoosePcs": 14,
+      "reorderLevelCases": 25,
+      "imageUrl": "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&auto=format&fit=crop&q=80",
+      "description": "Original glucose energy biscuit, India’s largest selling brand. 80g standard retail pack.",
+      "batches": [
+        {
+          "batchNumber": "PAR-26A-01",
+          "mfgDate": "2026-07-10",
+          "expiryDate": "2027-01-10",
+          "stockCases": 50,
+          "stockLoosePcs": 14,
+          "warehouseBin": "A-01-01"
+        },
+        {
+          "batchNumber": "PAR-26B-02",
+          "mfgDate": "2026-08-01",
+          "expiryDate": "2027-02-01",
+          "stockCases": 35,
+          "stockLoosePcs": 0,
+          "warehouseBin": "A-01-02"
+        }
+      ],
+      "activeScheme": {
+        "id": "sch_1",
+        "title": "Monsoon Volume Booster",
+        "description": "Order 5+ cases and get 6 loose packs free",
+        "minQtyCases": 5,
+        "freeQtyPcs": 6,
+        "isActive": true
+      }
+    },
+    {
+      "id": "prd_2",
+      "sku": "BRIT-GD-BUTTER-100G",
+      "name": "Britannia Good Day Butter Cookies (100g)",
+      "brand": "Britannia",
+      "category": "Biscuits & Bakery",
+      "hsnCode": "19053100",
+      "gstRate": 18,
+      "piecesPerCase": 48,
+      "mrpPiece": 20,
+      "wholesalePricePiece": 16.8,
+      "casePrice": 806.4,
+      "currentStockCases": 62,
+      "currentStockLoosePcs": 8,
+      "reorderLevelCases": 20,
+      "imageUrl": "https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?w=500&auto=format&fit=crop&q=80",
+      "description": "Rich buttery cookies with a delightful crunch and smile pattern.",
+      "batches": [
+        {
+          "batchNumber": "BRT-GD-991",
+          "mfgDate": "2026-06-15",
+          "expiryDate": "2026-12-15",
+          "stockCases": 62,
+          "stockLoosePcs": 8,
+          "warehouseBin": "A-02-01"
+        }
+      ],
+      "activeScheme": {
+        "id": "sch_2",
+        "title": "Smile Scheme",
+        "description": "3% cash discount on booking 10+ cases",
+        "minQtyCases": 10,
+        "discountPercentage": 3,
+        "isActive": true
+      }
+    },
+    {
+      "id": "prd_3",
+      "sku": "AMUL-BUTTER-500G",
+      "name": "Amul Pasteurised Butter (500g)",
+      "brand": "Amul",
+      "category": "Dairy & Refrigerated",
+      "hsnCode": "04051000",
+      "gstRate": 12,
+      "piecesPerCase": 20,
+      "mrpPiece": 275,
+      "wholesalePricePiece": 248,
+      "casePrice": 4960,
+      "currentStockCases": 18,
+      "currentStockLoosePcs": 5,
+      "reorderLevelCases": 15,
+      "imageUrl": "https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=500&auto=format&fit=crop&q=80",
+      "description": "The Taste of India. Delicious creamy pasteurised butter.",
+      "batches": [
+        {
+          "batchNumber": "AML-BT-2026-08",
+          "mfgDate": "2026-08-10",
+          "expiryDate": "2026-11-10",
+          "stockCases": 18,
+          "stockLoosePcs": 5,
+          "warehouseBin": "COLD-01"
+        }
+      ]
+    },
+    {
+      "id": "prd_4",
+      "sku": "MAGGI-2MIN-70G",
+      "name": "Maggi 2-Minute Masala Noodles (70g)",
+      "brand": "Nestle",
+      "category": "Spices & Staples",
+      "hsnCode": "19023010",
+      "gstRate": 12,
+      "piecesPerCase": 96,
+      "mrpPiece": 14,
+      "wholesalePricePiece": 11.9,
+      "casePrice": 1142.4,
+      "currentStockCases": 110,
+      "currentStockLoosePcs": 22,
+      "reorderLevelCases": 30,
+      "imageUrl": "https://images.unsplash.com/photo-1612927601601-6638404737ce?w=500&auto=format&fit=crop&q=80",
+      "description": "India’s favorite instant masala noodles with authentic signature tastemaker.",
+      "batches": [
+        {
+          "batchNumber": "NES-MAG-882",
+          "mfgDate": "2026-07-20",
+          "expiryDate": "2027-04-20",
+          "stockCases": 110,
+          "stockLoosePcs": 22,
+          "warehouseBin": "B-01-04"
+        }
+      ],
+      "activeScheme": {
+        "id": "sch_4",
+        "title": "Noodle Dhamaka",
+        "description": "Flat ₹40 discount per case for 4+ cases",
+        "minQtyCases": 4,
+        "discountFlatRs": 40,
+        "isActive": true
+      }
+    },
+    {
+      "id": "prd_5",
+      "sku": "TATA-TEA-PREM-500G",
+      "name": "Tata Tea Premium Desh Ki Chai (500g)",
+      "brand": "Tata",
+      "category": "Beverages",
+      "hsnCode": "09024020",
+      "gstRate": 5,
+      "piecesPerCase": 24,
+      "mrpPiece": 310,
+      "wholesalePricePiece": 268,
+      "casePrice": 6432,
+      "currentStockCases": 42,
+      "currentStockLoosePcs": 11,
+      "reorderLevelCases": 15,
+      "imageUrl": "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=500&auto=format&fit=crop&q=80",
+      "description": "Unique blend of big tea leaves for aroma and small tea grains for strong taste.",
+      "batches": [
+        {
+          "batchNumber": "TAT-TEA-554",
+          "mfgDate": "2026-06-01",
+          "expiryDate": "2027-06-01",
+          "stockCases": 42,
+          "stockLoosePcs": 11,
+          "warehouseBin": "B-02-01"
+        }
+      ]
+    },
+    {
+      "id": "prd_6",
+      "sku": "SURF-EXCEL-EASY-1KG",
+      "name": "Surf Excel Easy Wash Detergent Powder (1kg)",
+      "brand": "Hindustan Unilever",
+      "category": "Household & Hygiene",
+      "hsnCode": "34022010",
+      "gstRate": 18,
+      "piecesPerCase": 18,
+      "mrpPiece": 145,
+      "wholesalePricePiece": 122.5,
+      "casePrice": 2205,
+      "currentStockCases": 47,
+      "currentStockLoosePcs": 4,
+      "reorderLevelCases": 20,
+      "imageUrl": "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=500&auto=format&fit=crop&q=80",
+      "description": "Superior stain removal technology with fine washing powder.",
+      "batches": [
+        {
+          "batchNumber": "HUL-SRF-102",
+          "mfgDate": "2026-05-18",
+          "expiryDate": "2028-05-18",
+          "stockCases": 54,
+          "stockLoosePcs": 4,
+          "warehouseBin": "C-01-02"
+        }
+      ],
+      "activeScheme": {
+        "id": "sch_6",
+        "title": "Clean Wash Promo",
+        "description": "Get 1 pack free with every 3 cases booked",
+        "minQtyCases": 3,
+        "freeQtyPcs": 1,
+        "isActive": true
+      }
+    },
+    {
+      "id": "prd_7",
+      "sku": "COLGATE-MAXFRESH-150G",
+      "name": "Colgate MaxFresh Peppermint Toothpaste (150g)",
+      "brand": "Colgate-Palmolive",
+      "category": "Personal Care",
+      "hsnCode": "33061020",
+      "gstRate": 18,
+      "piecesPerCase": 36,
+      "mrpPiece": 120,
+      "wholesalePricePiece": 98,
+      "casePrice": 3528,
+      "currentStockCases": 38,
+      "currentStockLoosePcs": 15,
+      "reorderLevelCases": 15,
+      "imageUrl": "https://images.unsplash.com/photo-1559656914-a30970c1affd?w=500&auto=format&fit=crop&q=80",
+      "description": "Infused with cooling crystals for intense freshness and germ protection.",
+      "batches": [
+        {
+          "batchNumber": "CLG-MX-404",
+          "mfgDate": "2026-06-25",
+          "expiryDate": "2028-06-25",
+          "stockCases": 38,
+          "stockLoosePcs": 15,
+          "warehouseBin": "C-02-03"
+        }
+      ]
+    },
+    {
+      "id": "prd_8",
+      "sku": "CADBURY-DAIRY-MILK-SILK",
+      "name": "Cadbury Dairy Milk Silk Chocolate (60g)",
+      "brand": "Mondelez",
+      "category": "Confectionery & Chocolates",
+      "hsnCode": "18063100",
+      "gstRate": 18,
+      "piecesPerCase": 40,
+      "mrpPiece": 80,
+      "wholesalePricePiece": 67.2,
+      "casePrice": 2688,
+      "currentStockCases": 28,
+      "currentStockLoosePcs": 12,
+      "reorderLevelCases": 12,
+      "imageUrl": "https://images.unsplash.com/photo-1548907040-4baa42d10919?w=500&auto=format&fit=crop&q=80",
+      "description": "Smooth, creamy chocolate crafted with pure dairy milk indulgence.",
+      "batches": [
+        {
+          "batchNumber": "MDZ-SLK-771",
+          "mfgDate": "2026-07-05",
+          "expiryDate": "2027-01-05",
+          "stockCases": 28,
+          "stockLoosePcs": 12,
+          "warehouseBin": "COLD-02"
+        }
+      ]
+    },
+    {
+      "id": "prd_9",
+      "sku": "LAYS-MAGIC-MASALA-50G",
+      "name": "Lay's India's Magic Masala Potato Chips (50g)",
+      "brand": "PepsiCo",
+      "category": "Snacks & Namkeen",
+      "hsnCode": "20052000",
+      "gstRate": 12,
+      "piecesPerCase": 50,
+      "mrpPiece": 20,
+      "wholesalePricePiece": 16.5,
+      "casePrice": 825,
+      "currentStockCases": 74,
+      "currentStockLoosePcs": 19,
+      "reorderLevelCases": 25,
+      "imageUrl": "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=500&auto=format&fit=crop&q=80",
+      "description": "Crispy ridge-cut potato chips seasoned with authentic Indian spice mix.",
+      "batches": [
+        {
+          "batchNumber": "PEP-LAY-331",
+          "mfgDate": "2026-08-05",
+          "expiryDate": "2026-12-05",
+          "stockCases": 74,
+          "stockLoosePcs": 19,
+          "warehouseBin": "A-03-01"
+        }
+      ],
+      "activeScheme": {
+        "id": "sch_9",
+        "title": "Snack Blast",
+        "description": "Buy 5 cases get 5% instant discount",
+        "minQtyCases": 5,
+        "discountPercentage": 5,
+        "isActive": true
+      }
+    },
+    {
+      "id": "prd_10",
+      "sku": "FORTUNE-SUNFLOWER-1L",
+      "name": "Fortune Sunlite Refined Sunflower Oil (1 Litre Pouch)",
+      "brand": "Adani Wilmar",
+      "category": "Spices & Staples",
+      "hsnCode": "15121910",
+      "gstRate": 5,
+      "piecesPerCase": 12,
+      "mrpPiece": 160,
+      "wholesalePricePiece": 138,
+      "casePrice": 1656,
+      "currentStockCases": 48,
+      "currentStockLoosePcs": 6,
+      "reorderLevelCases": 20,
+      "imageUrl": "https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=500&auto=format&fit=crop&q=80",
+      "description": "Light, healthy cooking oil enriched with Vitamins A & D.",
+      "batches": [
+        {
+          "batchNumber": "AWL-SUN-119",
+          "mfgDate": "2026-07-15",
+          "expiryDate": "2027-04-15",
+          "stockCases": 48,
+          "stockLoosePcs": 6,
+          "warehouseBin": "D-01-01"
+        }
+      ]
+    },
+    {
+      "id": "prd_11",
+      "sku": "DETTOL-ORIGINAL-SOAP-125G",
+      "name": "Dettol Original Germ Protection Soap (125g Pack of 4)",
+      "brand": "Reckitt",
+      "category": "Personal Care",
+      "hsnCode": "34011110",
+      "gstRate": 18,
+      "piecesPerCase": 24,
+      "mrpPiece": 190,
+      "wholesalePricePiece": 158,
+      "casePrice": 3792,
+      "currentStockCases": 32,
+      "currentStockLoosePcs": 7,
+      "reorderLevelCases": 15,
+      "imageUrl": "https://images.unsplash.com/photo-1607006314175-9988185d95d1?w=500&auto=format&fit=crop&q=80",
+      "description": "Trusted antibacterial protection with pine fragrance.",
+      "batches": [
+        {
+          "batchNumber": "RKT-DET-621",
+          "mfgDate": "2026-06-10",
+          "expiryDate": "2028-06-10",
+          "stockCases": 32,
+          "stockLoosePcs": 7,
+          "warehouseBin": "C-03-01"
+        }
+      ]
+    },
+    {
+      "id": "prd_12",
+      "sku": "HALDIRAM-ALOO-BHUJIA-400G",
+      "name": "Haldiram's Nagpur Aloo Bhujia (400g)",
+      "brand": "Haldiram",
+      "category": "Snacks & Namkeen",
+      "hsnCode": "21069099",
+      "gstRate": 12,
+      "piecesPerCase": 24,
+      "mrpPiece": 110,
+      "wholesalePricePiece": 91.5,
+      "casePrice": 2196,
+      "currentStockCases": 51,
+      "currentStockLoosePcs": 14,
+      "reorderLevelCases": 18,
+      "imageUrl": "https://images.unsplash.com/photo-1599490659213-e2b9527bd087?w=500&auto=format&fit=crop&q=80",
+      "description": "Spicy potato and tepary bean flour noodles with mint zest.",
+      "batches": [
+        {
+          "batchNumber": "HLD-AB-801",
+          "mfgDate": "2026-07-28",
+          "expiryDate": "2027-01-28",
+          "stockCases": 51,
+          "stockLoosePcs": 14,
+          "warehouseBin": "A-04-02"
+        }
+      ]
+    }
+  ],
+  "retailers": [],
+  "salesmen": [
+    {
+      "id": "slm_1",
+      "employeeCode": "EMP-AA-101",
+      "name": "Rajesh Kumar",
+      "phone": "+91 98860 34567",
+      "email": "rajesh.sales@aryanagency.in",
+      "assignedBeats": [
+        "Indiranagar Retail Beat",
+        "MG Road Commercial Beat"
+      ],
+      "dailyTargetAmount": 75000,
+      "monthlyTargetAmount": 1800000,
+      "currentMonthAchieved": 1420000,
+      "commissionPercentage": 1.5,
+      "todayOrdersCount": 6,
+      "todaySalesAmount": 64200,
+      "status": "active"
+    },
+    {
+      "id": "slm_2",
+      "employeeCode": "EMP-AA-102",
+      "name": "Vikram Singh",
+      "phone": "+91 99001 56789",
+      "email": "vikram.sales@aryanagency.in",
+      "assignedBeats": [
+        "Koramangala Daily Beat",
+        "Jayanagar Provision Beat"
+      ],
+      "dailyTargetAmount": 65000,
+      "monthlyTargetAmount": 1600000,
+      "currentMonthAchieved": 1180000,
+      "commissionPercentage": 1.5,
+      "todayOrdersCount": 4,
+      "todaySalesAmount": 48900,
+      "status": "active"
+    },
+    {
+      "id": "slm_3",
+      "employeeCode": "EMP-AA-103",
+      "name": "Karthik Nambiar",
+      "phone": "+91 97412 88441",
+      "email": "karthik.sales@aryanagency.in",
+      "assignedBeats": [
+        "Whitefield Supermarket Beat"
+      ],
+      "dailyTargetAmount": 90000,
+      "monthlyTargetAmount": 2200000,
+      "currentMonthAchieved": 1950000,
+      "commissionPercentage": 1.8,
+      "todayOrdersCount": 5,
+      "todaySalesAmount": 89400,
+      "status": "active"
+    }
+  ],
+  "deliveries": [],
+  "orders": [
+    {
+      "id": "ord_1788706277539",
+      "orderNumber": "ORD-2026-2891",
+      "retailerId": "ret_672eaf9602624692",
+      "retailerName": "paras kirana store",
+      "retailerPhone": "",
+      "retailerAddress": "Main Bazaar Road, Shop #12",
+      "beatName": "Retail Direct Beat",
+      "salesmanId": "slm_3",
+      "salesmanName": "Anil Deshmukh",
+      "orderDate": "2026-09-06T14:51:17.539Z",
+      "expectedDeliveryDate": "2026-09-06",
+      "items": [
+        {
+          "productId": "prd_6",
+          "sku": "SURF-EXCEL-EASY-1KG",
+          "productName": "Surf Excel Easy Wash Detergent Powder (1kg)",
+          "brand": "Hindustan Unilever",
+          "category": "Household & Hygiene",
+          "hsnCode": "34022010",
+          "gstRate": 5,
+          "cases": 1,
+          "loosePcs": 0,
+          "totalPieces": 18,
+          "unitPrice": 430,
+          "grossAmount": 7740,
+          "discountAmount": 0,
+          "taxableAmount": 7371.43,
+          "cgstAmount": 184.28,
+          "sgstAmount": 184.28,
+          "igstAmount": 0,
+          "totalAmount": 7740,
+          "freePcsAwarded": 0
+        }
+      ],
+      "subtotal": 7740,
+      "totalDiscount": 0,
+      "totalTaxable": 7371.43,
+      "totalCgst": 184.28,
+      "totalSgst": 184.28,
+      "totalTax": 368.57,
+      "roundOff": 0,
+      "grandTotal": 7740,
+      "amountPaid": 0,
+      "outstandingAmount": 7740,
+      "status": "booked",
+      "paymentStatus": "unpaid"
+    },
+    {
+      "id": "ord_1788706302656",
+      "orderNumber": "ORD-2026-2591",
+      "retailerId": "ret_672eaf9602624692",
+      "retailerName": "paras kirana store",
+      "retailerPhone": "9865986532",
+      "retailerAddress": "Main Bazaar Road, Shop #12",
+      "beatName": "Retail Direct Beat",
+      "salesmanId": "slm_3",
+      "salesmanName": "Anil Deshmukh",
+      "orderDate": "2026-09-06T14:51:42.656Z",
+      "expectedDeliveryDate": "2026-09-06",
+      "items": [
+        {
+          "productId": "prd_6",
+          "sku": "SURF-EXCEL-EASY-1KG",
+          "productName": "Surf Excel Easy Wash Detergent Powder (1kg)",
+          "brand": "Hindustan Unilever",
+          "category": "Household & Hygiene",
+          "hsnCode": "34022010",
+          "gstRate": 18,
+          "cases": 5,
+          "loosePcs": 0,
+          "totalPieces": 90,
+          "unitPrice": 122.5,
+          "grossAmount": 11025,
+          "discountAmount": 0,
+          "taxableAmount": 9343.22,
+          "cgstAmount": 840.89,
+          "sgstAmount": 840.89,
+          "igstAmount": 0,
+          "totalAmount": 11025,
+          "schemeApplied": "Clean Wash Promo (+1 Pcs Free)",
+          "freePcsAwarded": 1
+        }
+      ],
+      "subtotal": 11025,
+      "totalDiscount": 0,
+      "totalTaxable": 9343.22,
+      "totalCgst": 840.89,
+      "totalSgst": 840.89,
+      "totalTax": 1681.78,
+      "roundOff": 0,
+      "grandTotal": 11025,
+      "amountPaid": 0,
+      "outstandingAmount": 11025,
+      "status": "booked",
+      "paymentStatus": "unpaid",
+      "notes": ""
+    }
+  ],
+  "payments": [],
+  "inventoryLogs": [
+    {
+      "id": "inv_log_1",
+      "type": "inward",
+      "productId": "prd_1",
+      "productName": "Parle-G Glucose Biscuit (80g)",
+      "sku": "PARLE-G-80G",
+      "batchNumber": "PAR-26B-02",
+      "cases": 40,
+      "loosePcs": 0,
+      "referenceId": "PO-PARLE-891",
+      "date": "2026-09-01T08:00:00Z",
+      "performedBy": "Aryan Sharma",
+      "reason": "Fresh factory dispatch received from Parle depot"
+    },
+    {
+      "id": "inv_1788706277540_amita",
+      "type": "outward_dispatch",
+      "productId": "prd_6",
+      "productName": "Surf Excel Easy Wash Detergent Powder (1kg)",
+      "sku": "SURF-EXCEL-EASY-1KG",
+      "batchNumber": "HUL-SRF-102",
+      "cases": 1,
+      "loosePcs": 0,
+      "referenceId": "ORD-2026-2891",
+      "date": "2026-09-06T14:51:17.540Z",
+      "performedBy": "Anil Deshmukh",
+      "reason": "Order ORD-2026-2891 for paras kirana store"
+    },
+    {
+      "id": "inv_1788706302656_ujc5h",
+      "type": "outward_dispatch",
+      "productId": "prd_6",
+      "productName": "Surf Excel Easy Wash Detergent Powder (1kg)",
+      "sku": "SURF-EXCEL-EASY-1KG",
+      "batchNumber": "HUL-SRF-102",
+      "cases": 5,
+      "loosePcs": 0,
+      "referenceId": "ORD-2026-2591",
+      "date": "2026-09-06T14:51:42.656Z",
+      "performedBy": "Anil Deshmukh",
+      "reason": "Order ORD-2026-2591 for paras kirana store"
+    },
+    {
+      "id": "inv_1788706690736_m806c",
+      "type": "outward_dispatch",
+      "productId": "prd_6",
+      "productName": "Surf Excel Easy Wash Detergent Powder (1kg)",
+      "sku": "SURF-EXCEL-EASY-1KG",
+      "batchNumber": "HUL-SRF-102",
+      "cases": 1,
+      "loosePcs": 0,
+      "referenceId": "ORD-2026-4076",
+      "date": "2026-09-06T14:58:10.736Z",
+      "performedBy": "System",
+      "reason": "Order ORD-2026-4076 for Retail Store"
+    }
+  ]
+}

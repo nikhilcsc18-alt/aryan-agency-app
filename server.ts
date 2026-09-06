@@ -500,7 +500,11 @@ app.get('/api/orders', (req, res) => {
 });
 
 app.get('/api/orders/:id', (req, res) => {
-  const order = db.getOrderById(req.params.id);
+  const orderId = req.params.id;
+  if (!orderId || orderId === 'null' || orderId === 'undefined') {
+    return res.status(400).json({ error: 'Invalid order ID: orders.id cannot be null' });
+  }
+  const order = db.getOrderById(orderId);
   if (!order) {
     return res.status(404).json({ error: 'Order not found' });
   }
@@ -509,8 +513,10 @@ app.get('/api/orders/:id', (req, res) => {
 
 app.post('/api/orders', requireRoles(['admin', 'salesman', 'accounts', 'retailer']), (req, res) => {
   const rawOrder = req.body;
-  const orderId = `ord_${Date.now()}`;
-  const orderNum = `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+  const orderId = (rawOrder.id && rawOrder.id !== 'null' && rawOrder.id !== 'undefined')
+    ? rawOrder.id
+    : `ord_${Date.now()}`;
+  const orderNum = rawOrder.orderNumber || `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
   const retailer = db.getRetailerById(rawOrder.retailerId);
   const products = db.getProducts();
@@ -652,8 +658,12 @@ app.post('/api/orders', requireRoles(['admin', 'salesman', 'accounts', 'retailer
 });
 
 app.put('/api/orders/:id/status', requireRoles(['admin', 'salesman', 'delivery', 'accounts']), (req, res) => {
+  const orderId = req.params.id;
+  if (!orderId || orderId === 'null' || orderId === 'undefined') {
+    return res.status(400).json({ error: 'Invalid order ID: orders.id cannot be null' });
+  }
   const { status, driverName, vehicleNumber, podReceiverName, podNotes, podSignature } = req.body;
-  const updated = db.updateOrderStatus(req.params.id, status, {
+  const updated = db.updateOrderStatus(orderId, status, {
     driverName,
     vehicleNumber,
     podReceiverName,
@@ -668,6 +678,9 @@ app.put('/api/orders/:id/status', requireRoles(['admin', 'salesman', 'delivery',
 
 app.delete('/api/orders/:id', requireRoles(['admin']), (req, res) => {
   const id = req.params.id;
+  if (!id || id === 'null' || id === 'undefined') {
+    return res.status(400).json({ error: 'Invalid order ID: orders.id cannot be null' });
+  }
   const success = db.deleteOrder(id);
   res.json({ success });
 });

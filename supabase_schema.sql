@@ -124,8 +124,8 @@ CREATE TABLE IF NOT EXISTS salesmen (
 -- 7. ORDERS TABLE (FMCG Sales Invoices & Bookings)
 -- ====================================================================
 CREATE TABLE IF NOT EXISTS orders (
-    id TEXT PRIMARY KEY,
-    order_number TEXT UNIQUE NOT NULL,
+    id TEXT PRIMARY KEY DEFAULT ('ord_' || replace(uuid_generate_v4()::text, '-', '')),
+    order_number TEXT UNIQUE NOT NULL DEFAULT ('ORD-2026-' || floor(1000 + random() * 9000)::text),
     retailer_id TEXT NOT NULL REFERENCES retailers(id) ON DELETE RESTRICT,
     retailer_name TEXT NOT NULL,
     retailer_phone TEXT,
@@ -160,6 +160,10 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Guarantee orders.id and order_number defaults so orders.id is never NULL
+ALTER TABLE orders ALTER COLUMN id SET DEFAULT ('ord_' || replace(uuid_generate_v4()::text, '-', ''));
+ALTER TABLE orders ALTER COLUMN order_number SET DEFAULT ('ORD-2026-' || floor(1000 + random() * 9000)::text);
 
 -- ====================================================================
 -- 8. ORDER ITEMS TABLE (Normalized Line Items with Tax & Scheme Details)

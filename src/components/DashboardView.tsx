@@ -44,11 +44,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   // Scope orders based on role
   const isSalesman = currentRole === 'salesman';
+  const validOrders = (orders || []).filter(o => Boolean(o && o.id && o.id !== 'null' && o.id !== 'undefined'));
   const roleFilteredOrders = isSalesman 
-    ? orders.filter(o => o.salesmanId === currentUser?.salesmanId || o.salesmanName === currentUser?.name)
-    : orders;
+    ? validOrders.filter(o => o.salesmanId === currentUser?.salesmanId || o.salesmanName === currentUser?.name)
+    : validOrders;
 
-  const displayOrders = isSalesman && roleFilteredOrders.length > 0 ? roleFilteredOrders : orders;
+  const displayOrders = isSalesman && roleFilteredOrders.length > 0 ? roleFilteredOrders : validOrders;
 
   // Metrics calculation
   const todayDateStr = new Date().toISOString().split('T')[0];
