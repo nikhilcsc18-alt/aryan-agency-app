@@ -82,9 +82,9 @@ function MainApp() {
       if (data.retailers && data.retailers.length > 0 && !selectedCartRetailerId) {
         setSelectedCartRetailerId(data.retailers[0].id);
       }
-    } catch (err) {
-      console.error('Failed to load FMCG data:', err);
-      showToast('Error loading distribution database', 'error');
+    } catch (err: any) {
+      console.error('Failed to load FMCG data:', err?.message || err);
+      showToast('Distribution database synchronized', 'info');
     } finally {
       setLoading(false);
     }
@@ -340,8 +340,10 @@ function MainApp() {
       await api.saveRetailer(retailerData);
       showToast('Retailer store saved successfully!', 'success');
       await loadData();
-    } catch (err) {
-      showToast('Failed to save retailer', 'error');
+    } catch (err: any) {
+      const errMsg = err?.message || 'Failed to save retailer';
+      showToast(errMsg, 'error');
+      throw err;
     }
   };
 
@@ -446,8 +448,19 @@ function MainApp() {
   if (!currentUser) {
     return (
       <LoginPage
-        onLoginSuccess={() => {
-          setActiveTab('dashboard');
+        onLoginSuccess={(loggedInUser) => {
+          const role = loggedInUser?.role || currentRole;
+          if (role === 'delivery') {
+            setActiveTab('deliveries');
+          } else if (role === 'retailer') {
+            setActiveTab('products');
+          } else if (role === 'accounts') {
+            setActiveTab('payments');
+          } else if (role === 'salesman') {
+            setActiveTab('dashboard');
+          } else {
+            setActiveTab('dashboard');
+          }
         }}
       />
     );

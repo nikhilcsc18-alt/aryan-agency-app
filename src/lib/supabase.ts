@@ -9,27 +9,164 @@ import {
   PaymentRecord, 
   InventoryMovement, 
   User,
+  UserRole,
   Category,
   Brand
 } from '../types';
 
-// Read Supabase environment credentials from client or server environment
-const rawUrl = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-const rawKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+// Read Supabase environment credentials from client or server environment with multiple alias fallbacks
+const env = (import.meta as any).env || {};
+
+const rawUrl = 
+  env.VITE_SUPABASE_URL || 
+  env.VITE_SUPABASE_PROJECT_URL || 
+  env.SUPABASE_URL || 
+  '';
+
+const rawKey = 
+  env.VITE_SUPABASE_ANON_KEY || 
+  env.VITE_SUPABASE_PUBLISHABLE_KEY || 
+  env.SUPABASE_ANON_KEY || 
+  env.SUPABASE_PUBLISHABLE_KEY || 
+  env.SUPABASE_KEY || 
+  '';
 
 export const supabaseUrl = typeof rawUrl === 'string' ? rawUrl.trim() : '';
 export const supabaseAnonKey = typeof rawKey === 'string' ? rawKey.trim() : '';
 
-export const isSupabaseConfigured = Boolean(
-  supabaseUrl && 
-  supabaseAnonKey && 
-  !supabaseUrl.includes('placeholder') &&
-  !supabaseAnonKey.includes('placeholder') &&
-  supabaseUrl.startsWith('http')
-);
+export interface SupabaseConfigStatus {
+  isValid: boolean;
+  isConfigured: boolean;
+  url: string;
+  projectRef: string;
+  keyType: 'publishable' | 'anon_jwt' | 'invalid' | 'missing';
+  error?: string;
+  hint?: string;
+}
+
+export function validateSupabaseCredentials(url: string, key: string): SupabaseConfigStatus {
+  const cleanUrl = url.trim();
+  const cleanKey = key.trim();
+
+  // 1. URL Check
+  if (!cleanUrl) {
+    return {
+      isValid: false,
+      isConfigured: false,
+      url: '',
+      projectRef: '',
+      keyType: cleanKey ? (cleanKey.startsWith('sb_publishable_') ? 'publishable' : 'invalid') : 'missing',
+      error: 'Supabase Project URL is missing.',
+      hint: 'Please provide VITE_SUPABASE_URL in your environment settings (e.g., https://your-project-id.supabase.co).'
+    };
+  }
+
+  if (cleanUrl.includes('placeholder') || cleanUrl.includes('your-project-id')) {
+    return {
+      isValid: false,
+      isConfigured: false,
+      url: cleanUrl,
+      projectRef: '',
+      keyType: 'invalid',
+      error: 'Supabase Project URL contains a placeholder value.',
+      hint: 'Please replace placeholder with your actual Supabase project URL.'
+    };
+  }
+
+  if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+    return {
+      isValid: false,
+      isConfigured: false,
+      url: cleanUrl,
+      projectRef: '',
+      keyType: 'invalid',
+      error: 'Supabase Project URL must begin with https://',
+      hint: 'Ensure your URL matches format: https://<project-ref>.supabase.co'
+    };
+  }
+
+  let projectRef = '';
+  try {
+    const parsed = new URL(cleanUrl);
+    projectRef = parsed.hostname.split('.')[0] || '';
+  } catch {
+    projectRef = '';
+  }
+
+  // 2. Key Check
+  if (!cleanKey) {
+    return {
+      isValid: false,
+      isConfigured: false,
+      url: cleanUrl,
+      projectRef,
+      keyType: 'missing',
+      error: 'Supabase API key is missing.',
+      hint: 'Please set VITE_SUPABASE_ANON_KEY (or VITE_SUPABASE_PUBLISHABLE_KEY) in your environment settings.'
+    };
+  }
+
+  if (cleanKey.includes('placeholder') || cleanKey.includes('your-key-here') || cleanKey === 'sb_publishable_your_key_here') {
+    return {
+      isValid: false,
+      isConfigured: false,
+      url: cleanUrl,
+      projectRef,
+      keyType: 'invalid',
+      error: 'Supabase API Key contains a placeholder value.',
+      hint: 'Copy your Publishable Key (sb_publishable_...) from Supabase Dashboard > Project Settings > API Keys.'
+    };
+  }
+
+  // Detect accidental Google or Gemini API key
+  if (cleanKey.startsWith('AIza') || cleanKey.startsWith('AQ.') || cleanKey.toUpperCase().includes('GEMINI')) {
+    return {
+      isValid: false,
+      isConfigured: false,
+      url: cleanUrl,
+      projectRef,
+      keyType: 'invalid',
+      error: 'The provided API key is a Google/Gemini API key, NOT a Supabase Publishable Key.',
+      hint: 'Do not use your Gemini key for Supabase. Go to Supabase Dashboard > Project Settings > API Keys and copy the Publishable Key.'
+    };
+  }
+
+  const isPublishable = cleanKey.startsWith('sb_publishable_');
+  const isAnonJwt = cleanKey.startsWith('eyJ') && cleanKey.split('.').length === 3;
+
+  if (!isPublishable && !isAnonJwt) {
+    return {
+      isValid: false,
+      isConfigured: false,
+      url: cleanUrl,
+      projectRef,
+      keyType: 'invalid',
+      error: 'Invalid Supabase API key format.',
+      hint: 'Supabase keys should start with "sb_publishable_" (Publishable Key) or "eyJ" (Anon JWT Key).'
+    };
+  }
+
+  return {
+    isValid: true,
+    isConfigured: true,
+    url: cleanUrl,
+    projectRef,
+    keyType: isPublishable ? 'publishable' : 'anon_jwt'
+  };
+}
+
+export const supabaseConfigStatus = validateSupabaseCredentials(supabaseUrl, supabaseAnonKey);
+
+export const isSupabaseConfigured = supabaseConfigStatus.isValid;
 
 export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    })
   : null;
 
 // ============================================================================
@@ -420,6 +557,7 @@ export const supabaseService = {
     missingEnvVars: string[];
     verifiedTables: { table: string; count: number; status: 'ok' | 'error' | 'empty' }[];
   }> {
+    const configStatus = validateSupabaseCredentials(supabaseUrl, supabaseAnonKey);
     const missing: string[] = [];
     if (!supabaseUrl) missing.push('VITE_SUPABASE_URL');
     if (!supabaseAnonKey) missing.push('VITE_SUPABASE_ANON_KEY');
@@ -428,9 +566,9 @@ export const supabaseService = {
       return {
         configured: false,
         connected: false,
-        message: missing.length > 0 
+        message: configStatus.error || (missing.length > 0 
           ? `Missing Supabase environment variables: ${missing.join(', ')}` 
-          : 'Supabase credentials contain placeholder values',
+          : 'Supabase credentials contain invalid or placeholder values'),
         missingEnvVars: missing,
         verifiedTables: []
       };
@@ -452,17 +590,24 @@ export const supabaseService = {
 
     const results: { table: string; count: number; status: 'ok' | 'error' | 'empty' }[] = [];
     let anyOk = false;
+    let gatewayErrorMessage: string | null = null;
 
     for (const tbl of tablesToTest) {
       try {
         const { count, error } = await supabase.from(tbl).select('*', { count: 'exact', head: true });
         if (error) {
+          if (error.message?.includes('Unregistered API key') || (error as any)?.code === '401' || (error as any)?.status === 401) {
+            gatewayErrorMessage = `Supabase API Gateway Error: "Unregistered API key". The Publishable Key is not registered for project '${configStatus.projectRef}'. Please verify the Publishable Key in Supabase Dashboard > Project Settings > API Keys.`;
+          }
           results.push({ table: tbl, count: 0, status: 'error' });
         } else {
           anyOk = true;
           results.push({ table: tbl, count: count || 0, status: (count && count > 0) ? 'ok' : 'empty' });
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.message?.includes('Unregistered API key')) {
+          gatewayErrorMessage = `Supabase API Gateway Error: "Unregistered API key". The Publishable Key is not registered for project '${configStatus.projectRef}'.`;
+        }
         results.push({ table: tbl, count: 0, status: 'error' });
       }
     }
@@ -470,9 +615,9 @@ export const supabaseService = {
     return {
       configured: true,
       connected: anyOk,
-      message: anyOk 
+      message: gatewayErrorMessage || (anyOk 
         ? 'Successfully connected to Supabase PostgreSQL database' 
-        : 'Could not connect to Supabase tables. Please execute the supabase_schema.sql script in your Supabase SQL editor.',
+        : 'Could not connect to Supabase tables. Please execute the supabase_schema.sql script in your Supabase SQL editor.'),
       missingEnvVars: [],
       verifiedTables: results
     };
@@ -508,6 +653,19 @@ export const supabaseService = {
     return mapDbUser(data);
   },
 
+  async updateUserRole(userId: string, newRole: UserRole): Promise<boolean> {
+    if (!supabase) return false;
+    const { error } = await supabase
+      .from('users')
+      .update({ role: newRole, updated_at: new Date().toISOString() })
+      .eq('id', userId);
+    if (error) {
+      console.error('[Supabase updateUserRole error]:', error);
+      throw new Error(`Database error updating user role: ${error.message || 'Operation failed'}`);
+    }
+    return true;
+  },
+
   // Auth Functions
   async getAuthSession() {
     if (!supabase) return null;
@@ -521,9 +679,14 @@ export const supabaseService = {
     return supabase.auth.onAuthStateChange(callback);
   },
 
-  async signUpWithEmail(email: string, password: string, profile: { name: string; phone: string; role: string; salesmanId?: string; retailerId?: string; deliveryId?: string }) {
+  async signUpWithEmail(email: string, password: string, profile: { name: string; phone: string; role?: string; salesmanId?: string; retailerId?: string; deliveryId?: string }) {
     if (!supabase) throw new Error('Supabase client is not configured');
     
+    // Security Rule: Public self-registrations MUST NOT be allowed to choose or receive privileged internal roles
+    // (admin, salesman, delivery, accounts). All public signups are created with the safe role 'retailer' (Retail Store Partner).
+    // Internal operational roles can only be granted by an authenticated Administrator in the management interface.
+    const safeRole: UserRole = 'retailer';
+
     // 1. Sign up with Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
@@ -532,21 +695,21 @@ export const supabaseService = {
         data: {
           name: profile.name,
           phone: profile.phone,
-          role: profile.role
+          role: safeRole
         }
       }
     });
 
     if (authError) throw authError;
 
-    // 2. Create or sync profile record in users table
+    // 2. Create or sync profile record in users table with safe role
     const userId = authData.user?.id || `usr_${Date.now()}`;
     const userProfile: User = {
       id: userId,
       name: profile.name,
       email: email.trim().toLowerCase(),
       phone: profile.phone,
-      role: profile.role as any,
+      role: safeRole,
       salesmanId: profile.salesmanId,
       retailerId: profile.retailerId,
       deliveryId: profile.deliveryId
@@ -562,33 +725,62 @@ export const supabaseService = {
   },
 
   async signInWithEmail(email: string, password: string) {
-    if (!supabase) throw new Error('Supabase client is not configured');
+    if (!supabase) {
+      console.error('[Supabase Auth] Supabase client is not configured.');
+      throw new Error('Supabase client is not configured. Please check your Supabase URL and API Key.');
+    }
     
+    const cleanEmail = email.trim().toLowerCase();
+    console.log('[Supabase Auth] Calling signInWithPassword for:', cleanEmail);
+
     const { data, error } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
       password
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('[Supabase Auth Error]:', error);
+      throw error;
+    }
+
+    console.log('[Supabase Auth] signInWithPassword succeeded. User ID:', data?.user?.id);
 
     // Find profile from database or fallback to user metadata
-    let profile = await this.getUserByEmail(email);
+    let profile = await this.getUserByEmail(cleanEmail).catch(e => {
+      console.warn('[Supabase Auth] Could not fetch profile from DB:', e);
+      return null;
+    });
+
     if (!profile && data.user) {
+      // Safe fallback: never default unknown users to 'admin'
+      const assignedRole = (data.user.user_metadata?.role as any) || 'retailer';
       profile = {
         id: data.user.id,
-        name: data.user.user_metadata?.name || email.split('@')[0],
-        email: data.user.email || email,
+        name: data.user.user_metadata?.name || cleanEmail.split('@')[0],
+        email: data.user.email || cleanEmail,
         phone: data.user.user_metadata?.phone || '+91 98000 00000',
-        role: (data.user.user_metadata?.role as any) || 'admin'
+        role: assignedRole
       };
       try {
         await this.saveUser(profile);
       } catch (err) {
-        console.warn('Failed to auto-save profile on sign in:', err);
+        console.warn('[Supabase Auth] Failed to auto-save profile on sign in:', err);
       }
     }
 
     return { session: data.session, user: profile || null, authUser: data.user };
+  },
+
+  async resetPassword(email: string) {
+    if (!supabase) {
+      throw new Error('Supabase client is not configured.');
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const { data, error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined
+    });
+    if (error) throw error;
+    return data;
   },
 
   async signOut() {
@@ -645,10 +837,106 @@ export const supabaseService = {
   },
 
   async saveRetailer(retailer: Partial<Retailer>): Promise<Retailer | null> {
-    if (!supabase) return null;
-    const dbPayload = retailerToDb(retailer);
-    const { data, error } = await supabase.from('retailers').upsert(dbPayload).select().single();
-    if (error) throw error;
+    if (!supabase) throw new Error('Supabase client is not configured.');
+
+    // 1. Validate required fields for FMCG business workflow
+    const storeName = retailer.storeName?.trim();
+    if (!storeName) {
+      throw new Error('Retail Outlet / Store Name is required.');
+    }
+    const ownerName = retailer.ownerName?.trim();
+    if (!ownerName) {
+      throw new Error('Owner / Proprietor Name is required.');
+    }
+    const rawPhone = retailer.phone?.trim() || '';
+    const digitsOnlyPhone = rawPhone.replace(/\D/g, '');
+    if (!digitsOnlyPhone || digitsOnlyPhone.length < 10) {
+      throw new Error('A valid 10-digit mobile phone number is required for retailer order and payment tracking.');
+    }
+    const address = retailer.address?.trim();
+    if (!address) {
+      throw new Error('Shop address is required for delivery routing.');
+    }
+
+    const area = retailer.area?.trim() || 'Indiranagar';
+    const beatName = retailer.beatName?.trim() || 'Indiranagar Retail Beat';
+    const gstin = retailer.gstin?.trim().toUpperCase() || '';
+    const panNumber = retailer.panNumber?.trim().toUpperCase() || '';
+
+    // 2. Prevent duplicate retailer creation by checking existing records in Supabase
+    const { data: existingRetailers, error: fetchErr } = await supabase
+      .from('retailers')
+      .select('id, store_name, phone, gstin');
+
+    if (!fetchErr && Array.isArray(existingRetailers)) {
+      // Check phone number collision (matching last 10 digits to be safe across +91 prefixes)
+      const targetPhoneSuffix = digitsOnlyPhone.slice(-10);
+      const phoneDuplicate = existingRetailers.find(r => {
+        if (retailer.id && r.id === retailer.id) return false;
+        const existingDigits = (r.phone || '').replace(/\D/g, '');
+        return existingDigits.endsWith(targetPhoneSuffix);
+      });
+
+      if (phoneDuplicate) {
+        throw new Error(
+          `A retailer outlet with phone ${rawPhone} already exists (${phoneDuplicate.store_name}). ` +
+          `Please verify the phone number or edit the existing outlet.`
+        );
+      }
+
+      // Check GSTIN collision if GSTIN is provided and valid (not blank)
+      if (gstin && gstin.length >= 15) {
+        const gstinDuplicate = existingRetailers.find(r => {
+          if (retailer.id && r.id === retailer.id) return false;
+          return (r.gstin || '').trim().toUpperCase() === gstin;
+        });
+
+        if (gstinDuplicate) {
+          throw new Error(
+            `A retailer outlet with GSTIN ${gstin} already exists (${gstinDuplicate.store_name}). ` +
+            `Each GSTIN must be uniquely registered.`
+          );
+        }
+      }
+    }
+
+    // 3. Ensure a deterministic, unique ID is assigned for new retailer records
+    const id = retailer.id || `ret_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+    // 4. Construct complete retailer model with FMCG defaults
+    const completeRetailer: Retailer = {
+      id,
+      storeName,
+      ownerName,
+      phone: rawPhone.startsWith('+91') ? rawPhone : `+91 ${rawPhone}`,
+      email: retailer.email?.trim().toLowerCase() || '',
+      address,
+      area,
+      beatName,
+      gstin,
+      panNumber,
+      creditLimit: Number(retailer.creditLimit) >= 0 ? Number(retailer.creditLimit) : 50000,
+      currentOutstanding: Number(retailer.currentOutstanding) || 0,
+      creditDaysAllowed: Number(retailer.creditDaysAllowed) || 14,
+      status: retailer.status || 'active',
+      createdAt: retailer.createdAt || new Date().toISOString()
+    };
+
+    const dbPayload = retailerToDb(completeRetailer);
+    // Explicitly guarantee ID is present in payload
+    dbPayload.id = id;
+
+    const { data, error } = await supabase
+      .from('retailers')
+      .upsert(dbPayload)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('[Supabase saveRetailer error]:', error);
+      throw new Error(`Database error saving retailer: ${error.message || 'Operation failed'}`);
+    }
+
     return mapDbRetailer(data);
   },
 

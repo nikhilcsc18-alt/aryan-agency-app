@@ -69,15 +69,6 @@ const INITIAL_DATA: DatabaseSchema = {
       phone: '+91 98450 67890',
       role: 'accounts',
       avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'usr_retailer_1',
-      name: 'Ramesh Gupta (Laxmi Supermarket)',
-      email: 'laxmi.supermarket@gmail.com',
-      phone: '+91 98455 22334',
-      role: 'retailer',
-      retailerId: 'ret_1',
-      avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80'
     }
   ],
   products: [
@@ -466,122 +457,7 @@ const INITIAL_DATA: DatabaseSchema = {
       ]
     }
   ],
-  retailers: [
-    {
-      id: 'ret_1',
-      storeName: 'Laxmi Supermarket',
-      ownerName: 'Ramesh Gupta',
-      phone: '+91 98455 22334',
-      email: 'laxmi.supermarket@gmail.com',
-      address: '#42, 100ft Road, Indiranagar',
-      area: 'Indiranagar',
-      beatName: 'Indiranagar Retail Beat',
-      gstin: '29ABCDE1234F1Z5',
-      panNumber: 'ABCDE1234F',
-      creditLimit: 100000,
-      currentOutstanding: 28450,
-      creditDaysAllowed: 15,
-      lat: 12.9784,
-      lng: 77.6408,
-      status: 'active',
-      createdAt: '2025-01-10'
-    },
-    {
-      id: 'ret_2',
-      storeName: 'Shree Ganesh Provision Stores',
-      ownerName: 'Ganesh Hegde',
-      phone: '+91 94481 99882',
-      email: 'ganesh.provisions@yahoo.com',
-      address: '#118, Brigade Road, Ashok Nagar',
-      area: 'MG Road Area',
-      beatName: 'MG Road Commercial Beat',
-      gstin: '29BCDEF2345G1Z6',
-      panNumber: 'BCDEF2345G',
-      creditLimit: 75000,
-      currentOutstanding: 41200,
-      creditDaysAllowed: 10,
-      lat: 12.9734,
-      lng: 77.6074,
-      status: 'active',
-      createdAt: '2025-02-14'
-    },
-    {
-      id: 'ret_3',
-      storeName: 'Balaji Daily Needs & Bakery',
-      ownerName: 'Murali Krishna',
-      phone: '+91 98802 77665',
-      email: 'balajidaily@gmail.com',
-      address: '#89, 5th Block, Koramangala',
-      area: 'Koramangala',
-      beatName: 'Koramangala Daily Beat',
-      gstin: '29CDEFG3456H1Z7',
-      panNumber: 'CDEFG3456H',
-      creditLimit: 60000,
-      currentOutstanding: 59200,
-      creditDaysAllowed: 7,
-      lat: 12.9352,
-      lng: 77.6245,
-      status: 'overdue',
-      createdAt: '2025-03-01'
-    },
-    {
-      id: 'ret_4',
-      storeName: 'Sri Sai Ram Mart',
-      ownerName: 'Venkatesh Rao',
-      phone: '+91 97400 11223',
-      email: 'sairammart.blr@gmail.com',
-      address: '#15, ITPL Main Road, Whitefield',
-      area: 'Whitefield',
-      beatName: 'Whitefield Supermarket Beat',
-      gstin: '29DEFGH4567I1Z8',
-      panNumber: 'DEFGH4567I',
-      creditLimit: 150000,
-      currentOutstanding: 14500,
-      creditDaysAllowed: 21,
-      lat: 12.9698,
-      lng: 77.7500,
-      status: 'active',
-      createdAt: '2025-01-20'
-    },
-    {
-      id: 'ret_5',
-      storeName: 'Metro Kirana & General Store',
-      ownerName: 'Anand Patel',
-      phone: '+91 99165 44332',
-      email: 'metrokirana@gmail.com',
-      address: '#73, Commercial Street, Tasker Town',
-      area: 'Commercial Street',
-      beatName: 'MG Road Commercial Beat',
-      gstin: '29EFGHI5678J1Z9',
-      panNumber: 'EFGHI5678J',
-      creditLimit: 50000,
-      currentOutstanding: 0,
-      creditDaysAllowed: 10,
-      lat: 12.9822,
-      lng: 77.6083,
-      status: 'active',
-      createdAt: '2025-04-12'
-    },
-    {
-      id: 'ret_6',
-      storeName: 'Jai Hind Traders',
-      ownerName: 'Sanjay Agarwal',
-      phone: '+91 98451 88990',
-      email: 'jaihind.traders@gmail.com',
-      address: '#22, 12th Main, 4th Block Jayanagar',
-      area: 'Jayanagar',
-      beatName: 'Jayanagar Provision Beat',
-      gstin: '29FGHIJ6789K1Z0',
-      panNumber: 'FGHIJ6789K',
-      creditLimit: 80000,
-      currentOutstanding: 82000,
-      creditDaysAllowed: 7,
-      lat: 12.9299,
-      lng: 77.5826,
-      status: 'blocked',
-      createdAt: '2025-02-05'
-    }
-  ],
+  retailers: [],
   salesmen: [
     {
       id: 'slm_1',
@@ -629,314 +505,9 @@ const INITIAL_DATA: DatabaseSchema = {
       status: 'active'
     }
   ],
-  deliveries: [
-    {
-      id: 'del_run_1',
-      runNumber: 'RUN-2026-088',
-      date: '2026-09-02',
-      driverName: 'Suresh Gowda',
-      driverPhone: '+91 97410 78901',
-      vehicleNumber: 'KA-05-AB-1234',
-      beatNames: ['Indiranagar Retail Beat', 'MG Road Commercial Beat'],
-      totalOrders: 4,
-      deliveredOrders: 2,
-      totalOrderValue: 56740,
-      totalCashCollected: 18500,
-      totalUpiCollected: 24200,
-      status: 'out_for_delivery',
-      orderIds: ['ord_1001', 'ord_1002', 'ord_1003', 'ord_1004']
-    },
-    {
-      id: 'del_run_2',
-      runNumber: 'RUN-2026-087',
-      date: '2026-09-01',
-      driverName: 'Manjunath Reddy',
-      driverPhone: '+91 96112 33445',
-      vehicleNumber: 'KA-04-CD-5678',
-      beatNames: ['Koramangala Daily Beat'],
-      totalOrders: 6,
-      deliveredOrders: 6,
-      totalOrderValue: 84300,
-      totalCashCollected: 35000,
-      totalUpiCollected: 49300,
-      status: 'completed',
-      orderIds: ['ord_0998', 'ord_0999']
-    }
-  ],
-  orders: [
-    {
-      id: 'ord_1001',
-      orderNumber: 'ORD-2026-1001',
-      retailerId: 'ret_1',
-      retailerName: 'Laxmi Supermarket',
-      retailerPhone: '+91 98455 22334',
-      retailerAddress: '#42, 100ft Road, Indiranagar',
-      retailerGstin: '29ABCDE1234F1Z5',
-      beatName: 'Indiranagar Retail Beat',
-      salesmanId: 'slm_1',
-      salesmanName: 'Rajesh Kumar',
-      orderDate: '2026-09-02T09:30:00Z',
-      expectedDeliveryDate: '2026-09-02',
-      items: [
-        {
-          productId: 'prd_1',
-          sku: 'PARLE-G-80G',
-          productName: 'Parle-G Glucose Biscuit (80g)',
-          brand: 'Parle',
-          category: 'Biscuits & Bakery',
-          hsnCode: '19053100',
-          gstRate: 18,
-          cases: 6,
-          loosePcs: 0,
-          totalPieces: 360,
-          unitPrice: 8.40,
-          grossAmount: 3024.00,
-          discountAmount: 0,
-          taxableAmount: 2562.71,
-          cgstAmount: 230.64,
-          sgstAmount: 230.64,
-          igstAmount: 0,
-          totalAmount: 3024.00,
-          schemeApplied: 'Monsoon Volume Booster (+6 Pcs Free)',
-          freePcsAwarded: 6
-        },
-        {
-          productId: 'prd_4',
-          sku: 'MAGGI-2MIN-70G',
-          productName: 'Maggi 2-Minute Masala Noodles (70g)',
-          brand: 'Nestle',
-          category: 'Spices & Staples',
-          hsnCode: '19023010',
-          gstRate: 12,
-          cases: 5,
-          loosePcs: 0,
-          totalPieces: 480,
-          unitPrice: 11.90,
-          grossAmount: 5712.00,
-          discountAmount: 200.00,
-          taxableAmount: 4921.43,
-          cgstAmount: 295.29,
-          sgstAmount: 295.29,
-          igstAmount: 0,
-          totalAmount: 5512.00,
-          schemeApplied: 'Noodle Dhamaka (₹40 off/case)',
-          freePcsAwarded: 0
-        },
-        {
-          productId: 'prd_3',
-          sku: 'AMUL-BUTTER-500G',
-          productName: 'Amul Pasteurised Butter (500g)',
-          brand: 'Amul',
-          category: 'Dairy & Refrigerated',
-          hsnCode: '04051000',
-          gstRate: 12,
-          cases: 2,
-          loosePcs: 0,
-          totalPieces: 40,
-          unitPrice: 248.00,
-          grossAmount: 9920.00,
-          discountAmount: 0,
-          taxableAmount: 8857.14,
-          cgstAmount: 531.43,
-          sgstAmount: 531.43,
-          igstAmount: 0,
-          totalAmount: 9920.00
-        }
-      ],
-      subtotal: 18656.00,
-      totalDiscount: 200.00,
-      totalTaxable: 16341.28,
-      totalCgst: 1057.36,
-      totalSgst: 1057.36,
-      totalTax: 2114.72,
-      roundOff: 0.00,
-      grandTotal: 18456.00,
-      amountPaid: 18456.00,
-      outstandingAmount: 0,
-      status: 'delivered',
-      paymentStatus: 'paid',
-      deliveryRunId: 'del_run_1',
-      driverName: 'Suresh Gowda',
-      vehicleNumber: 'KA-05-AB-1234',
-      deliveredAt: '2026-09-02T11:45:00Z',
-      podReceiverName: 'Ramesh Gupta (Owner)',
-      podNotes: 'Delivered in good condition. Instant UPI settlement done.'
-    },
-    {
-      id: 'ord_1002',
-      orderNumber: 'ORD-2026-1002',
-      retailerId: 'ret_2',
-      retailerName: 'Shree Ganesh Provision Stores',
-      retailerPhone: '+91 94481 99882',
-      retailerAddress: '#118, Brigade Road, Ashok Nagar',
-      retailerGstin: '29BCDEF2345G1Z6',
-      beatName: 'MG Road Commercial Beat',
-      salesmanId: 'slm_1',
-      salesmanName: 'Rajesh Kumar',
-      orderDate: '2026-09-02T10:15:00Z',
-      expectedDeliveryDate: '2026-09-02',
-      items: [
-        {
-          productId: 'prd_2',
-          sku: 'BRIT-GD-BUTTER-100G',
-          productName: 'Britannia Good Day Butter Cookies (100g)',
-          brand: 'Britannia',
-          category: 'Biscuits & Bakery',
-          hsnCode: '19053100',
-          gstRate: 18,
-          cases: 10,
-          loosePcs: 0,
-          totalPieces: 480,
-          unitPrice: 16.80,
-          grossAmount: 8064.00,
-          discountAmount: 241.92,
-          taxableAmount: 6628.88,
-          cgstAmount: 596.60,
-          sgstAmount: 596.60,
-          igstAmount: 0,
-          totalAmount: 7822.08,
-          schemeApplied: 'Smile Scheme (3% off)'
-        },
-        {
-          productId: 'prd_5',
-          sku: 'TATA-TEA-PREM-500G',
-          productName: 'Tata Tea Premium Desh Ki Chai (500g)',
-          brand: 'Tata',
-          category: 'Beverages',
-          hsnCode: '09024020',
-          gstRate: 5,
-          cases: 2,
-          loosePcs: 0,
-          totalPieces: 48,
-          unitPrice: 268.00,
-          grossAmount: 12864.00,
-          discountAmount: 0,
-          taxableAmount: 12251.43,
-          cgstAmount: 306.29,
-          sgstAmount: 306.29,
-          igstAmount: 0,
-          totalAmount: 12864.00
-        }
-      ],
-      subtotal: 20928.00,
-      totalDiscount: 241.92,
-      totalTaxable: 18880.31,
-      totalCgst: 902.89,
-      totalSgst: 902.89,
-      totalTax: 1805.77,
-      roundOff: -0.08,
-      grandTotal: 20686.00,
-      amountPaid: 0,
-      outstandingAmount: 20686.00,
-      status: 'dispatched',
-      paymentStatus: 'unpaid',
-      deliveryRunId: 'del_run_1',
-      driverName: 'Suresh Gowda',
-      vehicleNumber: 'KA-05-AB-1234'
-    },
-    {
-      id: 'ord_1003',
-      orderNumber: 'ORD-2026-1003',
-      retailerId: 'ret_4',
-      retailerName: 'Sri Sai Ram Mart',
-      retailerPhone: '+91 97400 11223',
-      retailerAddress: '#15, ITPL Main Road, Whitefield',
-      retailerGstin: '29DEFGH4567I1Z8',
-      beatName: 'Whitefield Supermarket Beat',
-      salesmanId: 'slm_3',
-      salesmanName: 'Karthik Nambiar',
-      orderDate: '2026-09-02T11:00:00Z',
-      expectedDeliveryDate: '2026-09-03',
-      items: [
-        {
-          productId: 'prd_6',
-          sku: 'SURF-EXCEL-EASY-1KG',
-          productName: 'Surf Excel Easy Wash Detergent Powder (1kg)',
-          brand: 'Hindustan Unilever',
-          category: 'Household & Hygiene',
-          hsnCode: '34022010',
-          gstRate: 18,
-          cases: 4,
-          loosePcs: 0,
-          totalPieces: 72,
-          unitPrice: 122.50,
-          grossAmount: 8820.00,
-          discountAmount: 0,
-          taxableAmount: 7474.58,
-          cgstAmount: 672.71,
-          sgstAmount: 672.71,
-          igstAmount: 0,
-          totalAmount: 8820.00,
-          schemeApplied: 'Clean Wash Promo (+1 Pcs Free)',
-          freePcsAwarded: 1
-        },
-        {
-          productId: 'prd_7',
-          sku: 'COLGATE-MAXFRESH-150G',
-          productName: 'Colgate MaxFresh Peppermint Toothpaste (150g)',
-          brand: 'Colgate-Palmolive',
-          category: 'Personal Care',
-          hsnCode: '33061020',
-          gstRate: 18,
-          cases: 2,
-          loosePcs: 0,
-          totalPieces: 72,
-          unitPrice: 98.00,
-          grossAmount: 7056.00,
-          discountAmount: 0,
-          taxableAmount: 5979.66,
-          cgstAmount: 538.17,
-          sgstAmount: 538.17,
-          igstAmount: 0,
-          totalAmount: 7056.00
-        }
-      ],
-      subtotal: 15876.00,
-      totalDiscount: 0,
-      totalTaxable: 13454.24,
-      totalCgst: 1210.88,
-      totalSgst: 1210.88,
-      totalTax: 2421.76,
-      roundOff: 0.00,
-      grandTotal: 15876.00,
-      amountPaid: 0,
-      outstandingAmount: 15876.00,
-      status: 'confirmed',
-      paymentStatus: 'unpaid'
-    }
-  ],
-  payments: [
-    {
-      id: 'pay_501',
-      receiptNumber: 'RCP-2026-501',
-      retailerId: 'ret_1',
-      retailerName: 'Laxmi Supermarket',
-      orderId: 'ord_1001',
-      orderNumber: 'ORD-2026-1001',
-      amount: 18456.00,
-      paymentMode: 'upi',
-      transactionRef: 'UPI/HDFC/2026090288910',
-      paymentDate: '2026-09-02T11:45:00Z',
-      collectedByRole: 'delivery',
-      collectorName: 'Suresh Gowda',
-      status: 'confirmed',
-      notes: 'Spot settlement at delivery'
-    },
-    {
-      id: 'pay_502',
-      receiptNumber: 'RCP-2026-502',
-      retailerId: 'ret_4',
-      retailerName: 'Sri Sai Ram Mart',
-      amount: 25000.00,
-      paymentMode: 'bank_transfer',
-      transactionRef: 'NEFT/SBI/990021334',
-      paymentDate: '2026-09-01T15:20:00Z',
-      collectedByRole: 'admin',
-      collectorName: 'Aryan Sharma',
-      status: 'confirmed',
-      notes: 'Previous outstanding settlement'
-    }
-  ],
+  deliveries: [],
+  orders: [],
+  payments: [],
   inventoryLogs: [
     {
       id: 'inv_log_1',
@@ -951,20 +522,6 @@ const INITIAL_DATA: DatabaseSchema = {
       date: '2026-09-01T08:00:00Z',
       performedBy: 'Aryan Sharma',
       reason: 'Fresh factory dispatch received from Parle depot'
-    },
-    {
-      id: 'inv_log_2',
-      type: 'outward_dispatch',
-      productId: 'prd_1',
-      productName: 'Parle-G Glucose Biscuit (80g)',
-      sku: 'PARLE-G-80G',
-      batchNumber: 'PAR-26A-01',
-      cases: 6,
-      loosePcs: 0,
-      referenceId: 'ORD-2026-1001',
-      date: '2026-09-02T10:00:00Z',
-      performedBy: 'Warehouse Team',
-      reason: 'Dispatched for Laxmi Supermarket'
     }
   ]
 };
@@ -983,7 +540,58 @@ class Database {
       }
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        // Sanitize out any legacy dummy/sample retailers, orders, payments, or users
+        const dummyRetailerIds = ['ret_1', 'ret_2', 'ret_3', 'ret_4', 'ret_5', 'ret_6'];
+        let modified = false;
+
+        if (Array.isArray(parsed.retailers)) {
+          const originalLen = parsed.retailers.length;
+          parsed.retailers = parsed.retailers.filter((r: any) => 
+            !dummyRetailerIds.includes(r.id) &&
+            !r.storeName?.toLowerCase().includes('laxmi supermarket') &&
+            !r.storeName?.toLowerCase().includes('ganesh provision') &&
+            !r.storeName?.toLowerCase().includes('ganesh daily')
+          );
+          if (parsed.retailers.length !== originalLen) modified = true;
+        }
+
+        if (Array.isArray(parsed.orders)) {
+          const originalLen = parsed.orders.length;
+          parsed.orders = parsed.orders.filter((o: any) => 
+            !['ord_1001', 'ord_1002', 'ord_1003', 'ord_1004'].includes(o.id) &&
+            !dummyRetailerIds.includes(o.retailerId)
+          );
+          if (parsed.orders.length !== originalLen) modified = true;
+        }
+
+        if (Array.isArray(parsed.payments)) {
+          const originalLen = parsed.payments.length;
+          parsed.payments = parsed.payments.filter((p: any) => 
+            !['pay_501', 'pay_502'].includes(p.id) &&
+            !dummyRetailerIds.includes(p.retailerId)
+          );
+          if (parsed.payments.length !== originalLen) modified = true;
+        }
+
+        if (Array.isArray(parsed.deliveries)) {
+          const originalLen = parsed.deliveries.length;
+          parsed.deliveries = parsed.deliveries.filter((d: any) => 
+            !['del_run_1', 'del_run_2'].includes(d.id)
+          );
+          if (parsed.deliveries.length !== originalLen) modified = true;
+        }
+
+        if (Array.isArray(parsed.users)) {
+          const originalLen = parsed.users.length;
+          parsed.users = parsed.users.filter((u: any) => u.id !== 'usr_retailer_1');
+          if (parsed.users.length !== originalLen) modified = true;
+        }
+
+        if (modified) {
+          this.saveData(parsed);
+        }
+        return parsed;
       }
     } catch (e) {
       console.error('Failed to read db.json, using initial seed', e);
@@ -1016,6 +624,21 @@ class Database {
   // User
   public getUsers(): User[] {
     return this.data.users;
+  }
+
+  public getUserById(id: string): User | undefined {
+    return this.data.users.find(u => u.id === id);
+  }
+
+  public saveUser(user: User): User {
+    const idx = this.data.users.findIndex(u => u.id === user.id);
+    if (idx >= 0) {
+      this.data.users[idx] = user;
+    } else {
+      this.data.users.push(user);
+    }
+    this.saveData(this.data);
+    return user;
   }
 
   // Products

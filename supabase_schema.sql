@@ -354,6 +354,39 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
+CREATE OR REPLACE FUNCTION is_retailer()
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN (get_auth_role() = 'retailer');
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
+-- Retrieve authoritative Retailer ID for current authenticated user
+CREATE OR REPLACE FUNCTION get_auth_retailer_id()
+RETURNS TEXT AS $$
+DECLARE
+    v_ret_id TEXT;
+BEGIN
+    -- 1. Check retailer_id on users table
+    SELECT retailer_id INTO v_ret_id 
+    FROM public.users 
+    WHERE id = auth.uid()::text OR email = auth.jwt()->>'email'
+    LIMIT 1;
+    
+    IF v_ret_id IS NOT NULL AND v_ret_id <> '' THEN
+        RETURN v_ret_id;
+    END IF;
+
+    -- 2. Fallback: match by email on retailers table
+    SELECT id INTO v_ret_id 
+    FROM public.retailers 
+    WHERE lower(email) = lower(auth.jwt()->>'email')
+    LIMIT 1;
+
+    RETURN v_ret_id;
+END;
+$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
+
 -- Clean up any prior policies
 DO $$ 
 DECLARE 
@@ -376,12 +409,14 @@ CREATE POLICY "users_select_policy" ON users FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "users_insert_policy" ON users;
 CREATE POLICY "users_insert_policy" ON users FOR INSERT WITH CHECK (
-    is_admin() OR auth.uid() IS NOT NULL OR auth.role() = 'anon'
+    is_admin() OR (role = 'retailer')
 );
 
 DROP POLICY IF EXISTS "users_update_policy" ON users;
 CREATE POLICY "users_update_policy" ON users FOR UPDATE USING (
     is_admin() OR id = auth.uid()::text OR email = auth.jwt()->>'email'
+) WITH CHECK (
+    is_admin() OR (role = (SELECT u.role FROM public.users u WHERE u.id = auth.uid()::text))
 );
 
 DROP POLICY IF EXISTS "users_delete_policy" ON users;
@@ -410,18 +445,27 @@ DROP POLICY IF EXISTS "products_admin_delete" ON products;
 CREATE POLICY "products_admin_delete" ON products FOR DELETE USING (is_admin());
 
 -- 4. RETAILERS RLS POLICIES
--- Salesman can onboard retailers, Accounts can view/update ledger balances, Admin full
+-- Admin, Salesman, Accounts can view/manage retailers.
+-- Retailer accounts can ONLY SELECT and UPDATE their own retailer profile!
 DROP POLICY IF EXISTS "retailers_select_policy" ON retailers;
-CREATE POLICY "retailers_select_policy" ON retailers FOR SELECT USING (true);
+CREATE POLICY "retailers_select_policy" ON retailers FOR SELECT USING (
+    is_admin() OR is_salesman() OR is_accounts() OR
+    (is_retailer() AND (id = get_auth_retailer_id() OR lower(email) = lower(auth.jwt()->>'email')))
+);
 
 DROP POLICY IF EXISTS "retailers_insert_policy" ON retailers;
 CREATE POLICY "retailers_insert_policy" ON retailers FOR INSERT WITH CHECK (
-    is_admin() OR is_salesman() OR auth.role() = 'anon'
+    is_admin() OR is_salesman() OR
+    (is_retailer() AND (id = get_auth_retailer_id() OR lower(email) = lower(auth.jwt()->>'email')))
 );
 
 DROP POLICY IF EXISTS "retailers_update_policy" ON retailers;
 CREATE POLICY "retailers_update_policy" ON retailers FOR UPDATE USING (
-    is_admin() OR is_salesman() OR is_accounts() OR auth.role() = 'anon'
+    is_admin() OR is_salesman() OR is_accounts() OR
+    (is_retailer() AND (id = get_auth_retailer_id() OR lower(email) = lower(auth.jwt()->>'email')))
+) WITH CHECK (
+    is_admin() OR is_salesman() OR is_accounts() OR
+    (is_retailer() AND (id = get_auth_retailer_id() OR lower(email) = lower(auth.jwt()->>'email')))
 );
 
 DROP POLICY IF EXISTS "retailers_delete_policy" ON retailers;
@@ -439,30 +483,54 @@ DROP POLICY IF EXISTS "salesmen_admin_delete" ON salesmen;
 CREATE POLICY "salesmen_admin_delete" ON salesmen FOR DELETE USING (is_admin());
 
 -- 6. ORDERS RLS POLICIES
--- Salesman books/manages orders; Delivery updates status & POD; Accounts updates payment status; Admin full
+-- Admin, Salesman, Accounts can view orders; Delivery views assigned/packed orders.
+-- Retailer accounts can ONLY view and place orders belonging to their own retailer profile!
 DROP POLICY IF EXISTS "orders_select_policy" ON orders;
-CREATE POLICY "orders_select_policy" ON orders FOR SELECT USING (true);
+CREATE POLICY "orders_select_policy" ON orders FOR SELECT USING (
+    is_admin() OR is_salesman() OR is_delivery() OR is_accounts() OR
+    (is_retailer() AND (retailer_id = get_auth_retailer_id() OR retailer_id IN (
+        SELECT r.id FROM public.retailers r WHERE lower(r.email) = lower(auth.jwt()->>'email')
+    )))
+);
 
 DROP POLICY IF EXISTS "orders_insert_policy" ON orders;
 CREATE POLICY "orders_insert_policy" ON orders FOR INSERT WITH CHECK (
-    is_admin() OR is_salesman() OR auth.role() = 'anon'
+    is_admin() OR is_salesman() OR
+    (is_retailer() AND (retailer_id = get_auth_retailer_id() OR retailer_id IN (
+        SELECT r.id FROM public.retailers r WHERE lower(r.email) = lower(auth.jwt()->>'email')
+    )))
 );
 
 DROP POLICY IF EXISTS "orders_update_policy" ON orders;
 CREATE POLICY "orders_update_policy" ON orders FOR UPDATE USING (
-    is_admin() OR is_salesman() OR is_delivery() OR is_accounts() OR auth.role() = 'anon'
+    is_admin() OR is_salesman() OR is_delivery() OR is_accounts()
 );
 
 DROP POLICY IF EXISTS "orders_delete_policy" ON orders;
 CREATE POLICY "orders_delete_policy" ON orders FOR DELETE USING (is_admin());
 
 -- 7. ORDER ITEMS RLS POLICIES
+-- Retailer can ONLY view order items for orders belonging to their own retailer profile!
 DROP POLICY IF EXISTS "order_items_select_policy" ON order_items;
-CREATE POLICY "order_items_select_policy" ON order_items FOR SELECT USING (true);
+CREATE POLICY "order_items_select_policy" ON order_items FOR SELECT USING (
+    is_admin() OR is_salesman() OR is_delivery() OR is_accounts() OR
+    (is_retailer() AND order_id IN (
+        SELECT o.id FROM public.orders o 
+        WHERE o.retailer_id = get_auth_retailer_id() OR o.retailer_id IN (
+            SELECT r.id FROM public.retailers r WHERE lower(r.email) = lower(auth.jwt()->>'email')
+        )
+    ))
+);
 
 DROP POLICY IF EXISTS "order_items_insert_policy" ON order_items;
 CREATE POLICY "order_items_insert_policy" ON order_items FOR INSERT WITH CHECK (
-    is_admin() OR is_salesman() OR auth.role() = 'anon'
+    is_admin() OR is_salesman() OR
+    (is_retailer() AND order_id IN (
+        SELECT o.id FROM public.orders o 
+        WHERE o.retailer_id = get_auth_retailer_id() OR o.retailer_id IN (
+            SELECT r.id FROM public.retailers r WHERE lower(r.email) = lower(auth.jwt()->>'email')
+        )
+    ))
 );
 
 DROP POLICY IF EXISTS "order_items_admin_modify" ON order_items;
@@ -471,18 +539,27 @@ DROP POLICY IF EXISTS "order_items_admin_delete" ON order_items;
 CREATE POLICY "order_items_admin_delete" ON order_items FOR DELETE USING (is_admin());
 
 -- 8. PAYMENTS RLS POLICIES
--- Accounts and Admin manage collections; Salesman and Delivery can record receipts
+-- Admin and Accounts manage collections; Salesman and Delivery record receipts.
+-- Retailer can ONLY view payment receipts recorded for their own retailer profile!
 DROP POLICY IF EXISTS "payments_select_policy" ON payments;
-CREATE POLICY "payments_select_policy" ON payments FOR SELECT USING (true);
+CREATE POLICY "payments_select_policy" ON payments FOR SELECT USING (
+    is_admin() OR is_accounts() OR is_salesman() OR is_delivery() OR
+    (is_retailer() AND (retailer_id = get_auth_retailer_id() OR retailer_id IN (
+        SELECT r.id FROM public.retailers r WHERE lower(r.email) = lower(auth.jwt()->>'email')
+    )))
+);
 
 DROP POLICY IF EXISTS "payments_insert_policy" ON payments;
 CREATE POLICY "payments_insert_policy" ON payments FOR INSERT WITH CHECK (
-    is_admin() OR is_accounts() OR is_salesman() OR is_delivery() OR auth.role() = 'anon'
+    is_admin() OR is_accounts() OR is_salesman() OR is_delivery() OR
+    (is_retailer() AND (retailer_id = get_auth_retailer_id() OR retailer_id IN (
+        SELECT r.id FROM public.retailers r WHERE lower(r.email) = lower(auth.jwt()->>'email')
+    )))
 );
 
 DROP POLICY IF EXISTS "payments_update_policy" ON payments;
 CREATE POLICY "payments_update_policy" ON payments FOR UPDATE USING (
-    is_admin() OR is_accounts() OR auth.role() = 'anon'
+    is_admin() OR is_accounts()
 );
 
 DROP POLICY IF EXISTS "payments_delete_policy" ON payments;
@@ -518,19 +595,23 @@ CREATE POLICY "movements_admin_all" ON inventory_movements FOR ALL USING (is_adm
 -- Automatic User Sync Trigger on Supabase Auth SignUp
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+    assigned_role user_role := 'retailer';
 BEGIN
+    -- Security Rule: Never trust client-provided role metadata during public self-signup.
+    -- All new registrations strictly receive the safe default 'retailer' role.
+    -- Privileged roles (admin, salesman, delivery, accounts) can only be granted by an authenticated Admin.
     INSERT INTO public.users (id, name, email, phone, role)
     VALUES (
         new.id::text,
         coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
         new.email,
         coalesce(new.raw_user_meta_data->>'phone', '+91 98000 00000'),
-        coalesce(new.raw_user_meta_data->>'role', 'salesman')
+        assigned_role
     )
     ON CONFLICT (id) DO UPDATE SET
         email = EXCLUDED.email,
         name = EXCLUDED.name,
-        role = EXCLUDED.role,
         updated_at = timezone('utc'::text, now());
     RETURN new;
 END;
@@ -584,8 +665,7 @@ INSERT INTO users (id, name, email, phone, role, avatar_url) VALUES
 ('usr_sales_1', 'Rajesh Kumar', 'rajesh.sales@aryanagency.in', '+91 98860 34567', 'salesman', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'),
 ('usr_sales_2', 'Vikram Singh', 'vikram.sales@aryanagency.in', '+91 99001 56789', 'salesman', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80'),
 ('usr_delivery_1', 'Suresh Gowda (Van KA-05-AB-1234)', 'suresh.van1@aryanagency.in', '+91 97410 78901', 'delivery', 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80'),
-('usr_accounts_1', 'Pooja Agarwal (Accounts Head)', 'pooja.accounts@aryanagency.in', '+91 98450 67890', 'accounts', 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80'),
-('usr_retailer_1', 'Ramesh Gupta (Laxmi Supermarket)', 'laxmi.supermarket@gmail.com', '+91 98455 22334', 'retailer', 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80')
+('usr_accounts_1', 'Pooja Agarwal (Accounts Head)', 'pooja.accounts@aryanagency.in', '+91 98450 67890', 'accounts', 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80')
 ON CONFLICT (id) DO NOTHING;
 
 -- 4. Salesmen Seed
@@ -596,13 +676,9 @@ INSERT INTO salesmen (id, employee_code, name, phone, email, assigned_beats, dai
 ON CONFLICT (id) DO NOTHING;
 
 -- 5. Retailers Seed
-INSERT INTO retailers (id, store_name, owner_name, phone, email, address, area, beat_name, gstin, pan_number, credit_limit, current_outstanding, credit_days_allowed, status) VALUES
-('ret_1', 'Laxmi Supermarket & General Store', 'Ramesh Gupta', '+91 98455 22334', 'laxmi.supermarket@gmail.com', '#45, 8th Cross, Sampige Road, Malleswaram', 'Malleswaram', 'Malleswaram Beat', '29AABCS1429B1Z8', 'AABCS1429B', 150000.00, 42350.00, 21, 'active'),
-('ret_2', 'Sri Balaji Provision & Kirana', 'Venkatesh Rao', '+91 98801 44556', 'balaji.kirana@yahoo.com', '#102, 1st Main, Yeshwanthpur Market', 'Yeshwanthpur', 'Yeshwanthpur Main Beat', '29AACFB8832L1Z4', 'AACFB8832L', 80000.00, 78400.00, 14, 'overdue'),
-('ret_3', 'Ganesh Daily Needs', 'Ganesh Hegde', '+91 97412 88990', 'ganesh.daily@gmail.com', '#12/A, 12th Main, Indiranagar', 'Indiranagar', 'Indiranagar 100ft Beat', '29AAAPG4920K1Z9', 'AAAPG4920K', 120000.00, 18500.00, 14, 'active'),
-('ret_4', 'Sapthagiri Super Mart', 'K. Murthy', '+91 99014 66778', 'sapthagiri.mart@gmail.com', '#88, 27th Main, HSR Layout Sector 1', 'HSR Layout', 'HSR Sector 1 Beat', '29AAGCS9921E1Z2', 'AAGCS9921E', 200000.00, 64200.00, 30, 'active'),
-('ret_5', 'Om Sai Ram Traders', 'Mahesh Patil', '+91 94481 33221', 'om.sairam.blr@gmail.com', '#34, 10th Cross, Rajajinagar 1st Block', 'Rajajinagar', 'Rajajinagar 1st Block', '29AAHPO1290C1Z7', 'AAHPO1290C', 50000.00, 52000.00, 7, 'blocked')
-ON CONFLICT (id) DO NOTHING;
+-- NOTE: Hardcoded sample retailers (such as Laxmi Supermarket, Ganesh Daily Needs, etc.)
+-- have been removed to guarantee 100% data isolation for retail partners.
+-- Each retail partner registers with their own outlet or is onboarded cleanly by distributor admin.
 
 -- 6. Products Seed
 INSERT INTO products (id, sku, name, brand, category, hsn_code, gst_rate, pieces_per_case, mrp_piece, wholesale_price_piece, case_price, current_stock_cases, current_stock_loose_pcs, reorder_level_cases, image_url, description, batches, active_scheme) VALUES
@@ -614,28 +690,6 @@ INSERT INTO products (id, sku, name, brand, category, hsn_code, gst_rate, pieces
 ('prd_6', 'AASHIRVAAD-ATTA-10KG', 'Aashirvaad Superior Sharbati Atta (10kg)', 'ITC Sunfeast', 'Spices & Staples', '11010000', 5.00, 4, 480.00, 430.00, 1720.00, 55, 0, 15, 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500&auto=format&fit=crop&q=80', '100% pure whole wheat chakki atta with 4-step advantage.', '[{"batchNumber":"ITC-AASH-771","mfgDate":"2026-07-25","expiryDate":"2026-10-25","stockCases":55,"stockLoosePcs":0,"warehouseBin":"B-01-01"}]'::jsonb, NULL)
 ON CONFLICT (id) DO NOTHING;
 
--- 7. Orders Seed
-INSERT INTO orders (id, order_number, retailer_id, retailer_name, retailer_phone, retailer_address, retailer_gstin, beat_name, salesman_id, salesman_name, order_date, expected_delivery_date, subtotal, total_discount, total_taxable, total_cgst, total_sgst, total_tax, grand_total, amount_paid, outstanding_amount, status, payment_status, notes) VALUES
-('ord_1', 'ORD-2026-1001', 'ret_1', 'Laxmi Supermarket & General Store', '+91 98455 22334', '#45, 8th Cross, Sampige Road, Malleswaram', '29AABCS1429B1Z8', 'Malleswaram Beat', 'slm_1', 'Rajesh Kumar', (now() - interval '2 days'), CURRENT_DATE, 18450.00, 504.00, 15208.47, 1368.76, 1368.76, 2737.53, 17946.00, 17946.00, 0.00, 'delivered', 'paid', 'Priority morning delivery completed with verified digital POD.'),
-('ord_2', 'ORD-2026-1002', 'ret_3', 'Ganesh Daily Needs', '+91 97412 88990', '#12/A, 12th Main, Indiranagar', '29AAAPG4920K1Z9', 'Indiranagar 100ft Beat', 'slm_2', 'Vikram Singh', (now() - interval '1 day'), CURRENT_DATE, 24800.00, 604.80, 20504.41, 1845.40, 1845.40, 3690.80, 24195.00, 10000.00, 14195.00, 'dispatched', 'partial', 'Loaded on Van KA-05-AB-1234 for delivery run.'),
-('ord_3', 'ORD-2026-1003', 'ret_4', 'Sapthagiri Super Mart', '+91 99014 66778', '#88, 27th Main, HSR Layout Sector 1', '29AAGCS9921E1Z2', 'HSR Sector 1 Beat', 'slm_2', 'Vikram Singh', now(), CURRENT_DATE + interval '1 day', 31200.00, 0.00, 26440.68, 2379.66, 2379.66, 4759.32, 31200.00, 0.00, 31200.00, 'booked', 'unpaid', 'New booking punched via salesman mobile terminal.')
-ON CONFLICT (id) DO NOTHING;
-
--- 8. Order Items Seed
-INSERT INTO order_items (id, order_id, product_id, sku, product_name, brand, category, hsn_code, gst_rate, cases, loose_pcs, total_pieces, unit_price, gross_amount, discount_amount, taxable_amount, cgst_amount, sgst_amount, igst_amount, total_amount, scheme_applied, free_pcs_awarded) VALUES
-('itm_1', 'ord_1', 'prd_1', 'PARLE-G-80G', 'Parle-G Glucose Biscuit (80g)', 'Parle', 'Biscuits & Bakery', '19053100', 18.00, 10, 0, 600, 8.40, 5040.00, 504.00, 3844.07, 345.96, 345.96, 0.00, 4536.00, 'Monsoon Display Scheme 10+1', 60),
-('itm_2', 'ord_1', 'prd_3', 'CADBURY-DAIRYMILK-50G', 'Cadbury Dairy Milk Chocolate (50g)', 'Cadbury', 'Confectionery & Chocolates', '18063200', 18.00, 5, 0, 180, 38.25, 6885.00, 0.00, 5834.75, 525.13, 525.13, 0.00, 6885.00, NULL, 0),
-('itm_3', 'ord_1', 'prd_4', 'TATA-GOLD-TEA-500G', 'Tata Tea Gold Leaf (500g Jar Pack)', 'Tata Tea', 'Beverages', '09024020', 5.00, 1, 0, 24, 275.00, 6600.00, 0.00, 6285.71, 157.14, 157.14, 0.00, 6600.00, NULL, 0)
-ON CONFLICT (id) DO NOTHING;
-
--- 9. Payments Seed
-INSERT INTO payments (id, receipt_number, retailer_id, retailer_name, order_id, order_number, amount, payment_mode, transaction_ref, payment_date, collected_by_role, collector_name, status, notes) VALUES
-('pay_1', 'RCP-2026-501', 'ret_1', 'Laxmi Supermarket & General Store', 'ord_1', 'ORD-2026-1001', 17946.00, 'upi', 'UPI/260814992104/AXIS', (now() - interval '2 days'), 'delivery', 'Suresh Gowda', 'confirmed', 'On-spot QR code payment at delivery handover.'),
-('pay_2', 'RCP-2026-502', 'ret_3', 'Ganesh Daily Needs', 'ord_2', 'ORD-2026-1002', 10000.00, 'cheque', 'CHQ#440912', (now() - interval '1 day'), 'salesman', 'Vikram Singh', 'confirmed', 'HDFC Bank cheque received as advance token.'),
-('pay_3', 'RCP-2026-503', 'ret_4', 'Sapthagiri Super Mart', NULL, NULL, 25000.00, 'bank_transfer', 'NEFT/N260800192', (now() - interval '3 days'), 'admin', 'Aryan Sharma', 'confirmed', 'Direct NEFT RTGS credit towards opening ledger balance.')
-ON CONFLICT (id) DO NOTHING;
-
--- 10. Deliveries Seed
-INSERT INTO deliveries (id, run_number, date, driver_name, driver_phone, vehicle_number, beat_names, total_orders, delivered_orders, total_order_value, total_cash_collected, total_upi_collected, status, order_ids) VALUES
-('del_1', 'RUN-2026-042', CURRENT_DATE, 'Suresh Gowda', '+91 97410 78901', 'KA-05-AB-1234', ARRAY['Malleswaram Beat', 'Yeshwanthpur Main Beat'], 2, 1, 42141.00, 0.00, 17946.00, 'out_for_delivery', ARRAY['ord_1', 'ord_2'])
-ON CONFLICT (id) DO NOTHING;
+-- 7. Orders & Invoices Seed
+-- Production isolation: Orders, Order Items, Payments and Deliveries start clean.
+-- All transactions are generated from actual retailer indents and distributor fulfillment.

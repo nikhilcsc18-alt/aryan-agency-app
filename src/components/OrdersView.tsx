@@ -67,15 +67,24 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
   const beats = Array.from(new Set(baseOrders.map(o => o.beatName))).filter(Boolean);
 
-  const filteredOrders = baseOrders.filter(order => {
-    const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-    const matchesBeat = selectedBeat === 'all' || order.beatName === selectedBeat;
-    const matchesSearch = 
-      order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.retailerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (order.salesmanName && order.salesmanName.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesStatus && matchesBeat && matchesSearch;
-  });
+  const visibleOrders = currentUser?.role === 'retailer'
+  ? baseOrders.filter(order => order.retailerId === currentUser.retailerId)
+  : baseOrders;
+
+const filteredOrders = visibleOrders.filter(order => {
+
+  const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+
+  const matchesBeat = selectedBeat === 'all' || order.beatName === selectedBeat;
+
+  const matchesSearch =
+    order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    order.retailerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (order.salesmanName && order.salesmanName.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  return matchesStatus && matchesBeat && matchesSearch;
+
+});
 
   const getStatusBadge = (status: OrderStatus) => {
     switch (status) {

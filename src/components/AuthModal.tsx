@@ -10,9 +10,6 @@ import {
   Phone, 
   ShieldCheck, 
   Briefcase, 
-  Truck, 
-  Calculator, 
-  Store,
   X, 
   Check, 
   AlertCircle,
@@ -25,18 +22,14 @@ export const AuthModal: React.FC = () => {
     isAuthModalOpen, 
     closeAuthModal, 
     signInWithEmail, 
-    signUpWithEmail, 
-    allUsers, 
-    currentUser, 
-    switchUser 
+    signUpWithEmail
   } = useAuth();
 
-  const [mode, setMode] = useState<'signin' | 'signup' | 'demo'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [role, setRole] = useState<UserRole>('salesman');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -76,8 +69,7 @@ export const AuthModal: React.FC = () => {
         }
         const res = await signUpWithEmail(email, password, {
           name,
-          phone: phoneNumber || '+91 98000 00000',
-          role
+          phone: phoneNumber || '+91 98000 00000'
         });
         if (!res.success) {
           setError(res.error || 'Failed to create account. Please try again.');
@@ -90,29 +82,6 @@ export const AuthModal: React.FC = () => {
       setError(err.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleQuickLogin = (demoEmail: string, demoRole: UserRole) => {
-    setEmail(demoEmail);
-    setPassword('AryanAgency@2026');
-    setRole(demoRole);
-  };
-
-  const getRoleIcon = (r: string) => {
-    switch (r) {
-      case 'admin':
-        return <ShieldCheck className="w-4 h-4 text-blue-500" />;
-      case 'salesman':
-        return <Briefcase className="w-4 h-4 text-sky-500" />;
-      case 'delivery':
-        return <Truck className="w-4 h-4 text-emerald-500" />;
-      case 'accounts':
-        return <Calculator className="w-4 h-4 text-purple-500" />;
-      case 'retailer':
-        return <Store className="w-4 h-4 text-amber-500" />;
-      default:
-        return <User className="w-4 h-4 text-slate-500" />;
     }
   };
 
@@ -179,17 +148,6 @@ export const AuthModal: React.FC = () => {
           >
             Create Account
           </button>
-          <button
-            type="button"
-            onClick={() => { setMode('demo'); setError(null); setSuccessMsg(null); }}
-            className={`flex-1 py-2.5 text-xs font-semibold text-center border-b-2 transition-colors cursor-pointer ${
-              mode === 'demo'
-                ? 'border-[#2563eb] text-[#2563eb] bg-white'
-                : 'border-transparent text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            Fast Roles
-          </button>
         </div>
 
         <div className="p-5">
@@ -207,45 +165,7 @@ export const AuthModal: React.FC = () => {
             </div>
           )}
 
-          {mode === 'demo' ? (
-            <div className="space-y-3">
-              <p className="text-xs text-slate-500 mb-2">
-                Click any persona below to immediately log in and test role-based access:
-              </p>
-              <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
-                {allUsers.map((u) => {
-                  const isCur = u.id === currentUser?.id;
-                  return (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={async () => {
-                        await switchUser(u.id);
-                        closeAuthModal();
-                      }}
-                      className={`w-full text-left p-2.5 rounded-lg border text-xs flex items-center justify-between transition-all cursor-pointer ${
-                        isCur
-                          ? 'border-blue-500 bg-blue-50/70 text-blue-900 font-semibold'
-                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-2.5">
-                        <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center">
-                          {getRoleIcon(u.role)}
-                        </div>
-                        <div>
-                          <div className="font-semibold text-slate-900">{u.name}</div>
-                          <div className="text-[11px] text-slate-500">{u.email} &bull; <span className="capitalize font-medium">{u.role}</span></div>
-                        </div>
-                      </div>
-                      {isCur && <Check className="w-4 h-4 text-blue-600 shrink-0" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-3.5">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
               {mode === 'signup' && (
                 <>
                   <div>
@@ -277,19 +197,14 @@ export const AuthModal: React.FC = () => {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Role & Permissions</label>
-                    <select
-                      value={role}
-                      onChange={(e) => setRole(e.target.value as UserRole)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
-                    >
-                      <option value="salesman">Salesman (DSR - Order Booking & Retailers)</option>
-                      <option value="delivery">Delivery Partner (Trip Sheets & POD)</option>
-                      <option value="accounts">Accounts & Finance (Ledger & Collections)</option>
-                      <option value="admin">Distributor Admin (Full Access)</option>
-                      <option value="retailer">Retailer (Portal & Order Invoices)</option>
-                    </select>
+                  <div className="p-2.5 bg-blue-50/70 border border-blue-200/80 rounded-lg flex items-start space-x-2">
+                    <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] font-semibold text-blue-900">Registered as Retail Store Partner</p>
+                      <p className="text-[10px] text-blue-700 leading-snug mt-0.5">
+                        New accounts are created with the Retailer role. Privileged operational roles (Administrator, Sales Representative, Delivery, Accounts Officer) are strictly assigned by the Distributor Admin.
+                      </p>
+                    </div>
                   </div>
                 </>
               )}
@@ -324,42 +239,6 @@ export const AuthModal: React.FC = () => {
                 </div>
               </div>
 
-              {mode === 'signin' && (
-                <div className="pt-1">
-                  <p className="text-[11px] text-slate-500 font-medium mb-1.5">Quick Fill Demo Credentials:</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handleQuickLogin('aryan@aryanagency.in', 'admin')}
-                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-medium transition-colors"
-                    >
-                      Admin
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickLogin('rajesh.sales@aryanagency.in', 'salesman')}
-                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-medium transition-colors"
-                    >
-                      Salesman
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickLogin('suresh.van1@aryanagency.in', 'delivery')}
-                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-medium transition-colors"
-                    >
-                      Delivery
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleQuickLogin('pooja.accounts@aryanagency.in', 'accounts')}
-                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-medium transition-colors"
-                    >
-                      Accounts
-                    </button>
-                  </div>
-                </div>
-              )}
-
               <div className="pt-2">
                 <button
                   type="submit"
@@ -377,7 +256,6 @@ export const AuthModal: React.FC = () => {
                 </button>
               </div>
             </form>
-          )}
         </div>
       </div>
     </div>

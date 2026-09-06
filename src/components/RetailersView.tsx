@@ -15,7 +15,8 @@ import {
   CreditCard,
   Building,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { Retailer } from '../types';
 import { formatINR, formatINRDecimals, api } from '../lib/api';
@@ -45,6 +46,8 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRetailer, setEditingRetailer] = useState<Partial<Retailer> | null>(null);
   const [deletingRetailerId, setDeletingRetailerId] = useState<string | null>(null);
+  const [modalError, setModalError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Ledger Modal
   const [ledgerData, setLedgerData] = useState<{ retailer: Retailer; entries: any[]; finalBalance: number } | null>(null);
@@ -52,18 +55,29 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
 
   const beats = Array.from(new Set(retailers.map(r => r.beatName))).filter(Boolean);
 
-  const filteredRetailers = retailers.filter(r => {
-    const matchesSearch = 
-      r.storeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.phone.includes(searchQuery) ||
-      (r.gstin && r.gstin.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesBeat = selectedBeat === 'all' || r.beatName === selectedBeat;
-    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-    return matchesSearch && matchesBeat && matchesStatus;
-  });
+  const visibleRetailers = currentUser?.role === 'retailer'
+  ? retailers.filter(r => r.id === currentUser.retailerId)
+  : retailers;
+
+const filteredRetailers = visibleRetailers.filter(r => {
+
+  const matchesSearch =
+    r.storeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    r.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    r.phone.includes(searchQuery) ||
+    (r.gstin && r.gstin.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  const matchesBeat = selectedBeat === 'all' || r.beatName === selectedBeat;
+
+  const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+
+  return matchesSearch && matchesBeat && matchesStatus;
+
+});
 
   const handleOpenAdd = () => {
+    setModalError(null);
+    setIsSaving(false);
     setEditingRetailer({
       storeName: '',
       ownerName: '',
@@ -83,6 +97,8 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   };
 
   const handleOpenEdit = (retailer: Retailer) => {
+    setModalError(null);
+    setIsSaving(false);
     setEditingRetailer({ ...retailer });
     setIsModalOpen(true);
   };
@@ -90,9 +106,73 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingRetailer) return;
-    await onSaveRetailer(editingRetailer);
-    setIsModalOpen(false);
-    setEditingRetailer(null);
+
+    // 1. Client-side field validations
+    const storeName = editingRetailer.storeName?.trim();
+    if (!storeName) {
+      setModalError('Store / Outlet Name is required.');
+      return;
+    }
+
+    const ownerName = editingRetailer.ownerName?.trim();
+    if (!ownerName) {
+      setModalError('Owner / Proprietor Name is required.');
+      return;
+    }
+
+    const rawPhone = editingRetailer.phone?.trim() || '';
+    const digitsOnly = rawPhone.replace(/\D/g, '');
+    if (!digitsOnly || digitsOnly.length < 10) {
+      setModalError('A valid 10-digit mobile phone number is required for retailer order and payment tracking.');
+      return;
+    }
+
+    const address = editingRetailer.address?.trim();
+    if (!address) {
+      setModalError('Full shop address is required for delivery routing.');
+      return;
+    }
+
+    // 2. Prevent duplicate phone number registration
+    const targetSuffix = digitsOnly.slice(-10);
+    const phoneDuplicate = retailers.find(r => {
+      if (editingRetailer.id && r.id === editingRetailer.id) return false;
+      const existingDigits = (r.phone || '').replace(/\D/g, '');
+      return existingDigits.endsWith(targetSuffix);
+    });
+
+    if (phoneDuplicate) {
+      setModalError(`A retailer outlet with phone ${rawPhone} already exists (${phoneDuplicate.storeName}). Please check the phone number or edit the existing outlet.`);
+      return;
+    }
+
+    // 3. Prevent duplicate GSTIN registration
+    const gstin = editingRetailer.gstin?.trim().toUpperCase() || '';
+    if (gstin && gstin.length >= 15) {
+      const gstinDuplicate = retailers.find(r => {
+        if (editingRetailer.id && r.id === editingRetailer.id) return false;
+        return (r.gstin || '').trim().toUpperCase() === gstin;
+      });
+
+      if (gstinDuplicate) {
+        setModalError(`A retailer outlet with GSTIN ${gstin} already exists (${gstinDuplicate.storeName}).`);
+        return;
+      }
+    }
+
+    try {
+      setIsSaving(true);
+      setModalError(null);
+      await onSaveRetailer(editingRetailer);
+      setIsModalOpen(false);
+      setEditingRetailer(null);
+    } catch (err: any) {
+      console.error('[RetailersView Save Error]:', err);
+      // Preserve form values and show the actual error message inside the modal
+      setModalError(err?.message || 'Failed to save retailer outlet. Please check connection and try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleOpenLedger = async (retailerId: string) => {
@@ -321,6 +401,15 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
 
             <form onSubmit={handleSaveModal} className="p-5 space-y-4 overflow-y-auto text-xs">
               
+              {modalError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-start space-x-2 text-rose-700 animate-in fade-in duration-150">
+                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                  <div className="text-xs leading-relaxed font-medium">
+                    {modalError}
+                  </div>
+                </div>
+              )}
+              
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">Store / Outlet Name *</label>
@@ -479,16 +568,19 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
                 <button
                   type="button"
+                  disabled={isSaving}
                   onClick={() => setIsModalOpen(false)}
-                  className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                  className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-semibold rounded-lg shadow-xs cursor-pointer"
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-semibold rounded-lg shadow-xs cursor-pointer flex items-center space-x-1.5 disabled:opacity-75 disabled:cursor-not-allowed"
                 >
-                  Save Retail Outlet
+                  {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isSaving ? 'Saving Outlet...' : 'Save Retail Outlet'}</span>
                 </button>
               </div>
 

@@ -24,11 +24,31 @@ const PORT = 3000;
 app.use(express.json());
 
 // Initialize Supabase Server Client for token validation
-const rawSupabaseUrl = process.env.VITE_SUPABASE_URL || '';
-const rawSupabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+const rawSupabaseUrl = 
+  process.env.VITE_SUPABASE_URL || 
+  process.env.VITE_SUPABASE_PROJECT_URL || 
+  process.env.SUPABASE_URL || 
+  '';
+
+const rawSupabaseKey = 
+  process.env.VITE_SUPABASE_ANON_KEY || 
+  process.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
+  process.env.SUPABASE_ANON_KEY || 
+  process.env.SUPABASE_PUBLISHABLE_KEY || 
+  process.env.SUPABASE_KEY || 
+  '';
+
+const isKeyValid = Boolean(
+  rawSupabaseKey &&
+  !rawSupabaseKey.includes('placeholder') &&
+  !rawSupabaseKey.startsWith('AIza') &&
+  !rawSupabaseKey.startsWith('AQ.') &&
+  (rawSupabaseKey.startsWith('sb_publishable_') || rawSupabaseKey.startsWith('eyJ'))
+);
+
 const isSupabaseReady = Boolean(
   rawSupabaseUrl && 
-  rawSupabaseKey && 
+  isKeyValid && 
   !rawSupabaseUrl.includes('placeholder') && 
   rawSupabaseUrl.startsWith('http')
 );
@@ -60,12 +80,29 @@ async function authenticateRequest(req: any, res: any, next: any) {
             u.id === user.id
           );
           if (!authenticatedUser) {
+            // Check if user exists in Supabase users table to fetch authoritative role
+            let authoritativeRole: any = 'retailer';
+            try {
+              if (supabaseServer) {
+                const { data: dbUser } = await supabaseServer
+                  .from('users')
+                  .select('role')
+                  .eq('id', user.id)
+                  .maybeSingle();
+                if (dbUser && dbUser.role) {
+                  authoritativeRole = dbUser.role;
+                }
+              }
+            } catch (dbErr) {
+              console.warn('Supabase DB role lookup error:', dbErr);
+            }
+
             authenticatedUser = {
               id: user.id,
               name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
               email: user.email || '',
               phone: user.user_metadata?.phone || '+91 98000 00000',
-              role: (user.user_metadata?.role as any) || 'salesman'
+              role: authoritativeRole
             };
           }
         }
@@ -116,6 +153,37 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', app: 'Aryan Agency FMCG Distribution' });
 });
 
+// Diagnostic Supabase configuration status endpoint (does not expose secret keys)
+app.get('/api/supabase-status', (req, res) => {
+  let projectRef = '';
+  try {
+    if (rawSupabaseUrl) {
+      const parsed = new URL(rawSupabaseUrl);
+      projectRef = parsed.hostname.split('.')[0] || '';
+    }
+  } catch {}
+
+  const keyType = !rawSupabaseKey
+    ? 'missing'
+    : rawSupabaseKey.startsWith('sb_publishable_')
+    ? 'publishable'
+    : rawSupabaseKey.startsWith('eyJ')
+    ? 'anon_jwt'
+    : rawSupabaseKey.startsWith('AQ.') || rawSupabaseKey.startsWith('AIza')
+    ? 'google_gemini_key_detected'
+    : 'invalid';
+
+  res.json({
+    isConfigured: isSupabaseReady,
+    projectUrlConfigured: Boolean(rawSupabaseUrl),
+    projectUrl: rawSupabaseUrl || null,
+    projectRef: projectRef || null,
+    keyConfigured: Boolean(rawSupabaseKey),
+    keyType,
+    isValidKeyFormat: isKeyValid
+  });
+});
+
 // Current User & Auth State
 app.get('/api/auth/users', (req, res) => {
   const users = db.getUsers();
@@ -147,6 +215,46 @@ app.post('/api/auth/switch', (req, res) => {
   }
   res.status(404).json({ error: 'User not found' });
 });
+
+// Admin-Only Role Assignment / Promotion Endpoint
+const handleUpdateUserRole = (req: any, res: any) => {
+  const targetUserId = req.params.id;
+  const { role: newRole } = req.body;
+  const validRoles = ['admin', 'salesman', 'delivery', 'accounts', 'retailer'];
+  if (!validRoles.includes(newRole)) {
+    return res.status(400).json({ 
+      error: `Invalid operational role: '${newRole}'. Permitted roles: ${validRoles.join(', ')}` 
+    });
+  }
+
+  const users = db.getUsers();
+  const targetUser = users.find(u => u.id === targetUserId);
+  if (!targetUser) {
+    return res.status(404).json({ error: 'User account not found in system database' });
+  }
+
+  targetUser.role = newRole;
+  db.saveUser(targetUser);
+
+  // Sync to Supabase users table if connected
+  if (supabaseServer) {
+    Promise.resolve(
+      supabaseServer
+        .from('users')
+        .update({ role: newRole, updated_at: new Date().toISOString() })
+        .eq('id', targetUserId)
+    )
+      .then(({ error }: any) => {
+        if (error) console.warn('[Supabase Role Sync Warning]:', error.message);
+      })
+      .catch((e: any) => console.warn('[Supabase Role Sync Error]:', e));
+  }
+
+  res.json({ success: true, user: targetUser });
+};
+
+app.put('/api/auth/users/:id/role', requireRoles(['admin']), handleUpdateUserRole);
+app.put('/api/users/:id/role', requireRoles(['admin']), handleUpdateUserRole);
 
 // Products
 app.get('/api/products', (req, res) => {
@@ -194,13 +302,67 @@ app.get('/api/retailers', (req, res) => {
 
 app.post('/api/retailers', requireRoles(['admin', 'salesman', 'accounts']), (req, res) => {
   const newRetailer = req.body;
+  const storeName = newRetailer.storeName?.trim();
+  if (!storeName) {
+    return res.status(400).json({ error: 'Retail Outlet / Store Name is required.' });
+  }
+  const ownerName = newRetailer.ownerName?.trim();
+  if (!ownerName) {
+    return res.status(400).json({ error: 'Owner / Proprietor Name is required.' });
+  }
+  const rawPhone = newRetailer.phone?.trim() || '';
+  const digitsOnlyPhone = rawPhone.replace(/\D/g, '');
+  if (!digitsOnlyPhone || digitsOnlyPhone.length < 10) {
+    return res.status(400).json({ error: 'A valid 10-digit mobile phone number is required for retailer order and payment tracking.' });
+  }
+  const address = newRetailer.address?.trim();
+  if (!address) {
+    return res.status(400).json({ error: 'Shop address is required for delivery routing.' });
+  }
+
+  const existingRetailers = db.getRetailers();
+  const targetSuffix = digitsOnlyPhone.slice(-10);
+  const phoneDuplicate = existingRetailers.find(r => {
+    if (newRetailer.id && r.id === newRetailer.id) return false;
+    const existingDigits = (r.phone || '').replace(/\D/g, '');
+    return existingDigits.endsWith(targetSuffix);
+  });
+  if (phoneDuplicate) {
+    return res.status(400).json({ 
+      error: `A retailer outlet with phone ${rawPhone} already exists (${phoneDuplicate.storeName}). Please verify the phone number or edit the existing outlet.` 
+    });
+  }
+
+  const gstin = newRetailer.gstin?.trim().toUpperCase() || '';
+  if (gstin && gstin.length >= 15) {
+    const gstinDuplicate = existingRetailers.find(r => {
+      if (newRetailer.id && r.id === newRetailer.id) return false;
+      return (r.gstin || '').trim().toUpperCase() === gstin;
+    });
+    if (gstinDuplicate) {
+      return res.status(400).json({ 
+        error: `A retailer outlet with GSTIN ${gstin} already exists (${gstinDuplicate.storeName}). Each GSTIN must be uniquely registered.` 
+      });
+    }
+  }
+
   if (!newRetailer.id) {
     newRetailer.id = `ret_${Date.now()}`;
   }
-  if (!newRetailer.currentOutstanding) {
-    newRetailer.currentOutstanding = 0;
-  }
+  newRetailer.storeName = storeName;
+  newRetailer.ownerName = ownerName;
+  newRetailer.phone = rawPhone.startsWith('+91') ? rawPhone : `+91 ${rawPhone}`;
+  newRetailer.address = address;
+  newRetailer.area = newRetailer.area?.trim() || 'Indiranagar';
+  newRetailer.beatName = newRetailer.beatName?.trim() || 'Indiranagar Retail Beat';
+  newRetailer.gstin = gstin;
+  newRetailer.panNumber = newRetailer.panNumber?.trim().toUpperCase() || '';
+  newRetailer.creditLimit = Number(newRetailer.creditLimit) >= 0 ? Number(newRetailer.creditLimit) : 50000;
+  newRetailer.currentOutstanding = Number(newRetailer.currentOutstanding) || 0;
+  newRetailer.creditDaysAllowed = Number(newRetailer.creditDaysAllowed) || 14;
+  newRetailer.status = newRetailer.status || 'active';
   newRetailer.createdAt = newRetailer.createdAt || new Date().toISOString().split('T')[0];
+
   const saved = db.saveRetailer(newRetailer);
   res.json(saved);
 });
@@ -211,6 +373,27 @@ app.put('/api/retailers/:id', requireRoles(['admin', 'salesman', 'accounts']), (
   if (!existing) {
     return res.status(404).json({ error: 'Retailer not found' });
   }
+
+  const rawPhone = req.body.phone !== undefined ? req.body.phone?.trim() : existing.phone;
+  if (rawPhone) {
+    const digitsOnlyPhone = rawPhone.replace(/\D/g, '');
+    if (digitsOnlyPhone.length < 10) {
+      return res.status(400).json({ error: 'A valid 10-digit mobile phone number is required.' });
+    }
+    const targetSuffix = digitsOnlyPhone.slice(-10);
+    const existingRetailers = db.getRetailers();
+    const phoneDuplicate = existingRetailers.find(r => {
+      if (r.id === id) return false;
+      const existingDigits = (r.phone || '').replace(/\D/g, '');
+      return existingDigits.endsWith(targetSuffix);
+    });
+    if (phoneDuplicate) {
+      return res.status(400).json({ 
+        error: `A retailer outlet with phone ${rawPhone} already exists (${phoneDuplicate.storeName}).` 
+      });
+    }
+  }
+
   const updated = { ...existing, ...req.body, id };
   db.saveRetailer(updated);
   res.json(updated);
@@ -278,7 +461,7 @@ app.get('/api/retailers/:id/ledger', (req, res) => {
 });
 
 // Salesmen
-app.get('/api/salesmen', requireRoles(['admin', 'salesman', 'accounts']), (req, res) => {
+app.get('/api/salesmen', requireRoles(['admin', 'salesman', 'accounts', 'delivery']), (req, res) => {
   const salesmen = db.getSalesmen();
   res.json(salesmen);
 });
@@ -490,7 +673,7 @@ app.delete('/api/orders/:id', requireRoles(['admin']), (req, res) => {
 });
 
 // Deliveries
-app.get('/api/deliveries', requireRoles(['admin', 'delivery']), (req, res) => {
+app.get('/api/deliveries', requireRoles(['admin', 'delivery', 'salesman', 'accounts']), (req, res) => {
   const deliveries = db.getDeliveries();
   res.json(deliveries);
 });
@@ -631,7 +814,7 @@ app.post('/api/payments', (req, res) => {
 });
 
 // Inventory Movements
-app.get('/api/inventory', requireRoles(['admin']), (req, res) => {
+app.get('/api/inventory', requireRoles(['admin', 'salesman', 'delivery', 'accounts']), (req, res) => {
   const logs = db.getInventoryLogs();
   const products = db.getProducts();
   res.json({ logs, products });
@@ -791,6 +974,18 @@ app.get('/api/ai/insights', async (req, res) => {
 app.post('/api/db/reset', requireRoles(['admin']), (req, res) => {
   const data = db.resetToDefault();
   res.json({ success: true, message: 'Database reset to default FMCG demo dataset' });
+});
+
+// Explicit 404 handler for unmatched /api/* requests so Vite SPA never returns index.html for API calls
+app.all('/api/*', (req, res) => {
+  res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
+});
+
+// Global Express error handler returning JSON errors instead of HTML
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error('[API Error]:', err);
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
 });
 
 // Vite Middleware Setup
