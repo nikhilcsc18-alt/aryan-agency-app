@@ -95,7 +95,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (dbProfile) {
               setAuthenticatedUser(dbProfile);
               setCurrentUser(dbProfile);
-              setApiAuthContext(session.access_token || null, dbProfile.id, dbProfile.role);
+              setApiAuthContext(
+  session.access_token || null,
+  dbProfile.id,
+  dbProfile.role,
+  dbProfile.retailerId || null
+);
               return;
             }
           }
@@ -146,7 +151,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (profile) {
             setAuthenticatedUser(profile);
             setCurrentUser(profile);
-            setApiAuthContext(session.access_token || null, profile.id, profile.role);
+            setApiAuthContext(
+  session.access_token || null,
+  profile.id,
+  profile.role,
+  profile.retailerId || null
+);
           }
           setIsLoading(false);
         } else if (event === 'SIGNED_OUT' || !session) {
@@ -191,33 +201,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInWithEmail = async (email: string, pass: string): Promise<{ success: boolean; user?: User; error?: string }> => {
+const signInWithEmail = async (email: string, pass: string): Promise<{ success: boolean; user?: User; error?: string }> => {
     try {
-      // CRITICAL: DO NOT set global setIsLoading(true) here!
-      // In App.tsx, isAuthLoading unmounts LoginPage when true and remounts when false,
-      // which was clearing the form fields and wiping out error messages.
       const cleanEmail = email.trim().toLowerCase();
       console.log('[AuthContext] Processing signInWithEmail for:', cleanEmail);
 
-      // 1. Attempt Supabase Auth first when configured
       if (isSupabaseConfigured) {
         try {
           const res = await supabaseService.signInWithEmail(cleanEmail, pass);
+
           if (res.user) {
             setAuthenticatedUser(res.user);
             setCurrentUser(res.user);
             setIsAuthenticatedWithSupabase(true);
+
             const session = await supabaseService.getAuthSession().catch(() => null);
             setApiAuthContext(session?.access_token || null, res.user.id, res.user.role);
             setIsAuthModalOpen(false);
+
             console.log('[AuthContext] Supabase sign in successful:', res.user.email, 'Role:', res.user.role);
             return { success: true, user: res.user };
           }
         } catch (supabaseErr: any) {
           console.error('[Supabase Auth Error]:', supabaseErr);
 
-          // Check if failure is due to unregistered/invalid API key, network error, or Supabase project gateway issue
-          const isGatewayOrKeyError = 
+          const isGatewayOrKeyError =
             supabaseErr?.message?.includes('Unregistered API key') ||
             supabaseErr?.message?.includes('Invalid API key') ||
             supabaseErr?.message?.includes('Failed to fetch') ||
@@ -225,10 +233,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             (supabaseErr?.status === 401 && supabaseErr?.message?.toLowerCase().includes('api key'));
 
           if (isGatewayOrKeyError) {
-            console.warn(`[AuthContext] Supabase API key issue (${supabaseErr.message}). Checking verified ERP user directory...`);
-            
-            // Check verified ERP directory
             let usersList = allUsers;
+
             if (!usersList || usersList.length === 0) {
               try {
                 usersList = await api.getUsers();
@@ -238,51 +244,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             }
 
-            const matchedUser = (usersList || []).find(u => u.email.toLowerCase() === cleanEmail);
+            const matchedUser = (usersList || []).find(
+              u => u.email.toLowerCase() === cleanEmail
+            );
+
             if (matchedUser) {
-              // Verify password (supports default ERP password or normalized test entry)
               const normalizedPass = pass.trim();
-              const isDefaultPassword = 
-                normalizedPass === 'AryanAgency@2026' || 
+
+              const isDefaultPassword =
+                normalizedPass === 'AryanAgency@2026' ||
                 normalizedPass.toLowerCase() === 'aryanagency@2026' ||
                 normalizedPass === 'password';
 
               if (isDefaultPassword) {
-                console.log(`[AuthContext] Successfully authenticated verified ERP user: ${matchedUser.name} (${matchedUser.role})`);
                 setAuthenticatedUser(matchedUser);
                 setCurrentUser(matchedUser);
                 setIsAuthenticatedWithSupabase(false);
                 setApiAuthContext(null, matchedUser.id, matchedUser.role);
                 setIsAuthModalOpen(false);
+
                 return { success: true, user: matchedUser };
-              } else {
-                console.error('[AuthContext] Password mismatch for ERP user:', cleanEmail);
-                return { 
-                  success: false, 
-                  error: 'Invalid password. Please check your credentials or use Forgot Password.' 
-                };
               }
-            } else {
-              // User attempted to log in with an email not present in ERP staff directory
-              if (supabaseErr?.message?.includes('Unregistered API key')) {
-                return {
-                  success: false,
-                  error: 'Supabase API Gateway configuration error: The Publishable Key is not registered. Please verify your settings or contact your ERP administrator.'
-                };
-              }
+
+              return {
+                success: false,
+                error: 'Invalid password. Please check your credentials or use Forgot Password.'
+              };
             }
           }
 
-          // Return exact error message from Supabase or invalid credentials
-          const errorMessage = supabaseErr?.message?.includes('Unregistered API key')
-            ? 'Supabase API Gateway error: Unregistered API key. Please check your settings or contact your administrator.'
-            : (supabaseErr?.message || 'Invalid email or password. Please check your credentials.');
+          const errorMessage =
+            supabaseErr?.message?.includes('Unregistered API key')
+              ? 'Supabase API Gateway error: Unregistered API key. Please check your settings or contact your administrator.'
+              : (supabaseErr?.message || 'Invalid email or password. Please check your credentials.');
+
           return { success: false, error: errorMessage };
         }
       } else {
-        // Supabase is not configured: authenticate via local ERP user store
-        console.log('[AuthContext] Supabase not configured. Checking ERP user store for:', cleanEmail);
         let usersList = allUsers;
+
         if (!usersList || usersList.length === 0) {
           try {
             usersList = await api.getUsers();
@@ -292,7 +292,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
 
-        const matchedUser = (usersList || []).find(u => u.email.toLowerCase() === cleanEmail);
+        const matchedUser = (usersList || []).find(
+          u => u.email.toLowerCase() === cleanEmail
+        );
+
         if (matchedUser) {
           if (pass === 'AryanAgency@2026') {
             setAuthenticatedUser(matchedUser);
@@ -300,28 +303,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setIsAuthenticatedWithSupabase(false);
             setApiAuthContext(null, matchedUser.id, matchedUser.role);
             setIsAuthModalOpen(false);
+
             return { success: true, user: matchedUser };
-          } else {
-            return { 
-              success: false, 
-              error: 'Invalid password. Please verify your credentials and try again.' 
-            };
           }
+
+          return {
+            success: false,
+            error: 'Invalid password. Please verify your credentials and try again.'
+          };
         }
 
-        return { 
-          success: false, 
-          error: `No registered account found with email ${cleanEmail}. Please check the email address.` 
+        return {
+          success: false,
+          error: `No registered account found with email ${cleanEmail}. Please check the email address.`
         };
       }
 
-      return { success: false, error: 'Authentication failed. Please check your credentials.' };
+      return {
+        success: false,
+        error: 'Authentication failed. Please check your credentials.'
+      };
     } catch (err: any) {
       console.error('[AuthContext] Unexpected signIn error:', err);
-      return { success: false, error: err.message || 'Login failed. Please check your credentials.' };
+      return {
+        success: false,
+        error: err.message || 'Login failed. Please check your credentials.'
+      };
     }
   };
+=======
+ const signInWithEmail = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    setIsLoading(true);
+    const res = await supabaseService.signInWithEmail(email, pass);
+>>>>>>> pc-backup
 
+    if (res.user) {
+      setAuthenticatedUser(res.user);
+      setCurrentUser(res.user);
+      setIsAuthenticatedWithSupabase(true);
+
+      const session = await supabaseService.getAuthSession().catch(() => null);
+
+      setApiAuthContext(
+        session?.access_token || null,
+        res.user.id,
+        res.user.role,
+        res.user.retailerId || null
+      );
+    }
+
+    setIsAuthModalOpen(false);
+    return { success: true };
+
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'Login failed. Please check your credentials.'
+    };
+  } finally {
+    setIsLoading(false);
+  }
+};
   const signUpWithEmail = async (
     email: string, 
     pass: string, 
