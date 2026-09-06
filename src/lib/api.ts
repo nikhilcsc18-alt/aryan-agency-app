@@ -15,12 +15,20 @@ import { supabaseService, isSupabaseConfigured, supabaseUrl } from './supabase';
 let activeToken: string | null = null;
 let activeUserId: string | null = null;
 let activeUserRole: string | null = null;
+let activeRetailerId: string | null = null;
 
-export function setApiAuthContext(token: string | null, userId: string | null, role: string | null) {
+export function setApiAuthContext(
+  token: string | null,
+  userId: string | null,
+  role: string | null,
+  retailerId: string | null = null
+) {
   activeToken = token;
   activeUserId = userId;
   activeUserRole = role;
+  activeRetailerId = retailerId;
 }
+
 
 async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = new Headers(options.headers || {});
@@ -197,18 +205,32 @@ export const api = {
   },
 
   // Retailers
-  async getRetailers(): Promise<Retailer[]> {
-    if (isSupabaseConfigured) {
-      try {
-        const retailers = await supabaseService.getRetailers();
-        if (retailers && retailers.length > 0) return retailers;
-      } catch (e) {
-        console.warn('Supabase getRetailers fallback to local API:', e);
+ async getRetailers(): Promise<Retailer[]> {
+  if (isSupabaseConfigured) {
+    try {
+      const retailers = await supabaseService.getRetailers();
+
+      if (retailers) {
+        if (activeUserRole === 'retailer' && activeRetailerId) {
+          return retailers.filter(r => r.id === activeRetailerId);
+        }
+
+        return retailers;
       }
+    } catch (e) {
+      console.warn('Supabase getRetailers fallback to local API:', e);
     }
-    const res = await authFetch('/api/retailers');
-    return res.json();
-  },
+  }
+
+  const res = await authFetch('/api/retailers');
+  const retailers = await res.json();
+
+  if (activeUserRole === 'retailer' && activeRetailerId) {
+    return retailers.filter((r: Retailer) => r.id === activeRetailerId);
+  }
+
+  return retailers;
+},
 
   async saveRetailer(retailer: Partial<Retailer>): Promise<Retailer> {
     if (isSupabaseConfigured) {
@@ -231,9 +253,22 @@ export const api = {
   },
 
   async getRetailerLedger(id: string): Promise<{ retailer: Retailer; entries: any[]; finalBalance: number }> {
-    const res = await authFetch(`/api/retailers/${id}/ledger`);
-    return res.json();
-  },
+  if (
+    activeUserRole === 'retailer' &&
+    activeRetailerId &&
+    id !== activeRetailerId
+  ) {
+    throw new Error('Unauthorized: You can only access your own ledger.');
+  }
+
+  const safeRetailerId =
+    activeUserRole === 'retailer' && activeRetailerId
+      ? activeRetailerId
+      : id;
+
+  const res = await authFetch(`/api/retailers/${safeRetailerId}/ledger`);
+  return res.json();
+},
 
   async deleteRetailer(id: string): Promise<{ success: boolean }> {
     if (isSupabaseConfigured) {

@@ -47,20 +47,25 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
     notes: 'Payment received towards outstanding balance'
   });
 
-  const filteredPayments = payments.filter(p => {
-    const matchesMode = modeFilter === 'all' || p.paymentMode === modeFilter;
-    const matchesSearch = 
-      p.receiptNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.retailerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (p.referenceNumber && p.referenceNumber.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesMode && matchesSearch;
-  });
+  const visiblePayments = currentUser?.role === 'retailer'
+  ? payments.filter(p => p.retailerId === currentUser.retailerId)
+  : payments;
+
+const filteredPayments = visiblePayments.filter(p => {
+  const matchesMode = modeFilter === 'all' || p.paymentMode === modeFilter;
+  const matchesSearch =
+    p.receiptNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.retailerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (p.referenceNumber && p.referenceNumber.toLowerCase().includes(searchQuery.toLowerCase()));
+
+  return matchesMode && matchesSearch;
+});
 
   // Calculate stats
-  const totalCollections = payments.reduce((s, p) => s + p.amount, 0);
-  const cashTotal = payments.filter(p => p.paymentMode === 'cash').reduce((s, p) => s + p.amount, 0);
-  const upiTotal = payments.filter(p => p.paymentMode === 'upi').reduce((s, p) => s + p.amount, 0);
-  const chequeTotal = payments.filter(p => p.paymentMode === 'cheque' || p.paymentMode === 'bank_transfer').reduce((s, p) => s + p.amount, 0);
+ const totalCollections = visiblePayments.reduce((s, p) => s + p.amount, 0);
+const cashTotal = visiblePayments.filter(p => p.paymentMode === 'cash').reduce((s, p) => s + p.amount, 0);
+const upiTotal = visiblePayments.filter(p => p.paymentMode === 'upi').reduce((s, p) => s + p.amount, 0);
+const chequeTotal = visiblePayments.filter(p => p.paymentMode === 'cheque' || p.paymentMode === 'bank_transfer').reduce((s, p) => s + p.amount, 0);
 
   const handleOpenRecord = (ret?: Retailer) => {
     setPaymentForm({
@@ -113,7 +118,7 @@ export const PaymentsView: React.FC<PaymentsViewProps> = ({
         <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">
           <span className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider block">Total Collections</span>
           <span className="text-lg font-bold font-mono text-slate-900 mt-0.5 block">{formatINR(totalCollections)}</span>
-          <span className="text-[10px] text-slate-400 mt-1 block">{payments.length} Receipts Processed</span>
+          <span className="text-[10px] text-slate-400 mt-1 block">{visiblePayments.length} Receipts Processed</span>
         </div>
 
         <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs">

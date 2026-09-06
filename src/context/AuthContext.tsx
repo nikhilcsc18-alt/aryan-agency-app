@@ -94,7 +94,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (dbProfile) {
               setAuthenticatedUser(dbProfile);
               setCurrentUser(dbProfile);
-              setApiAuthContext(session.access_token || null, dbProfile.id, dbProfile.role);
+              setApiAuthContext(
+  session.access_token || null,
+  dbProfile.id,
+  dbProfile.role,
+  dbProfile.retailerId || null
+);
               return;
             }
           }
@@ -145,7 +150,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (profile) {
             setAuthenticatedUser(profile);
             setCurrentUser(profile);
-            setApiAuthContext(session.access_token || null, profile.id, profile.role);
+            setApiAuthContext(
+  session.access_token || null,
+  profile.id,
+  profile.role,
+  profile.retailerId || null
+);
           }
           setIsLoading(false);
         } else if (event === 'SIGNED_OUT' || !session) {
@@ -190,26 +200,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInWithEmail = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      setIsLoading(true);
-      const res = await supabaseService.signInWithEmail(email, pass);
-      if (res.user) {
-        setAuthenticatedUser(res.user);
-        setCurrentUser(res.user);
-        setIsAuthenticatedWithSupabase(true);
-        const session = await supabaseService.getAuthSession().catch(() => null);
-        setApiAuthContext(session?.access_token || null, res.user.id, res.user.role);
-      }
-      setIsAuthModalOpen(false);
-      return { success: true };
-    } catch (err: any) {
-      return { success: false, error: err.message || 'Login failed. Please check your credentials.' };
-    } finally {
-      setIsLoading(false);
-    }
-  };
+ const signInWithEmail = async (email: string, pass: string): Promise<{ success: boolean; error?: string }> => {
+  try {
+    setIsLoading(true);
+    const res = await supabaseService.signInWithEmail(email, pass);
 
+    if (res.user) {
+      setAuthenticatedUser(res.user);
+      setCurrentUser(res.user);
+      setIsAuthenticatedWithSupabase(true);
+
+      const session = await supabaseService.getAuthSession().catch(() => null);
+
+      setApiAuthContext(
+        session?.access_token || null,
+        res.user.id,
+        res.user.role,
+        res.user.retailerId || null
+      );
+    }
+
+    setIsAuthModalOpen(false);
+    return { success: true };
+
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'Login failed. Please check your credentials.'
+    };
+  } finally {
+    setIsLoading(false);
+  }
+};
   const signUpWithEmail = async (
     email: string, 
     pass: string, 
