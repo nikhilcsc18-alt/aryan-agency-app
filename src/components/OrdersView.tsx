@@ -193,8 +193,8 @@ const filteredOrders = visibleOrders.filter(order => {
         </div>
       </div>
 
-      {/* Orders Table */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
+      {/* Orders List: Desktop Table (screens >= 768px) & Mobile Android Cards (screens <= 767px) */}
+      <div className="hidden md:block bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#f1f5f9] text-slate-600 uppercase text-[11px] font-semibold border-b border-slate-200">
@@ -365,6 +365,153 @@ const filteredOrders = visibleOrders.filter(order => {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* MOBILE ANDROID ORDER CARDS (screens <= 767px)                             */}
+      {/* Compact, clean card layout with full touch interaction                    */}
+      {/* ========================================================================= */}
+      <div className="md:hidden space-y-3">
+        {filteredOrders.map((order) => {
+          const totalCases = order.items.reduce((s, i) => s + i.cases, 0);
+
+          const getStatusPillClass = (status: OrderStatus) => {
+            switch (status) {
+              case 'delivered':
+                return 'status-success';
+              case 'dispatched':
+              case 'packed':
+              case 'confirmed':
+                return 'status-info';
+              case 'booked':
+                return 'status-warning';
+              case 'cancelled':
+                return 'status-danger';
+              default:
+                return 'status-info';
+            }
+          };
+
+          return (
+            <div
+              key={order.id}
+              className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 space-y-3 active:border-blue-300 transition-all"
+            >
+              {/* Header: Order ID + Status Pills */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-mono font-bold text-sm text-[#2563eb]">
+                    {order.orderNumber}
+                  </span>
+                  <div className="text-[10px] text-slate-400">
+                    {new Date(order.orderDate).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-1.5">
+                  <span className={`status-pill text-[10px] ${getStatusPillClass(order.status)}`}>
+                    {order.status}
+                  </span>
+                  <span className={`status-pill text-[10px] ${
+                    order.paymentStatus === 'paid'
+                      ? 'status-success'
+                      : order.paymentStatus === 'partial'
+                      ? 'status-warning'
+                      : 'status-danger'
+                  }`}>
+                    {order.paymentStatus}
+                  </span>
+                </div>
+              </div>
+
+              {/* Retailer & Route */}
+              <div className="pt-2 border-t border-slate-100 flex items-start justify-between">
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">{order.retailerName}</h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {order.beatName} • <span className="text-slate-600 font-medium">{order.salesmanName || 'Self Indent'}</span>
+                  </p>
+                </div>
+                <div className="text-right">
+                  <div className="font-mono font-bold text-slate-900 text-sm">
+                    {formatINR(order.grandTotal)}
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    {order.items.length} SKUs ({totalCases} cs)
+                  </div>
+                </div>
+              </div>
+
+              {/* Items summary preview */}
+              <div className="bg-slate-50 rounded-lg p-2 text-xs text-slate-600">
+                <span className="font-semibold text-slate-700">Items: </span>
+                <span className="text-slate-500">
+                  {order.items.map(i => `${i.productName.split(' ')[0]} (${i.cases}cs)`).join(', ')}
+                </span>
+              </div>
+
+              {/* Action Toolbar */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <button
+                  onClick={() => onOpenInvoice(order)}
+                  className="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-[#1e293b] hover:text-white text-slate-700 border border-slate-200 flex items-center space-x-1.5 active:scale-95 transition-all"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>GST Invoice</span>
+                </button>
+
+                <div className="flex items-center space-x-1.5">
+                  {isAdmin && order.status === 'booked' && (
+                    <button
+                      onClick={() => onUpdateStatus(order.id, 'confirmed')}
+                      className="px-3 py-2 text-xs font-semibold rounded-lg bg-[#2563eb] text-white active:scale-95 transition-transform"
+                    >
+                      Confirm Order
+                    </button>
+                  )}
+
+                  {isAdmin && order.status === 'confirmed' && (
+                    <button
+                      onClick={() => onUpdateStatus(order.id, 'packed')}
+                      className="px-3 py-2 text-xs font-semibold rounded-lg bg-purple-600 text-white active:scale-95 transition-transform"
+                    >
+                      Pack Stock
+                    </button>
+                  )}
+
+                  {isAdmin && order.status === 'packed' && (
+                    <button
+                      onClick={() => onUpdateStatus(order.id, 'dispatched', { driverName: 'Suresh Gowda', vehicleNumber: 'KA-05-AB-1234' })}
+                      className="px-3 py-2 text-xs font-semibold rounded-lg bg-[#1e293b] text-white active:scale-95 transition-transform"
+                    >
+                      Dispatch Van
+                    </button>
+                  )}
+
+                  {order.status === 'dispatched' && (
+                    <button
+                      onClick={() => onUpdateStatus(order.id, 'delivered', { podReceiverName: 'Store Incharge' })}
+                      className="px-3 py-2 text-xs font-semibold rounded-lg bg-emerald-600 text-white active:scale-95 transition-transform"
+                    >
+                      Mark Delivered
+                    </button>
+                  )}
+
+                  {isAdmin && onDeleteOrder && (
+                    <button
+                      onClick={() => setDeletingOrderId(order.id)}
+                      className="p-2 text-slate-400 hover:text-rose-600 active:scale-95 transition-transform"
+                      title="Delete Order"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          );
+        })}
       </div>
 
       {/* Delete Order Modal */}

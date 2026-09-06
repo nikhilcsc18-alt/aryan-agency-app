@@ -532,10 +532,17 @@ function MainApp() {
         onSelectTab={(tab) => setActiveTab(tab)}
         ordersBadge={pendingOrdersCount}
         lowStockBadge={criticalBatchesCount}
+        onOpenNewOrder={() => {
+          setSelectedProductForOrder(undefined);
+          setIsNewOrderModalOpen(true);
+        }}
+        onOpenAICopilot={() => {
+          setIsNewOrderModalOpen(true);
+        }}
       />
 
       {/* View Router Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 pb-24 md:pb-8">
         
         {/* Dashboard View - Protected */}
         {activeTab === 'dashboard' && (

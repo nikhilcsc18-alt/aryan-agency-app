@@ -244,7 +244,8 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Desktop Stock Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-[#f1f5f9] text-slate-600 uppercase text-[11px] font-semibold border-b border-slate-200">
                 <tr>
@@ -313,6 +314,66 @@ export const InventoryView: React.FC<InventoryViewProps> = ({
                   })}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Stock Cards (screens <= 767px) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {products
+              .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.sku.toLowerCase().includes(searchQuery.toLowerCase()))
+              .map((product) => {
+                const isLow = product.currentStockCases <= product.reorderLevelCases;
+                const val = product.currentStockCases * product.casePrice;
+
+                return (
+                  <div key={product.id} className="p-4 space-y-2.5">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold text-[#2563eb] uppercase bg-blue-50 px-1.5 py-0.5 rounded">
+                          {product.brand}
+                        </span>
+                        <h4 className="font-bold text-slate-900 text-sm mt-1">{product.name}</h4>
+                        <div className="text-[11px] text-slate-500 font-mono">
+                          {product.sku} • {product.piecesPerCase} pcs/case
+                        </div>
+                      </div>
+                      <span className={`status-pill text-[10px] ${isLow ? 'status-warning' : 'status-success'}`}>
+                        {isLow ? 'Low Stock' : 'Optimal'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-500">Available Stock:</span>
+                        <div className="font-mono font-bold text-slate-900 text-sm">
+                          {product.currentStockCases} Cases
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          Reorder at {product.reorderLevelCases} cs
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[10px] text-slate-500">Depot Valuation:</span>
+                        <div className="font-mono font-bold text-slate-900 text-sm">
+                          {formatINR(val)}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {formatINR(product.casePrice)}/cs
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-1">
+                      <button
+                        onClick={() => handleOpenInward(product.id)}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-[#2563eb] hover:bg-blue-100 flex items-center space-x-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Log Inward Stock</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}

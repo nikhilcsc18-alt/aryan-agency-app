@@ -71,13 +71,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     <div className="space-y-6 animate-in fade-in duration-150">
       
       {/* Persona Greeting & Top Bar */}
-      <div className="bg-white rounded-lg p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-lg p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <div className="flex items-center space-x-2.5">
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+          <div className="flex items-center space-x-2 sm:space-x-2.5">
+            <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
               {isSalesman ? 'My Beat Performance & Orders' : 'Distribution Overview'}
             </h1>
-            <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold uppercase tracking-wide border border-slate-200">
+            <span className="text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-semibold uppercase tracking-wide border border-slate-200">
               {currentRole}
             </span>
           </div>
@@ -88,10 +88,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center space-x-2.5">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:space-x-2.5">
           <button
             onClick={onOpenAICopilot}
-            className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors flex items-center space-x-1.5 cursor-pointer"
+            className="w-full sm:w-auto px-3 py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95"
           >
             <Sparkles className="w-3.5 h-3.5 text-[#2563eb]" />
             <span>AI Copilot</span>
@@ -99,7 +99,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           
           <button
             onClick={onOpenNewOrder}
-            className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer"
+            className="w-full sm:w-auto px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95"
           >
             <Plus className="w-4 h-4" />
             <span>+ Punch Order</span>
@@ -256,7 +256,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </button>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Desktop Table View (screens >= 768px) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-[#f1f5f9] text-slate-600 uppercase text-[11px] font-semibold border-b border-slate-200">
                 <tr>
@@ -318,6 +319,71 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card List (screens <= 767px) */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {displayOrders.slice(0, 6).map((order) => {
+              const getStatusPillClass = (status: string) => {
+                switch (status) {
+                  case 'delivered':
+                    return 'status-success';
+                  case 'dispatched':
+                  case 'packed':
+                    return 'status-info';
+                  case 'confirmed':
+                  case 'booked':
+                    return 'status-warning';
+                  default:
+                    return 'status-info';
+                }
+              };
+
+              return (
+                <div key={order.id} className="p-4 space-y-2.5 active:bg-slate-50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-xs text-[#2563eb]">
+                      {order.orderNumber}
+                    </span>
+                    <span className={`status-pill text-[10px] ${getStatusPillClass(order.status)}`}>
+                      {order.status}
+                    </span>
+                  </div>
+
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="font-bold text-slate-900 text-sm">{order.retailerName}</div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {order.beatName} • <span className="text-slate-600 font-medium">{order.salesmanName || 'Self Indent'}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-mono font-bold text-slate-900 text-sm">
+                        {formatINR(order.grandTotal)}
+                      </div>
+                      <div className="text-[10px] text-slate-400">
+                        {order.items.length} SKUs
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end space-x-2 pt-1 border-t border-slate-50">
+                    <button
+                      onClick={() => onOpenInvoice(order)}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-[#1e293b] hover:text-white text-slate-700 transition-colors border border-slate-200"
+                    >
+                      View Invoice
+                    </button>
+                    <button
+                      onClick={() => onNavigateTab('orders')}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-50 text-[#2563eb] hover:bg-blue-100 transition-colors"
+                    >
+                      Track Dispatch →
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 

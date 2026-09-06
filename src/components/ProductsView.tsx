@@ -223,8 +223,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
         </div>
       </div>
 
-      {/* Product List Table / Grid */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
+      {/* Product List: Desktop Table (screens >= 768px) & Mobile Android Cards (screens <= 767px) */}
+      <div className="hidden md:block bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#f1f5f9] text-slate-600 uppercase text-[11px] font-semibold border-b border-slate-200">
@@ -379,6 +379,138 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* MOBILE ANDROID PRODUCT CARDS (screens <= 767px)                           */}
+      {/* Visual FMCG cards with image, pricing, margins, live stock & action bar   */}
+      {/* ========================================================================= */}
+      <div className="md:hidden space-y-3">
+        {filteredProducts.map((product) => {
+          const isLowStock = product.currentStockCases <= product.reorderLevelCases;
+          const marginPct = Math.round(((product.mrpPiece - product.wholesalePricePiece) / product.mrpPiece) * 100);
+
+          return (
+            <div
+              key={product.id}
+              className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 space-y-3 active:border-blue-300 transition-all"
+            >
+              {/* Top Row: Image + Main Meta */}
+              <div className="flex items-start space-x-3">
+                <img
+                  src={product.imageUrl || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=150'}
+                  alt={product.name}
+                  referrerPolicy="no-referrer"
+                  className="w-16 h-16 rounded-lg object-cover border border-slate-200 shrink-0 bg-slate-100"
+                />
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-bold text-[#2563eb] uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                      {product.brand}
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      {product.sku}
+                    </span>
+                  </div>
+
+                  <h3 className="font-bold text-slate-900 text-sm leading-tight mt-1 truncate">
+                    {product.name}
+                  </h3>
+
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    {product.category} • {product.piecesPerCase} pcs/case
+                  </p>
+                </div>
+              </div>
+
+              {/* Trade Scheme Banner if active */}
+              {product.activeScheme && product.activeScheme.isActive && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 flex items-center space-x-1.5 text-xs text-amber-900">
+                  <Tag className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span className="font-semibold">{product.activeScheme.title}</span>
+                </div>
+              )}
+
+              {/* Price & Stock Stats Grid */}
+              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wide">Case Price</span>
+                  <div className="font-mono font-bold text-slate-900 text-sm">
+                    {formatINR(product.casePrice)}
+                  </div>
+                  <div className="text-[10px] text-slate-400">
+                    ₹{product.wholesalePricePiece.toFixed(2)}/pc • MRP ₹{product.mrpPiece.toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[10px] text-slate-500 uppercase tracking-wide">Depot Stock</span>
+                  <div className={`font-mono font-bold text-sm ${isLowStock ? 'text-amber-600' : 'text-slate-900'}`}>
+                    {product.currentStockCases} Cases
+                  </div>
+                  <div className="text-[10px] font-semibold text-emerald-600">
+                    {marginPct}% Retailer Margin
+                  </div>
+                </div>
+              </div>
+
+              {/* Mobile Action Controls */}
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <button
+                  onClick={() => setViewBatchesProduct(product)}
+                  className="py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center justify-center space-x-1 active:scale-95 transition-all"
+                >
+                  <Eye className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Batches</span>
+                </button>
+
+                {onAddToCart && (
+                  <button
+                    onClick={() => onAddToCart(product)}
+                    className="py-2 text-xs font-semibold rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 flex items-center justify-center space-x-1 active:scale-95 transition-all"
+                  >
+                    <ShoppingCart className="w-3.5 h-3.5 text-amber-700" />
+                    <span>+ Cart</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => handleBookProduct(product.id)}
+                  className={`py-2 text-xs font-semibold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white flex items-center justify-center space-x-1 active:scale-95 transition-all shadow-xs ${
+                    !onAddToCart ? 'col-span-2' : ''
+                  }`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Book Order</span>
+                </button>
+              </div>
+
+              {/* Admin Edit Controls if Admin */}
+              {isAdmin && (
+                <div className="flex items-center justify-end space-x-3 pt-2 border-t border-slate-100 text-xs">
+                  <button
+                    onClick={() => handleOpenEdit(product)}
+                    className="text-blue-600 font-semibold flex items-center space-x-1"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    <span>Edit SKU</span>
+                  </button>
+                  {onDeleteProduct && (
+                    <button
+                      onClick={() => setDeletingProductId(product.id)}
+                      className="text-rose-600 font-semibold flex items-center space-x-1"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+            </div>
+          );
+        })}
       </div>
 
       {/* Add / Edit Product Modal */}
