@@ -37,7 +37,7 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   onOpenNewOrderForRetailer,
   onRecordPaymentForRetailer
 }) => {
-  const { isAdmin, isSalesman, isAccounts, currentUser } = useAuth();
+  const { isAdmin, isSalesman, isAccounts, isRetailer, currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBeat, setSelectedBeat] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -56,8 +56,16 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   const beats = Array.from(new Set(retailers.map(r => r.beatName))).filter(Boolean);
 
   const visibleRetailers = currentUser?.role === 'retailer'
-  ? retailers.filter(r => r.id === currentUser.retailerId)
-  : retailers;
+    ? retailers.filter(r => 
+        (currentUser.retailerId && r.id === currentUser.retailerId) ||
+        (currentUser.name && (
+          r.storeName.toLowerCase() === currentUser.name.toLowerCase() ||
+          r.storeName.toLowerCase().includes(currentUser.name.toLowerCase()) ||
+          currentUser.name.toLowerCase().includes(r.storeName.toLowerCase())
+        )) ||
+        (currentUser.phone && r.phone && r.phone.includes(currentUser.phone.replace(/\D/g, '').slice(-10)))
+      )
+    : retailers;
 
 const filteredRetailers = visibleRetailers.filter(r => {
 
@@ -343,12 +351,14 @@ const filteredRetailers = visibleRetailers.filter(r => {
                 </button>
 
                 <div className="flex items-center space-x-1.5">
-                  <button
-                    onClick={() => onRecordPaymentForRetailer(retailer)}
-                    className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer"
-                  >
-                    Pay UPI
-                  </button>
+                  {!isRetailer && (
+                    <button
+                      onClick={() => onRecordPaymentForRetailer(retailer)}
+                      className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer"
+                    >
+                      Collect Dues
+                    </button>
+                  )}
 
                   {(isAdmin || isSalesman) && (
                     <button
@@ -369,12 +379,14 @@ const filteredRetailers = visibleRetailers.filter(r => {
                     </button>
                   )}
 
-                  <button
-                    onClick={() => onOpenNewOrderForRetailer(retailer.id)}
-                    className="px-3 py-1 text-[11px] font-semibold rounded-md bg-[#2563eb] hover:bg-[#1d4ed8] text-white transition-colors cursor-pointer"
-                  >
-                    + Book
-                  </button>
+                  {!isRetailer && (isSalesman || isAdmin) && (
+                    <button
+                      onClick={() => onOpenNewOrderForRetailer(retailer.id)}
+                      className="px-3 py-1 text-[11px] font-semibold rounded-md bg-[#2563eb] hover:bg-[#1d4ed8] text-white transition-colors cursor-pointer"
+                    >
+                      + Book
+                    </button>
+                  )}
                 </div>
               </div>
 

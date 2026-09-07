@@ -12,11 +12,30 @@ import {
   X, 
   AlertCircle,
   Eye,
-  ShoppingCart
+  ShoppingCart,
+  LayoutGrid,
+  List,
+  Flame,
+  ArrowUpDown,
+  Sparkles,
+  Percent,
+  CheckCircle2,
+  SlidersHorizontal,
+  Layers,
+  ShoppingBag,
+  Zap,
+  ScanLine,
+  QrCode,
+  Copy,
+  Barcode
 } from 'lucide-react';
-import { Product, ProductCategory, TradeScheme } from '../types';
+import { Product, ProductCategory, TradeScheme, CartItem } from '../types';
 import { formatINR } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { PromotionalBannerCarousel } from './PromotionalBannerCarousel';
+import { B2BProductCard } from './B2BProductCard';
+import { BrandCategoryBar } from './BrandCategoryBar';
+import { BarcodeScannerModal, PRODUCT_BARCODE_MAP } from './BarcodeScannerModal';
 
 interface ProductsViewProps {
   products: Product[];
@@ -25,7 +44,11 @@ interface ProductsViewProps {
   onInwardStock?: (productId: string) => void;
   onOpenNewOrderWithProduct?: (productId: string) => void;
   onQuickOrder?: (productId: string) => void;
-  onAddToCart?: (product: Product) => void;
+  onAddToCart?: (product: Product, casesCount?: number) => void;
+  cartItems?: CartItem[];
+  onUpdateCartItem?: (productId: string, cases: number, loosePcs: number) => void;
+  onRemoveFromCart?: (productId: string) => void;
+  onOpenCart?: () => void;
 }
 
 const CATEGORIES: ProductCategory[] = [
@@ -46,22 +69,41 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   onInwardStock,
   onOpenNewOrderWithProduct,
   onQuickOrder,
-  onAddToCart
+  onAddToCart,
+  cartItems = [],
+  onUpdateCartItem,
+  onRemoveFromCart,
+  onOpenCart
 }) => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isSalesman, isRetailer } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
+  const [onlyOffers, setOnlyOffers] = useState(false);
+  const [quickSort, setQuickSort] = useState<'default' | 'margin_desc' | 'price_asc' | 'price_desc' | 'name_asc'>('default');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
+  
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewBatchesProduct, setViewBatchesProduct] = useState<Product | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
+  const [copiedSku, setCopiedSku] = useState(false);
 
   const handleBookProduct = (productId: string) => {
     if (onOpenNewOrderWithProduct) {
       onOpenNewOrderWithProduct(productId);
     } else if (onQuickOrder) {
       onQuickOrder(productId);
+    }
+  };
+
+  const handleBuyNowProduct = (product: Product, cases: number = 1) => {
+    if (onAddToCart) {
+      onAddToCart(product, cases);
+    }
+    if (onOpenCart) {
+      onOpenCart();
     }
   };
 
@@ -76,14 +118,50 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
 
   // Filter products
   const filteredProducts = products.filter(p => {
+    const q = searchQuery.toLowerCase().trim();
+    const skuCode = (p.sku || (p as any).product_sku || (p as any).productSku || '').toLowerCase();
+    const barcodeCode = (p.barcode || (p as any).barcode_number || (p.sku && PRODUCT_BARCODE_MAP[p.sku]) || '').toLowerCase();
     const matchesSearch = 
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.brand.toLowerCase().includes(searchQuery.toLowerCase());
+      !q ||
+      (p.name && p.name.toLowerCase().includes(q)) ||
+      skuCode.includes(q) ||
+      (p.brand && p.brand.toLowerCase().includes(q)) ||
+      barcodeCode.includes(q);
     const matchesCat = selectedCategory === 'all' || p.category === selectedCategory;
     const matchesBrand = selectedBrand === 'all' || p.brand === selectedBrand;
-    return matchesSearch && matchesCat && matchesBrand;
+    
+    let matchesOffer = true;
+    if (onlyOffers) {
+      const hasScheme = p.activeScheme && p.activeScheme.isActive;
+      const margin = p.mrpPiece > 0 ? ((p.mrpPiece - p.wholesalePricePiece) / p.mrpPiece) * 100 : 0;
+      matchesOffer = Boolean(hasScheme || margin >= 18);
+    }
+
+    return matchesSearch && matchesCat && matchesBrand && matchesOffer;
   });
+
+  // Sort products
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    if (quickSort === 'margin_desc') {
+      const marginA = a.mrpPiece > 0 ? (a.mrpPiece - a.wholesalePricePiece) / a.mrpPiece : 0;
+      const marginB = b.mrpPiece > 0 ? (b.mrpPiece - b.wholesalePricePiece) / b.mrpPiece : 0;
+      return marginB - marginA;
+    }
+    if (quickSort === 'price_asc') {
+      return a.wholesalePricePiece - b.wholesalePricePiece;
+    }
+    if (quickSort === 'price_desc') {
+      return b.wholesalePricePiece - a.wholesalePricePiece;
+    }
+    if (quickSort === 'name_asc') {
+      return a.name.localeCompare(b.name);
+    }
+    return 0;
+  });
+
+  // Cart summary metrics
+  const totalCartCases = cartItems.reduce((sum, item) => sum + item.cases, 0);
+  const totalCartAmount = cartItems.reduce((sum, item) => sum + (item.cases * item.product.casePrice), 0);
 
   const handleOpenAdd = () => {
     setEditingProduct({
@@ -116,75 +194,214 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   };
 
   const handleOpenEdit = (product: Product) => {
-    setEditingProduct({ ...product });
+    setEditingProduct({
+      ...product,
+      sku: product.sku || (product as any).product_sku || (product as any).productSku || ''
+    });
     setIsModalOpen(true);
   };
 
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingProduct) return;
-    await onSaveProduct(editingProduct);
+    const cleanSku = (editingProduct.sku || (editingProduct as any).product_sku || '').trim();
+    const finalProduct = {
+      ...editingProduct,
+      sku: cleanSku,
+      product_sku: cleanSku
+    };
+    await onSaveProduct(finalProduct);
     setIsModalOpen(false);
     setEditingProduct(null);
   };
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-150">
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-150">
       
-      {/* Top Header & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-lg border border-slate-200 shadow-xs">
+      {/* 1. TOP PROMOTIONAL POSTER/BANNER CAROUSEL */}
+      <section aria-label="Promotional Banners">
+        <PromotionalBannerCarousel 
+          onSelectCategory={(cat) => setSelectedCategory(cat)}
+          isAdmin={isAdmin}
+        />
+      </section>
+
+      {/* 2. HORIZONTAL SCROLLABLE CIRCULAR/SQUARE BRAND ICONS SHOWCASE */}
+      <section aria-label="Brand Catalog Filtering">
+        <BrandCategoryBar 
+          products={products}
+          selectedBrand={selectedBrand}
+          onSelectBrand={(brand) => {
+            setSelectedBrand(brand);
+            // If selecting a specific brand, reset search query so user sees all brand SKUs
+            if (brand !== 'all' && searchQuery) {
+              setSearchQuery('');
+            }
+          }}
+        />
+      </section>
+
+      {/* 3. HEADER & ACTION BAR */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
         <div>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Product Master & FMCG SKUs</h1>
-          <p className="text-xs text-slate-500">Wholesale pricing, case quantities, GST tax slabs, and live warehouse inventory</p>
+          <div className="flex items-center space-x-2">
+            <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+              FMCG B2B Wholesale Catalog
+            </h1>
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-[#2563eb]">
+              {products.length} Products
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Depot wholesale rates, active brand schemes, carton packing & live depot inventory
+          </p>
         </div>
 
-        {isAdmin && (
-          <button
-            onClick={handleOpenAdd}
-            className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>+ Add New SKU</span>
-          </button>
-        )}
+        <div className="flex items-center space-x-2">
+          {/* Desktop View Mode Toggle */}
+          <div className="hidden md:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
+                viewMode === 'grid'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5 text-[#2563eb]" />
+              <span>B2B Cards</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer ${
+                viewMode === 'table'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <List className="w-3.5 h-3.5 text-slate-600" />
+              <span>Inventory Table</span>
+            </button>
+          </div>
+
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={handleOpenAdd}
+              className="px-3.5 py-2 text-xs font-bold rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer shrink-0 active:scale-95"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>+ Add New SKU</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Filters & Search Toolbar */}
-      <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          
-          {/* Search */}
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by SKU, Product name, or Brand..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] focus:bg-white transition-all"
-            />
-          </div>
+      {/* 3. APNACLUB-STYLE QUICK CATEGORY CHIPS */}
+      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+        <div className="flex items-center justify-between pb-1 border-b border-slate-100 text-xs">
+          <span className="font-bold text-slate-800 flex items-center space-x-1.5">
+            <Layers className="w-3.5 h-3.5 text-[#2563eb]" />
+            <span>Browse Categories</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedCategory('all');
+              setSelectedBrand('all');
+              setSearchQuery('');
+              setOnlyOffers(false);
+            }}
+            className="text-[11px] text-[#2563eb] hover:underline font-semibold cursor-pointer"
+          >
+            Reset Filters
+          </button>
+        </div>
 
-          {/* Category Filter */}
-          <div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] focus:bg-white"
+        {/* Scrollable Category Chips */}
+        <div className="flex items-center space-x-2 overflow-x-auto pb-1 no-scrollbar text-xs">
+          <button
+            type="button"
+            onClick={() => setSelectedCategory('all')}
+            className={`px-3.5 py-2 rounded-xl whitespace-nowrap transition-all font-bold cursor-pointer shrink-0 ${
+              selectedCategory === 'all'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            All Categories ({products.length})
+          </button>
+
+          {CATEGORIES.map(cat => {
+            const count = products.filter(p => p.category === cat).length;
+            const isSelected = selectedCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-3.5 py-2 rounded-xl whitespace-nowrap transition-all font-semibold cursor-pointer shrink-0 flex items-center space-x-1.5 ${
+                  isSelected
+                    ? 'bg-[#1A365D] text-white shadow-sm ring-2 ring-blue-400/40'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <span>{cat}</span>
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                  isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 4. SEARCH, BRAND FILTER & QUICK SORTS */}
+        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 pt-1">
+          {/* Prominent Search Input with Integrated Barcode Trigger */}
+          <div className="sm:col-span-6 flex items-center space-x-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search biscuit, namkeen, brand, SKU or scan barcode..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-8 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20 focus:border-[#2563eb] focus:bg-white transition-all placeholder:text-slate-400 font-medium"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 top-2.5 p-1 text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Dedicated Barcode Scanner Button */}
+            <button
+              type="button"
+              onClick={() => setIsBarcodeScannerOpen(true)}
+              className="px-3.5 py-2.5 rounded-xl bg-[#1e293b] hover:bg-slate-900 text-white font-bold text-xs flex items-center space-x-1.5 shadow-xs transition-all active:scale-95 cursor-pointer shrink-0 border border-slate-700"
+              title="Scan Product Barcode with Camera"
             >
-              <option value="all">All Categories ({products.length})</option>
-              {CATEGORIES.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
+              <ScanLine className="w-4 h-4 text-emerald-400" />
+              <span className="hidden sm:inline">Scan Barcode</span>
+            </button>
           </div>
 
-          {/* Brand Filter */}
-          <div>
+          {/* Brand Filter Dropdown */}
+          <div className="sm:col-span-2">
             <select
               value={selectedBrand}
               onChange={(e) => setSelectedBrand(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] focus:bg-white"
+              className="w-full px-3 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20 focus:border-[#2563eb] focus:bg-white text-slate-700 font-medium"
             >
               <option value="all">All Brands ({brands.length})</option>
               {brands.map(brand => (
@@ -193,325 +410,307 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
             </select>
           </div>
 
-        </div>
+          {/* Sort Dropdown */}
+          <div className="sm:col-span-2">
+            <select
+              value={quickSort}
+              onChange={(e) => setQuickSort(e.target.value as any)}
+              className="w-full px-2.5 py-2.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#2563eb]/20 focus:border-[#2563eb] focus:bg-white text-slate-700 font-medium"
+            >
+              <option value="default">Sort: Recommended</option>
+              <option value="margin_desc">🔥 Highest Margin %</option>
+              <option value="price_asc">Price: Low to High</option>
+              <option value="price_desc">Price: High to Low</option>
+              <option value="name_asc">Name: A to Z</option>
+            </select>
+          </div>
 
-        {/* Category Pills Quick Filter */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto pt-1 no-scrollbar text-xs">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
-              selectedCategory === 'all'
-                ? 'bg-[#1e293b] text-white font-semibold'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            All Categories
-          </button>
-          {CATEGORIES.map(cat => (
+          {/* Offer Filter Toggle */}
+          <div className="sm:col-span-2 flex items-center">
             <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors cursor-pointer ${
-                selectedCategory === cat
-                  ? 'bg-[#1e293b] text-white font-semibold'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              type="button"
+              onClick={() => setOnlyOffers(prev => !prev)}
+              className={`w-full py-2.5 px-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-all border cursor-pointer ${
+                onlyOffers
+                  ? 'bg-amber-500 text-slate-950 border-amber-500 shadow-xs'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-300'
               }`}
             >
-              {cat}
+              <Flame className="w-3.5 h-3.5 fill-current" />
+              <span>Offers Only</span>
             </button>
-          ))}
+          </div>
+        </div>
+
+        {/* Results Bar */}
+        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+          <span>
+            Showing <strong className="text-slate-900 font-bold">{sortedProducts.length}</strong> of {products.length} SKUs
+          </span>
+          {onlyOffers && (
+            <span className="text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+              Filtered: Active Schemes & Best Wholesale Margins
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Product List: Desktop Table (screens >= 768px) & Mobile Android Cards (screens <= 767px) */}
-      <div className="hidden md:block bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#f1f5f9] text-slate-600 uppercase text-[11px] font-semibold border-b border-slate-200">
-              <tr>
-                <th className="px-4 py-3">Product / Brand</th>
-                <th className="px-4 py-3">SKU & HSN</th>
-                <th className="px-4 py-3">Pack & GST</th>
-                <th className="px-4 py-3 text-right">Piece MRP</th>
-                <th className="px-4 py-3 text-right">Wholesale Price</th>
-                <th className="px-4 py-3 text-right">Case Price</th>
-                <th className="px-4 py-3 text-center">Warehouse Stock</th>
-                <th className="px-4 py-3">Active Scheme</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredProducts.map((product) => {
-                const isLowStock = product.currentStockCases <= product.reorderLevelCases;
-                const marginPct = Math.round(((product.mrpPiece - product.wholesalePricePiece) / product.mrpPiece) * 100);
+      {/* 5. PRODUCT DISPLAY: MODERN B2B CARDS (DEFAULT & MOBILE) VS TABLE */}
+      {viewMode === 'grid' ? (
+        <div>
+          {sortedProducts.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-3">
+              <Package className="w-12 h-12 text-slate-300 mx-auto" />
+              <h3 className="text-base font-bold text-slate-800">No products match your search criteria</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Try selecting "All Categories", clearing your brand filter, or searching for another FMCG brand like Parle, Britannia, or Sunfeast.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory('all');
+                  setSelectedBrand('all');
+                  setOnlyOffers(false);
+                }}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold cursor-pointer"
+              >
+                Clear All Filters
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-5 gap-2 sm:gap-3.5 lg:gap-5">
+              {sortedProducts.map((product) => {
+                const inCartItem = cartItems.find(i => i.product.id === product.id);
+                const inCartCases = inCartItem?.cases || 0;
 
                 return (
-                  <tr key={product.id} className="hover:bg-slate-50/80 transition-colors">
-                    
-                    {/* Product Name & Brand */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center space-x-3">
-                        <img
-                          src={product.imageUrl || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=100'}
-                          alt={product.name}
-                          referrerPolicy="no-referrer"
-                          className="w-10 h-10 rounded-md object-cover border border-slate-200 shrink-0 bg-slate-100"
-                        />
-                        <div>
-                          <div className="font-bold text-slate-900">{product.name}</div>
-                          <div className="text-[11px] text-[#2563eb] font-semibold">{product.brand} • <span className="text-slate-500 font-normal">{product.category}</span></div>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* SKU & HSN */}
-                    <td className="px-4 py-3">
-                      <div className="font-mono text-slate-900 font-semibold">{product.sku}</div>
-                      <div className="text-[11px] text-slate-500 font-mono">HSN: {product.hsnCode}</div>
-                    </td>
-
-                    {/* Case Packing & GST */}
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-800">{product.piecesPerCase} pcs / cs</div>
-                      <div className="text-[11px] text-slate-500 font-mono">GST {product.gstRate}%</div>
-                    </td>
-
-                    {/* MRP */}
-                    <td className="px-4 py-3 text-right font-mono text-slate-500">
-                      ₹{product.mrpPiece.toFixed(2)}
-                    </td>
-
-                    {/* Wholesale Price Piece */}
-                    <td className="px-4 py-3 text-right">
-                      <div className="font-mono font-semibold text-slate-900">₹{product.wholesalePricePiece.toFixed(2)}</div>
-                      <div className="text-[10px] text-emerald-600 font-semibold">{marginPct}% Margin</div>
-                    </td>
-
-                    {/* Case Price */}
-                    <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
-                      {formatINR(product.casePrice)}
-                    </td>
-
-                    {/* Stock */}
-                    <td className="px-4 py-3 text-center">
-                      <div className="inline-flex flex-col items-center">
-                        <span className={`font-mono font-bold text-xs ${isLowStock ? 'text-amber-600' : 'text-slate-900'}`}>
-                          {product.currentStockCases} cs
-                        </span>
-                        {product.currentStockLoosePcs > 0 && (
-                          <span className="text-[10px] text-slate-500 font-mono">+{product.currentStockLoosePcs} pcs</span>
-                        )}
-                        {isLowStock && (
-                          <span className="mt-0.5 status-pill status-warning text-[9px]">
-                            Low Stock
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Active Scheme */}
-                    <td className="px-4 py-3">
-                      {product.activeScheme && product.activeScheme.isActive ? (
-                        <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-[#2563eb] text-[11px]">
-                          <Tag className="w-3 h-3 shrink-0" />
-                          <span className="font-medium max-w-[140px] truncate" title={product.activeScheme.description}>
-                            {product.activeScheme.title}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 text-[11px]">Standard Price</span>
-                      )}
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-4 py-3 text-right space-x-1.5 whitespace-nowrap">
-                      <button
-                        onClick={() => setViewBatchesProduct(product)}
-                        className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
-                        title="View Batches & Expiry Dates"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-
-                      {isAdmin && (
-                        <>
-                          <button
-                            onClick={() => handleOpenEdit(product)}
-                            className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                            title="Edit Product"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          {onDeleteProduct && (
-                            <button
-                              onClick={() => setDeletingProductId(product.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
-                              title="Delete Product"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </>
-                      )}
-
-                      {onAddToCart && (
-                        <button
-                          onClick={() => onAddToCart(product)}
-                          className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition-colors inline-flex items-center space-x-1 cursor-pointer"
-                          title="Add 1 Case to Quick Cart"
-                        >
-                          <ShoppingCart className="w-3 h-3 text-[#2563eb]" />
-                          <span>+ Cart</span>
-                        </button>
-                      )}
-
-                      <button
-                        onClick={() => handleBookProduct(product.id)}
-                        className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-[#2563eb] hover:bg-[#1d4ed8] text-white transition-colors cursor-pointer"
-                      >
-                        Book
-                      </button>
-                    </td>
-
-                  </tr>
+                  <B2BProductCard
+                    key={product.id}
+                    product={product}
+                    onAddToCart={(p, cases) => {
+                      if (onAddToCart) onAddToCart(p, cases);
+                    }}
+                    onBookNow={!isRetailer && (isSalesman || isAdmin) ? handleBookProduct : undefined}
+                    onBuyNow={isRetailer ? handleBuyNowProduct : undefined}
+                    isRetailer={isRetailer}
+                    isSalesman={isSalesman}
+                    onViewBatches={(p) => setViewBatchesProduct(p)}
+                    onEditProduct={handleOpenEdit}
+                    onDeleteProduct={(id) => setDeletingProductId(id)}
+                    isAdmin={isAdmin}
+                    inCartCount={inCartCases}
+                    onUpdateCartItem={onUpdateCartItem}
+                  />
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* MOBILE ANDROID PRODUCT CARDS (screens <= 767px)                           */}
-      {/* Visual FMCG cards with image, pricing, margins, live stock & action bar   */}
-      {/* ========================================================================= */}
-      <div className="md:hidden space-y-3">
-        {filteredProducts.map((product) => {
-          const isLowStock = product.currentStockCases <= product.reorderLevelCases;
-          const marginPct = Math.round(((product.mrpPiece - product.wholesalePricePiece) / product.mrpPiece) * 100);
-
-          return (
-            <div
-              key={product.id}
-              className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 space-y-3 active:border-blue-300 transition-all"
-            >
-              {/* Top Row: Image + Main Meta */}
-              <div className="flex items-start space-x-3">
-                <img
-                  src={product.imageUrl || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=150'}
-                  alt={product.name}
-                  referrerPolicy="no-referrer"
-                  className="w-16 h-16 rounded-lg object-cover border border-slate-200 shrink-0 bg-slate-100"
-                />
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10px] font-bold text-[#2563eb] uppercase tracking-wider bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-                      {product.brand}
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400">
-                      {product.sku}
-                    </span>
-                  </div>
-
-                  <h3 className="font-bold text-slate-900 text-sm leading-tight mt-1 truncate">
-                    {product.name}
-                  </h3>
-
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {product.category} • {product.piecesPerCase} pcs/case
-                  </p>
-                </div>
-              </div>
-
-              {/* Trade Scheme Banner if active */}
-              {product.activeScheme && product.activeScheme.isActive && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 flex items-center space-x-1.5 text-xs text-amber-900">
-                  <Tag className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  <span className="font-semibold">{product.activeScheme.title}</span>
-                </div>
-              )}
-
-              {/* Price & Stock Stats Grid */}
-              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
-                <div>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wide">Case Price</span>
-                  <div className="font-mono font-bold text-slate-900 text-sm">
-                    {formatINR(product.casePrice)}
-                  </div>
-                  <div className="text-[10px] text-slate-400">
-                    ₹{product.wholesalePricePiece.toFixed(2)}/pc • MRP ₹{product.mrpPiece.toFixed(2)}
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wide">Depot Stock</span>
-                  <div className={`font-mono font-bold text-sm ${isLowStock ? 'text-amber-600' : 'text-slate-900'}`}>
-                    {product.currentStockCases} Cases
-                  </div>
-                  <div className="text-[10px] font-semibold text-emerald-600">
-                    {marginPct}% Retailer Margin
-                  </div>
-                </div>
-              </div>
-
-              {/* Mobile Action Controls */}
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                <button
-                  onClick={() => setViewBatchesProduct(product)}
-                  className="py-2 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 flex items-center justify-center space-x-1 active:scale-95 transition-all"
-                >
-                  <Eye className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Batches</span>
-                </button>
-
-                {onAddToCart && (
-                  <button
-                    onClick={() => onAddToCart(product)}
-                    className="py-2 text-xs font-semibold rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 flex items-center justify-center space-x-1 active:scale-95 transition-all"
-                  >
-                    <ShoppingCart className="w-3.5 h-3.5 text-amber-700" />
-                    <span>+ Cart</span>
-                  </button>
-                )}
-
-                <button
-                  onClick={() => handleBookProduct(product.id)}
-                  className={`py-2 text-xs font-semibold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white flex items-center justify-center space-x-1 active:scale-95 transition-all shadow-xs ${
-                    !onAddToCart ? 'col-span-2' : ''
-                  }`}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Book Order</span>
-                </button>
-              </div>
-
-              {/* Admin Edit Controls if Admin */}
-              {isAdmin && (
-                <div className="flex items-center justify-end space-x-3 pt-2 border-t border-slate-100 text-xs">
-                  <button
-                    onClick={() => handleOpenEdit(product)}
-                    className="text-blue-600 font-semibold flex items-center space-x-1"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                    <span>Edit SKU</span>
-                  </button>
-                  {onDeleteProduct && (
-                    <button
-                      onClick={() => setDeletingProductId(product.id)}
-                      className="text-rose-600 font-semibold flex items-center space-x-1"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
-                    </button>
-                  )}
-                </div>
-              )}
-
             </div>
-          );
-        })}
-      </div>
+          )}
+        </div>
+      ) : (
+        /* DESKTOP TABLE VIEW (Screens >= 768px when user toggles table mode) */
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#f1f5f9] text-slate-600 uppercase text-[11px] font-semibold border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-3">Product / Brand</th>
+                  <th className="px-4 py-3">SKU & HSN</th>
+                  <th className="px-4 py-3">Pack & GST</th>
+                  <th className="px-4 py-3 text-right">Piece MRP</th>
+                  <th className="px-4 py-3 text-right">Wholesale Price</th>
+                  <th className="px-4 py-3 text-right">Case Price</th>
+                  <th className="px-4 py-3 text-center">Warehouse Stock</th>
+                  <th className="px-4 py-3">Active Scheme</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {sortedProducts.map((product) => {
+                  const isLowStock = product.currentStockCases <= product.reorderLevelCases;
+                  const marginPct = Math.round(((product.mrpPiece - product.wholesalePricePiece) / product.mrpPiece) * 100);
+
+                  return (
+                    <tr key={product.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center space-x-3">
+                          <img
+                            src={product.imageUrl || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=100'}
+                            alt={product.name}
+                            referrerPolicy="no-referrer"
+                            className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0 bg-slate-100"
+                          />
+                          <div>
+                            <div className="font-bold text-slate-900">{product.name}</div>
+                            <div className="text-[11px] text-[#2563eb] font-semibold">
+                              {product.brand} • <span className="text-slate-500 font-normal">{product.category}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-slate-100 border border-slate-200 font-mono text-slate-900 font-bold text-xs shadow-2xs">
+                          <span className="text-slate-500 font-normal text-[10px]">SKU:</span>
+                          <span className="text-slate-900">{product.sku || (product as any).product_sku || 'N/A'}</span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-mono mt-0.5">HSN: {product.hsnCode || 'N/A'}</div>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-slate-800">{product.piecesPerCase} pcs / cs</div>
+                        <div className="text-[11px] text-slate-500 font-mono">GST {product.gstRate}%</div>
+                      </td>
+
+                      <td className="px-4 py-3 text-right font-mono text-slate-500">
+                        ₹{product.mrpPiece.toFixed(2)}
+                      </td>
+
+                      <td className="px-4 py-3 text-right">
+                        <div className="font-mono font-bold text-slate-900">₹{product.wholesalePricePiece.toFixed(2)}</div>
+                        <div className="text-[10px] text-emerald-600 font-semibold">+{marginPct}% Margin</div>
+                      </td>
+
+                      <td className="px-4 py-3 text-right font-mono font-bold text-slate-900">
+                        {formatINR(product.casePrice)}
+                      </td>
+
+                      <td className="px-4 py-3 text-center">
+                        <div className="inline-flex flex-col items-center">
+                          <span className={`font-mono font-bold text-xs ${isLowStock ? 'text-amber-600' : 'text-slate-900'}`}>
+                            {product.currentStockCases} cs
+                          </span>
+                          {product.currentStockLoosePcs > 0 && (
+                            <span className="text-[10px] text-slate-500 font-mono">+{product.currentStockLoosePcs} pcs</span>
+                          )}
+                          {isLowStock && (
+                            <span className="mt-0.5 px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 text-[9px] font-bold">
+                              Low Stock
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      <td className="px-4 py-3">
+                        {product.activeScheme && product.activeScheme.isActive ? (
+                          <div className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-semibold">
+                            <Tag className="w-3 h-3 shrink-0 text-amber-600" />
+                            <span className="max-w-[140px] truncate" title={product.activeScheme.description}>
+                              {product.activeScheme.title}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">Standard Price</span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3 text-right space-x-1.5 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => setViewBatchesProduct(product)}
+                          className="p-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                          title="View Batches & Expiry Dates"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+
+                        {isAdmin && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(product)}
+                              className="p-1.5 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                              title="Edit Product"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            {onDeleteProduct && (
+                              <button
+                                type="button"
+                                onClick={() => setDeletingProductId(product.id)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                title="Delete Product"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </>
+                        )}
+
+                        {onAddToCart && (
+                          <button
+                            type="button"
+                            onClick={() => onAddToCart(product, 1)}
+                            className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition-colors inline-flex items-center space-x-1 cursor-pointer"
+                            title="Add 1 Case to Quick Cart"
+                          >
+                            <ShoppingCart className="w-3 h-3 text-[#2563eb]" />
+                            <span>+ Cart</span>
+                          </button>
+                        )}
+
+                        {isRetailer ? (
+                          <button
+                            type="button"
+                            onClick={() => handleBuyNowProduct(product, 1)}
+                            className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer inline-flex items-center space-x-1 shadow-2xs"
+                            title="Instant Buy Now & Order Placement"
+                          >
+                            <Zap className="w-3 h-3 text-amber-300 fill-amber-300" />
+                            <span>Buy Now</span>
+                          </button>
+                        ) : (isSalesman || isAdmin) ? (
+                          <button
+                            type="button"
+                            onClick={() => handleBookProduct(product.id)}
+                            className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white transition-colors cursor-pointer"
+                            title="Book Order for Retailer"
+                          >
+                            Book
+                          </button>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* 6. MOBILE FLOATING CART BAR (WHEN CART HAS ITEMS) */}
+      {totalCartCases > 0 && onOpenCart && (
+        <aside 
+          aria-label="Active wholesale order summary"
+          className="md:hidden fixed bottom-18 inset-x-3 z-40 animate-in slide-in-from-bottom-3 duration-200"
+        >
+          <div className="bg-slate-950 text-white p-3 rounded-2xl shadow-xl border border-slate-800 flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center text-slate-950 font-black">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-black">
+                  {totalCartCases} Case{totalCartCases > 1 ? 's' : ''} in Cart
+                </div>
+                <div className="text-[11px] text-slate-300 font-mono">
+                  Est. Total: <strong>{formatINR(totalCartAmount)}</strong>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onOpenCart}
+              className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs flex items-center space-x-1 cursor-pointer shadow-md active:scale-95"
+            >
+              <span>View Cart</span>
+              <span>→</span>
+            </button>
+          </div>
+        </aside>
+      )}
 
       {/* Add / Edit Product Modal */}
       {isModalOpen && editingProduct && (
@@ -798,55 +997,199 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
         </div>
       )}
 
-      {/* View Batches Modal */}
+      {/* View Product Details & Batches Modal */}
       {viewBatchesProduct && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-[4px] shadow-xl border border-slate-200 max-w-lg w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">{viewBatchesProduct.name}</h3>
-                <p className="text-xs text-slate-500 font-mono">SKU: {viewBatchesProduct.sku} • Bin Allocations</p>
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-4 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 my-auto">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3 gap-3">
+              <div className="flex items-center space-x-3 min-w-0">
+                <img
+                  src={viewBatchesProduct.imageUrl || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500'}
+                  alt={viewBatchesProduct.name}
+                  referrerPolicy="no-referrer"
+                  className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
+                />
+                <div className="min-w-0">
+                  <span className="text-[10px] font-black uppercase text-[#2563eb] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                    {viewBatchesProduct.brand}
+                  </span>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate mt-0.5" title={viewBatchesProduct.name}>
+                    {viewBatchesProduct.name}
+                  </h3>
+                  <p className="text-xs text-slate-500">{viewBatchesProduct.category}</p>
+                </div>
               </div>
               <button 
+                type="button"
                 onClick={() => setViewBatchesProduct(null)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-slate-400 hover:text-slate-700 p-1 rounded-lg hover:bg-slate-100 transition-colors shrink-0"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-2">
-              <div className="text-xs font-semibold text-slate-700">Active Warehouse Batches:</div>
-              {viewBatchesProduct.batches.map((batch, idx) => (
-                <div key={idx} className="p-3 rounded-[4px] bg-slate-50 border border-slate-200 text-xs flex items-center justify-between">
-                  <div>
-                    <div className="font-mono font-bold text-slate-900">{batch.batchNumber}</div>
-                    <div className="text-[11px] text-slate-500">
-                      Mfg: {batch.mfgDate} • <span className="font-semibold text-rose-700">Exp: {batch.expiryDate}</span>
-                    </div>
+            {/* Prominent SKU & Identification Box */}
+            <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-blue-50/40 rounded-xl p-3 sm:p-3.5 border border-blue-200/80 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-[10px] font-bold text-blue-900 uppercase tracking-wider flex items-center space-x-1">
+                    <Barcode className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Product SKU Identifier</span>
                   </div>
-                  <div className="text-right">
-                    <div className="font-mono font-bold text-[#1A365D]">{batch.stockCases} Cases</div>
-                    <div className="text-[10px] text-slate-500 font-mono">Bin {batch.warehouseBin || 'A-01'}</div>
+                  <div className="font-mono text-base sm:text-lg font-black text-blue-950 tracking-tight select-all">
+                    {viewBatchesProduct.sku || (viewBatchesProduct as any).product_sku || 'N/A'}
                   </div>
                 </div>
-              ))}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const skuText = viewBatchesProduct.sku || (viewBatchesProduct as any).product_sku || '';
+                    if (skuText) {
+                      navigator.clipboard.writeText(skuText);
+                      setCopiedSku(true);
+                      setTimeout(() => setCopiedSku(false), 2000);
+                    }
+                  }}
+                  className="px-2.5 py-1 text-xs font-bold rounded-lg bg-white border border-blue-300 text-blue-700 hover:bg-blue-50 shadow-2xs flex items-center space-x-1 transition-all active:scale-95 shrink-0 cursor-pointer"
+                  title="Copy SKU code to clipboard"
+                >
+                  {copiedSku ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
+                      <span className="text-emerald-700 font-bold">Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Copy SKU</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {/* Barcode & HSN Tags */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-blue-100 text-xs">
+                <span className="inline-flex items-center space-x-1 bg-white px-2 py-0.5 rounded border border-slate-200 text-[11px] font-mono text-slate-700">
+                  <span className="text-slate-400">Barcode:</span>
+                  <span className="font-bold">{viewBatchesProduct.barcode || PRODUCT_BARCODE_MAP[viewBatchesProduct.sku] || 'N/A'}</span>
+                </span>
+                <span className="inline-flex items-center space-x-1 bg-white px-2 py-0.5 rounded border border-slate-200 text-[11px] font-mono text-slate-700">
+                  <span className="text-slate-400">HSN:</span>
+                  <span className="font-bold">{viewBatchesProduct.hsnCode || 'N/A'}</span>
+                </span>
+                <span className="inline-flex items-center space-x-1 bg-white px-2 py-0.5 rounded border border-slate-200 text-[11px] font-mono text-slate-700">
+                  <span className="text-slate-400">GST:</span>
+                  <span className="font-bold">{viewBatchesProduct.gstRate}%</span>
+                </span>
+              </div>
             </div>
 
+            {/* Pricing & Packaging Breakdown Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+              <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="text-[10px] text-slate-500 font-semibold">Wholesale / Pc</div>
+                <div className="text-sm font-black font-mono text-slate-900">₹{viewBatchesProduct.wholesalePricePiece.toFixed(2)}</div>
+              </div>
+              <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="text-[10px] text-slate-500 font-semibold">MRP / Pc</div>
+                <div className="text-sm font-black font-mono text-slate-500 line-through">₹{viewBatchesProduct.mrpPiece.toFixed(2)}</div>
+              </div>
+              <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                <div className="text-[10px] text-emerald-700 font-bold">Margin</div>
+                <div className="text-sm font-black text-emerald-700">
+                  {viewBatchesProduct.mrpPiece > 0 
+                    ? `+${Math.round(((viewBatchesProduct.mrpPiece - viewBatchesProduct.wholesalePricePiece) / viewBatchesProduct.mrpPiece) * 100)}%`
+                    : '15%'}
+                </div>
+              </div>
+              <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                <div className="text-[10px] text-slate-500 font-semibold">Case Pack</div>
+                <div className="text-sm font-black text-slate-900">{viewBatchesProduct.piecesPerCase} pcs/cs</div>
+              </div>
+            </div>
+
+            {/* Stock Summary */}
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-100 border border-slate-200 text-xs">
+              <div className="flex items-center space-x-2">
+                <Boxes className="w-4 h-4 text-slate-600" />
+                <span className="font-medium text-slate-700">Warehouse Stock:</span>
+                <span className="font-mono font-black text-slate-900">{viewBatchesProduct.currentStockCases} Cases</span>
+                {viewBatchesProduct.currentStockLoosePcs > 0 && (
+                  <span className="font-mono text-slate-500">+{viewBatchesProduct.currentStockLoosePcs} pcs</span>
+                )}
+              </div>
+              <div className="text-[11px] text-slate-500 font-mono">
+                Reorder Level: {viewBatchesProduct.reorderLevelCases} cs
+              </div>
+            </div>
+
+            {/* Active Batches Section */}
+            <div className="space-y-2">
+              <div className="text-xs font-bold text-slate-800 flex items-center justify-between">
+                <span>Active Warehouse Batches:</span>
+                <span className="text-[11px] font-normal text-slate-500">{(viewBatchesProduct.batches || []).length} Recorded</span>
+              </div>
+              <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                {(viewBatchesProduct.batches || []).length > 0 ? (
+                  viewBatchesProduct.batches.map((batch, idx) => (
+                    <div key={idx} className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs flex items-center justify-between">
+                      <div>
+                        <div className="font-mono font-bold text-slate-900">{batch.batchNumber}</div>
+                        <div className="text-[11px] text-slate-500">
+                          Mfg: {batch.mfgDate} • <span className="font-semibold text-rose-700">Exp: {batch.expiryDate}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-mono font-bold text-[#1A365D]">{batch.stockCases} Cases</div>
+                        <div className="text-[10px] text-slate-500 font-mono">Bin {batch.warehouseBin || 'A-01'}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-3 text-center text-xs text-slate-400 bg-slate-50 rounded-lg">
+                    No active batch logs found for this SKU.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Actions */}
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const pId = viewBatchesProduct.id;
+                    setViewBatchesProduct(null);
+                    onInwardStock(pId);
+                  }}
+                  className="text-xs font-semibold text-[#2563eb] hover:underline"
+                >
+                  + Inward New Batch
+                </button>
+                {isAdmin && (
+                  <>
+                    <span className="text-slate-300">•</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const p = viewBatchesProduct;
+                        setViewBatchesProduct(null);
+                        handleOpenEdit(p);
+                      }}
+                      className="text-xs font-semibold text-slate-700 hover:text-blue-700 hover:underline"
+                    >
+                      Edit SKU
+                    </button>
+                  </>
+                )}
+              </div>
               <button
-                onClick={() => {
-                  const pId = viewBatchesProduct.id;
-                  setViewBatchesProduct(null);
-                  onInwardStock(pId);
-                }}
-                className="text-xs font-semibold text-[#2B6CB0] hover:underline"
-              >
-                + Inward New Batch
-              </button>
-              <button
+                type="button"
                 onClick={() => setViewBatchesProduct(null)}
-                className="px-3.5 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 rounded-[4px] font-semibold text-slate-700"
+                className="px-4 py-1.5 text-xs bg-slate-100 hover:bg-slate-200 rounded-lg font-bold text-slate-700 cursor-pointer"
               >
                 Close
               </button>
@@ -889,6 +1232,20 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Barcode Scanner Modal */}
+      {isBarcodeScannerOpen && (
+        <BarcodeScannerModal
+          isOpen={isBarcodeScannerOpen}
+          onClose={() => setIsBarcodeScannerOpen(false)}
+          products={products}
+          onProductFound={(foundProduct) => {
+            setSelectedBrand('all');
+            setSelectedCategory('all');
+            setSearchQuery(foundProduct.sku);
+          }}
+        />
       )}
 
     </div>

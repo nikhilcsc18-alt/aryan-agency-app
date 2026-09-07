@@ -265,21 +265,34 @@ export const api = {
 
   // Products
   async getProducts(): Promise<Product[]> {
+    let list: Product[] = [];
     if (isSupabaseConfigured) {
       try {
         const products = await supabaseService.getProducts();
-        if (products && products.length > 0) return products;
+        if (products && products.length > 0) list = products;
       } catch (e) {
         console.warn('Supabase getProducts fallback to local API:', e);
       }
     }
-    return safeJsonFetch<Product[]>('/api/products', {}, []);
+    if (!list || list.length === 0) {
+      list = await safeJsonFetch<Product[]>('/api/products', {}, []);
+    }
+    return (list || []).map((p: any) => ({
+      ...p,
+      sku: p.sku || p.product_sku || p.productSku || p.code || p.item_code || ''
+    }));
   },
 
   async saveProduct(product: Partial<Product>): Promise<Product> {
+    const normalizedSku = product.sku || (product as any).product_sku || (product as any).productSku || '';
+    const payload = {
+      ...product,
+      sku: normalizedSku,
+      product_sku: normalizedSku
+    };
     if (isSupabaseConfigured) {
       try {
-        const saved = await supabaseService.saveProduct(product);
+        const saved = await supabaseService.saveProduct(payload);
         if (saved) return saved;
       } catch (e) {
         console.warn('Supabase saveProduct fallback to local API:', e);
@@ -288,11 +301,15 @@ export const api = {
     const isEdit = !!product.id;
     const url = isEdit ? `/api/products/${product.id}` : '/api/products';
     const method = isEdit ? 'PUT' : 'POST';
-    return safeMutationFetch<Product>(url, {
+    const result = await safeMutationFetch<Product>(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(product)
+      body: JSON.stringify(payload)
     });
+    return {
+      ...result,
+      sku: result.sku || (result as any).product_sku || normalizedSku
+    };
   },
 
   async deleteProduct(id: string): Promise<{ success: boolean }> {

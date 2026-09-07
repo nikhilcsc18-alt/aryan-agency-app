@@ -12,7 +12,7 @@ import { DeliveryView } from './components/DeliveryView';
 import { PaymentsView } from './components/PaymentsView';
 import { NewOrderModal } from './components/NewOrderModal';
 import { InvoiceModal } from './components/InvoiceModal';
-import { CartDrawer } from './components/CartDrawer';
+import { CartDrawer, CheckoutPaymentDetails } from './components/CartDrawer';
 import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
@@ -28,12 +28,13 @@ import {
   Payment, 
   InventoryMovement, 
   DashboardMetrics,
-  OrderStatus
+  OrderStatus,
+  PaymentStatus
 } from './types';
 import { AlertCircle, CheckCircle2, Building2, Loader2 } from 'lucide-react';
 
 function MainApp() {
-  const { currentRole, currentUser, isLoading: isAuthLoading } = useAuth();
+  const { currentRole, currentUser, isLoading: isAuthLoading, isRetailer, isSalesman, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
 
   // Master State
@@ -71,7 +72,11 @@ function MainApp() {
     try {
       setLoading(true);
       const data = await api.getInitialData();
-      setProducts(data.products || []);
+      const normalizedProducts = (data.products || []).map((p: any) => ({
+        ...p,
+        sku: p.sku || p.product_sku || p.productSku || ''
+      }));
+      setProducts(normalizedProducts);
       setOrders(data.orders || []);
       setRetailers(data.retailers || []);
       setSalesmen(data.salesmen || []);
@@ -117,19 +122,20 @@ function MainApp() {
   }, [currentRole]);
 
   // Cart Handlers
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (product: Product, casesCount: number = 1) => {
+    const qty = Math.max(1, casesCount);
     const existingIndex = cartItems.findIndex(i => i.product.id === product.id);
     if (existingIndex > -1) {
       const updated = [...cartItems];
       updated[existingIndex] = {
         ...updated[existingIndex],
-        cases: updated[existingIndex].cases + 1
+        cases: updated[existingIndex].cases + qty
       };
       setCartItems(updated);
     } else {
-      setCartItems([...cartItems, { product, cases: 1, loosePcs: 0 }]);
+      setCartItems([...cartItems, { product, cases: qty, loosePcs: 0 }]);
     }
-    showToast(`Added 1 case of ${product.name} to cart!`, 'success');
+    showToast(`Added ${qty} case${qty > 1 ? 's' : ''} of ${product.name} to cart!`, 'success');
   };
 
   const handleUpdateCartItem = (productId: string, cases: number, loosePcs: number) => {
@@ -147,7 +153,11 @@ function MainApp() {
     showToast('Product removed from active cart', 'info');
   };
 
-  const handleCartCheckout = async (retailerId: string, itemsToCheckout: CartItem[]) => {
+  const handleCartCheckout = async (
+    retailerId: string, 
+    itemsToCheckout: CartItem[],
+    paymentDetails?: CheckoutPaymentDetails
+  ) => {
     if (itemsToCheckout.length === 0) return;
     const targetRetailer = retailers.find(r => r.id === retailerId) || retailers[0];
     if (!targetRetailer) {
@@ -226,6 +236,56 @@ function MainApp() {
 
     const finalBillAmount = Math.round(grossSubtotal - totalDiscount);
 
+    // Map payment modes & statuses
+    const mode = paymentDetails?.paymentMode || 'cod';
+    const isPaid = Boolean(paymentDetails?.isPaidNow);
+
+    let mappedPaymentMode: 'cash' | 'upi' | 'credit' | 'qr' = 'cash';
+    let mappedPaymentStatus: PaymentStatus = 'unpaid';
+    let paidAmount = 0;
+    let outstandingAmount = finalBillAmount;
+    let orderRemarks = 'Order Placed via Retailer Web App';
+
+    if (mode === 'cod') {
+      mappedPaymentMode = 'cash';
+      mappedPaymentStatus = 'unpaid';
+      paidAmount = 0;
+      outstandingAmount = finalBillAmount;
+      orderRemarks = 'Payment Mode: Cash on Delivery (COD) to Van Executive';
+    } else if (mode === 'qr') {
+      mappedPaymentMode = 'qr';
+      if (isPaid) {
+        mappedPaymentStatus = 'paid';
+        paidAmount = finalBillAmount;
+        outstandingAmount = 0;
+        orderRemarks = `Payment Mode: UPI Dynamic QR${paymentDetails?.upiRefNumber ? ' (UTR: ' + paymentDetails.upiRefNumber + ')' : ' (Confirmed Paid)'}`;
+      } else {
+        mappedPaymentStatus = 'unpaid';
+        paidAmount = 0;
+        outstandingAmount = finalBillAmount;
+        orderRemarks = `Payment Mode: UPI Dynamic QR Pending${paymentDetails?.upiRefNumber ? ' (UTR: ' + paymentDetails.upiRefNumber + ')' : ''}`;
+      }
+    } else if (mode === 'upi') {
+      mappedPaymentMode = 'upi';
+      if (isPaid) {
+        mappedPaymentStatus = 'paid';
+        paidAmount = finalBillAmount;
+        outstandingAmount = 0;
+        orderRemarks = `Payment Mode: Online UPI Intent${paymentDetails?.upiRefNumber ? ' (UTR: ' + paymentDetails.upiRefNumber + ')' : ' (Confirmed Paid)'}`;
+      } else {
+        mappedPaymentStatus = 'unpaid';
+        paidAmount = 0;
+        outstandingAmount = finalBillAmount;
+        orderRemarks = `Payment Mode: Online UPI Pending${paymentDetails?.upiRefNumber ? ' (UTR: ' + paymentDetails.upiRefNumber + ')' : ''}`;
+      }
+    } else {
+      mappedPaymentMode = 'credit';
+      mappedPaymentStatus = 'unpaid';
+      paidAmount = 0;
+      outstandingAmount = finalBillAmount;
+      orderRemarks = 'Payment Mode: Wholesale Ledger Credit (15 Days)';
+    }
+
     const orderPayload = {
       retailerId: targetRetailer.id,
       retailerName: targetRetailer.storeName,
@@ -253,18 +313,18 @@ function MainApp() {
       roundOff: 0,
       grandTotal: finalBillAmount,
       totalAmount: finalBillAmount,
-      amountPaid: 0,
-      outstandingAmount: finalBillAmount,
-      paymentMode: 'credit' as const,
-      paymentStatus: 'unpaid' as const,
+      amountPaid: paidAmount,
+      outstandingAmount: outstandingAmount,
+      paymentMode: mappedPaymentMode,
+      paymentStatus: mappedPaymentStatus,
       status: 'booked' as OrderStatus,
-      notes: 'Booked via Quick Shopping Cart',
-      remarks: 'Booked via Quick Shopping Cart'
+      notes: orderRemarks,
+      remarks: orderRemarks
     };
 
     try {
       const created = await api.createOrder(orderPayload);
-      showToast(`Order ${created.orderNumber} successfully booked from Cart!`, 'success');
+      showToast(`Order ${created.orderNumber} successfully booked (${mode.toUpperCase()})!`, 'success');
       setCartItems([]);
       setIsCartOpen(false);
       await loadData();
@@ -617,6 +677,10 @@ function MainApp() {
               onDeleteProduct={handleDeleteProduct}
               onAddToCart={handleAddToCart}
               onQuickOrder={openNewOrderWithProduct}
+              cartItems={cartItems}
+              onUpdateCartItem={handleUpdateCartItem}
+              onRemoveFromCart={handleRemoveFromCart}
+              onOpenCart={() => setIsCartOpen(true)}
             />
           </ProtectedRoute>
         )}
@@ -689,13 +753,15 @@ function MainApp() {
         {/* Payments & Collections View - Protected */}
         {activeTab === 'payments' && (
           <ProtectedRoute 
-            pageName="Payment Collections & Invoices"
+            pageName={isRetailer ? "My Payments & Ledger" : "Payment Collections & Invoices"}
             allowedRoles={['admin', 'accounts', 'salesman', 'delivery', 'retailer']}
             onNavigateHome={() => setActiveTab(getRoleHomeTab())}
           >
             <PaymentsView
               payments={payments}
               retailers={retailers}
+              orders={orders}
+              onOpenInvoice={(order) => setActiveInvoiceOrder(order)}
               onRecordPayment={handleRecordPayment}
               preselectedRetailer={preselectedRetailerForPayment}
             />

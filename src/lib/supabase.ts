@@ -222,48 +222,54 @@ function mapDbBrand(row: any): Brand {
 }
 
 function mapDbProduct(row: any): Product {
+  const sku = row.sku || row.product_sku || row.productSku || row.code || row.item_code || row.sku_code || '';
   return {
     id: row.id,
-    sku: row.sku,
-    name: row.name,
-    brand: row.brand,
-    category: row.category,
-    hsnCode: row.hsn_code,
-    gstRate: Number(row.gst_rate || 18),
-    piecesPerCase: Number(row.pieces_per_case || 24),
-    mrpPiece: Number(row.mrp_piece || 0),
-    wholesalePricePiece: Number(row.wholesale_price_piece || 0),
-    casePrice: Number(row.case_price || 0),
-    currentStockCases: Number(row.current_stock_cases || 0),
-    currentStockLoosePcs: Number(row.current_stock_loose_pcs || 0),
-    reorderLevelCases: Number(row.reorder_level_cases || 10),
-    imageUrl: row.image_url || '',
+    sku,
+    barcode: row.barcode || row.barcode_number || '',
+    name: row.name || row.product_name || '',
+    brand: row.brand || row.brand_name || '',
+    category: row.category || row.category_name || 'Biscuits & Bakery',
+    hsnCode: row.hsn_code || row.hsnCode || '',
+    gstRate: Number(row.gst_rate ?? row.gstRate ?? 18),
+    piecesPerCase: Number(row.pieces_per_case ?? row.piecesPerCase ?? 24),
+    mrpPiece: Number(row.mrp_piece ?? row.mrpPiece ?? 0),
+    wholesalePricePiece: Number(row.wholesale_price_piece ?? row.wholesalePricePiece ?? 0),
+    casePrice: Number(row.case_price ?? row.casePrice ?? 0),
+    currentStockCases: Number(row.current_stock_cases ?? row.currentStockCases ?? 0),
+    currentStockLoosePcs: Number(row.current_stock_loose_pcs ?? row.currentStockLoosePcs ?? 0),
+    reorderLevelCases: Number(row.reorder_level_cases ?? row.reorderLevelCases ?? 10),
+    imageUrl: row.image_url || row.imageUrl || '',
     description: row.description || '',
     batches: Array.isArray(row.batches) ? row.batches : [],
-    activeScheme: row.active_scheme || undefined
+    activeScheme: row.active_scheme || row.activeScheme || undefined
   };
 }
 
-function productToDb(p: Partial<Product>): any {
+function productToDb(p: Partial<Product> | any): any {
   const out: any = {};
   if (p.id !== undefined) out.id = p.id;
-  if (p.sku !== undefined) out.sku = p.sku;
+  const skuVal = p.sku ?? p.product_sku ?? p.productSku;
+  if (skuVal !== undefined) {
+    out.sku = skuVal;
+  }
+  if (p.barcode !== undefined || p.barcode_number !== undefined) out.barcode = p.barcode ?? p.barcode_number;
   if (p.name !== undefined) out.name = p.name;
   if (p.brand !== undefined) out.brand = p.brand;
   if (p.category !== undefined) out.category = p.category;
-  if (p.hsnCode !== undefined) out.hsn_code = p.hsnCode;
-  if (p.gstRate !== undefined) out.gst_rate = p.gstRate;
-  if (p.piecesPerCase !== undefined) out.pieces_per_case = p.piecesPerCase;
-  if (p.mrpPiece !== undefined) out.mrp_piece = p.mrpPiece;
-  if (p.wholesalePricePiece !== undefined) out.wholesale_price_piece = p.wholesalePricePiece;
-  if (p.casePrice !== undefined) out.case_price = p.casePrice;
-  if (p.currentStockCases !== undefined) out.current_stock_cases = p.currentStockCases;
-  if (p.currentStockLoosePcs !== undefined) out.current_stock_loose_pcs = p.currentStockLoosePcs;
-  if (p.reorderLevelCases !== undefined) out.reorder_level_cases = p.reorderLevelCases;
-  if (p.imageUrl !== undefined) out.image_url = p.imageUrl;
+  if (p.hsnCode !== undefined || p.hsn_code !== undefined) out.hsn_code = p.hsnCode ?? p.hsn_code;
+  if (p.gstRate !== undefined || p.gst_rate !== undefined) out.gst_rate = p.gstRate ?? p.gst_rate;
+  if (p.piecesPerCase !== undefined || p.pieces_per_case !== undefined) out.pieces_per_case = p.piecesPerCase ?? p.pieces_per_case;
+  if (p.mrpPiece !== undefined || p.mrp_piece !== undefined) out.mrp_piece = p.mrpPiece ?? p.mrp_piece;
+  if (p.wholesalePricePiece !== undefined || p.wholesale_price_piece !== undefined) out.wholesale_price_piece = p.wholesalePricePiece ?? p.wholesale_price_piece;
+  if (p.casePrice !== undefined || p.case_price !== undefined) out.case_price = p.casePrice ?? p.case_price;
+  if (p.currentStockCases !== undefined || p.current_stock_cases !== undefined) out.current_stock_cases = p.currentStockCases ?? p.current_stock_cases;
+  if (p.currentStockLoosePcs !== undefined || p.current_stock_loose_pcs !== undefined) out.current_stock_loose_pcs = p.currentStockLoosePcs ?? p.current_stock_loose_pcs;
+  if (p.reorderLevelCases !== undefined || p.reorder_level_cases !== undefined) out.reorder_level_cases = p.reorderLevelCases ?? p.reorder_level_cases;
+  if (p.imageUrl !== undefined || p.image_url !== undefined) out.image_url = p.imageUrl ?? p.image_url;
   if (p.description !== undefined) out.description = p.description;
   if (p.batches !== undefined) out.batches = p.batches;
-  if (p.activeScheme !== undefined) out.active_scheme = p.activeScheme;
+  if (p.activeScheme !== undefined || p.active_scheme !== undefined) out.active_scheme = p.activeScheme ?? p.active_scheme;
   return out;
 }
 
@@ -884,10 +890,28 @@ export const supabaseService = {
     return (data || []).map(mapDbProduct);
   },
 
-  async saveProduct(product: Partial<Product>): Promise<Product | null> {
+  async saveProduct(product: Partial<Product> | any): Promise<Product | null> {
     if (!supabase) return null;
     const dbPayload = productToDb(product);
-    const { data, error } = await supabase.from('products').upsert(dbPayload).select().single();
+    let { data, error } = await supabase.from('products').upsert(dbPayload).select().single();
+    
+    // If column 'sku' doesn't exist but 'product_sku' does (or vice-versa), retry with alternate column name
+    if (error && error.message && (error.message.includes('sku') || error.message.includes('column'))) {
+      const fallbackPayload = { ...dbPayload };
+      if ('sku' in fallbackPayload) {
+        fallbackPayload.product_sku = fallbackPayload.sku;
+        delete fallbackPayload.sku;
+      } else if ('product_sku' in fallbackPayload) {
+        fallbackPayload.sku = fallbackPayload.product_sku;
+        delete fallbackPayload.product_sku;
+      }
+      const retryRes = await supabase.from('products').upsert(fallbackPayload).select().single();
+      if (!retryRes.error && retryRes.data) {
+        data = retryRes.data;
+        error = null;
+      }
+    }
+
     if (error) throw error;
     return mapDbProduct(data);
   },

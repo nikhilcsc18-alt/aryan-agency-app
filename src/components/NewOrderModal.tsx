@@ -272,8 +272,12 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
               <Package className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900">Aryan Agency • FMCG Order Punching</h2>
-              <p className="text-[11px] text-slate-500">Fast DSR beat booking, automated scheme calculations & GST invoicing</p>
+              <h2 className="text-sm font-bold text-slate-900">
+                {isRetailer ? 'Aryan Agency • Place Order' : 'Aryan Agency • FMCG Order Booking & Punching'}
+              </h2>
+              <p className="text-[11px] text-slate-500">
+                {isRetailer ? 'Review wholesale products, scheme discounts & place order' : 'Fast DSR beat booking, automated scheme calculations & GST invoicing'}
+              </p>
             </div>
           </div>
 
@@ -673,7 +677,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
               className="px-5 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold rounded-lg shadow-sm flex items-center space-x-1.5 cursor-pointer transition-colors"
             >
               <Check className="w-4 h-4" />
-              <span>Confirm & Punch FMCG Order</span>
+              <span>{isRetailer ? 'Confirm & Place Order' : 'Confirm & Punch FMCG Order'}</span>
             </button>
           </div>
 

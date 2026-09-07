@@ -291,7 +291,10 @@ app.put('/api/users/:id/role', requireRoles(['admin']), handleUpdateUserRole);
 
 // Products
 app.get('/api/products', (req, res) => {
-  const products = db.getProducts();
+  const products = db.getProducts().map(p => ({
+    ...p,
+    sku: p.sku || (p as any).product_sku || (p as any).productSku || ''
+  }));
   res.json(products);
 });
 
@@ -300,6 +303,7 @@ app.post('/api/products', requireRoles(['admin']), (req, res) => {
   if (!newProduct.id) {
     newProduct.id = `prd_${Date.now()}`;
   }
+  newProduct.sku = newProduct.sku || newProduct.product_sku || newProduct.productSku || '';
   if (!newProduct.casePrice) {
     newProduct.casePrice = Number(newProduct.wholesalePricePiece) * Number(newProduct.piecesPerCase);
   }
@@ -314,6 +318,7 @@ app.put('/api/products/:id', requireRoles(['admin']), (req, res) => {
     return res.status(404).json({ error: 'Product not found' });
   }
   const updated = { ...existing, ...req.body, id };
+  updated.sku = req.body.sku || req.body.product_sku || req.body.productSku || existing.sku || '';
   if (updated.wholesalePricePiece && updated.piecesPerCase) {
     updated.casePrice = Number(updated.wholesalePricePiece) * Number(updated.piecesPerCase);
   }

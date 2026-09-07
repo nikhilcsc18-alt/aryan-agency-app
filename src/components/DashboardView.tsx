@@ -40,16 +40,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenInvoice,
   onInwardStock
 }) => {
-  const { currentUser, currentRole, isAdmin } = useAuth();
+  const { currentUser, currentRole, isAdmin, isRetailer, isSalesman } = useAuth();
 
   // Scope orders based on role
-  const isSalesman = currentRole === 'salesman';
   const validOrders = (orders || []).filter(o => Boolean(o && o.id && o.id !== 'null' && o.id !== 'undefined'));
-  const roleFilteredOrders = isSalesman 
+  const roleFilteredOrders = isRetailer
+    ? validOrders.filter(o => o.retailerId === currentUser?.retailerId || o.retailerStoreName === currentUser?.name)
+    : isSalesman 
     ? validOrders.filter(o => o.salesmanId === currentUser?.salesmanId || o.salesmanName === currentUser?.name)
     : validOrders;
 
-  const displayOrders = isSalesman && roleFilteredOrders.length > 0 ? roleFilteredOrders : validOrders;
+  const displayOrders = (isRetailer || isSalesman) && roleFilteredOrders.length > 0 ? roleFilteredOrders : validOrders;
 
   // Metrics calculation
   const todayDateStr = new Date().toISOString().split('T')[0];
@@ -98,13 +99,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span>AI Copilot</span>
           </button>
           
-          <button
-            onClick={onOpenNewOrder}
-            className="w-full sm:w-auto px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-            <span>+ Punch Order</span>
-          </button>
+          {isRetailer ? (
+            <button
+              onClick={() => onNavigateTab('products')}
+              className="w-full sm:w-auto px-3.5 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95"
+            >
+              <ShoppingCart className="w-4 h-4 text-amber-300" />
+              <span>Buy Products</span>
+            </button>
+          ) : (
+            <button
+              onClick={onOpenNewOrder}
+              className="w-full sm:w-auto px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Punch Order</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -164,7 +175,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Today's Sales */}
         <div className="bg-white p-5 rounded-lg border border-slate-200 shadow-xs">
           <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-            {isSalesman ? "My Today's Bookings" : "Today's Revenue"}
+            {isRetailer ? "My Orders Total" : isSalesman ? "My Today's Bookings" : "Today's Revenue"}
           </div>
           <div className="text-2xl font-bold text-slate-900 tracking-tight mt-2">
             {formatINR(todayBillings)}
@@ -244,7 +255,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-white">
             <div className="flex items-center space-x-2">
               <span className="text-sm font-bold text-slate-900">
-                {isSalesman ? 'My Beat Bookings' : 'Recent Wholesale Orders'}
+                {isRetailer ? 'My Store Orders' : isSalesman ? 'My Beat Bookings' : 'Recent Wholesale Orders'}
               </span>
               <span className="text-xs text-slate-400">({displayOrders.length} total)</span>
             </div>

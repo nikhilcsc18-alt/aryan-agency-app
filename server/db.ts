@@ -643,22 +643,36 @@ class Database {
 
   // Products
   public getProducts(): Product[] {
-    return this.data.products;
+    return this.data.products.map(p => ({
+      ...p,
+      sku: p.sku || (p as any).product_sku || (p as any).productSku || (p as any).code || ''
+    }));
   }
 
   public getProductById(id: string): Product | undefined {
-    return this.data.products.find(p => p.id === id);
+    const p = this.data.products.find(prod => prod.id === id);
+    if (!p) return undefined;
+    return {
+      ...p,
+      sku: p.sku || (p as any).product_sku || (p as any).productSku || (p as any).code || ''
+    };
   }
 
-  public saveProduct(product: Product): Product {
+  public saveProduct(product: Product | any): Product {
+    const sku = product.sku || product.product_sku || product.productSku || '';
+    const cleanProduct = {
+      ...product,
+      sku,
+      product_sku: sku
+    };
     const idx = this.data.products.findIndex(p => p.id === product.id);
     if (idx >= 0) {
-      this.data.products[idx] = product;
+      this.data.products[idx] = { ...this.data.products[idx], ...cleanProduct };
     } else {
-      this.data.products.push(product);
+      this.data.products.push(cleanProduct);
     }
     this.saveData(this.data);
-    return product;
+    return this.data.products[idx >= 0 ? idx : this.data.products.length - 1];
   }
 
   public deleteProduct(id: string): boolean {

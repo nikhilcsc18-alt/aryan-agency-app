@@ -67,6 +67,7 @@ export interface TradeScheme {
 export interface Product {
   id: string;
   sku: string;
+  barcode?: string;
   name: string;
   brand: string;
   category: ProductCategory;
@@ -181,6 +182,7 @@ export interface Order {
   outstandingAmount: number; // ₹
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  paymentMode?: 'cash' | 'upi' | 'credit' | 'cheque' | 'bank_transfer' | 'qr';
   deliveryRunId?: string;
   driverName?: string;
   vehicleNumber?: string;
@@ -267,3 +269,17 @@ export interface RetailerLedgerEntry {
   credit: number; // decreases balance (e.g. payment received)
   runningBalance: number;
 }
+
+export interface PromotionalBanner {
+  id: string;
+  title: string;
+  subtitle: string;
+  badgeText: string; // e.g. "🔥 5 + 2 FREE", "10% OFF", "NEW", "BEST OFFER"
+  ctaText?: string;
+  targetCategory?: string;
+  imageUrl: string;
+  bgGradient: string;
+  accentColor?: string;
+  isActive: boolean;
+}
+

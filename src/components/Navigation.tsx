@@ -45,7 +45,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   onOpenNewOrder,
   onOpenAICopilot
 }) => {
-  const { currentRole, currentUser, logout, isAdmin } = useAuth();
+  const { currentRole, currentUser, logout, isAdmin, isSalesman, isRetailer } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Define tab items based on persona
@@ -86,9 +86,9 @@ export const Navigation: React.FC<NavigationProps> = ({
   } else if (currentRole === 'retailer') {
     navItems = [
       { id: 'products', label: 'Distributor Catalog', icon: <Package className="w-4 h-4" /> },
-      { id: 'orders', label: 'My Orders & Invoices', icon: <ShoppingCart className="w-4 h-4" /> },
-      { id: 'retailers', label: 'Account & Credit Ledger', icon: <FileSpreadsheet className="w-4 h-4" /> },
-      { id: 'payments', label: 'Payment Receipts', icon: <IndianRupee className="w-4 h-4" /> }
+      { id: 'orders', label: 'My Orders', icon: <ShoppingCart className="w-4 h-4" />, badge: ordersBadge },
+      { id: 'payments', label: 'My Payments & Ledger', icon: <IndianRupee className="w-4 h-4" /> },
+      { id: 'retailers', label: 'Store Profile & Credit', icon: <Store className="w-4 h-4" /> }
     ];
   } else {
     // Default fallback
@@ -241,18 +241,29 @@ export const Navigation: React.FC<NavigationProps> = ({
 
             {/* Quick Actions inside Drawer */}
             <div className="grid grid-cols-2 gap-2 pt-1">
-              {onOpenNewOrder && (
+              {isRetailer ? (
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    onSelectTab('products');
+                  }}
+                  className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                >
+                  <ShoppingCart className="w-4 h-4 text-amber-300" />
+                  <span>Buy Products</span>
+                </button>
+              ) : (isSalesman || isAdmin) && onOpenNewOrder ? (
                 <button
                   onClick={() => {
                     setIsMobileMenuOpen(false);
                     onOpenNewOrder();
                   }}
-                  className="py-2.5 px-3 bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-semibold rounded-lg flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 transition-all"
+                  className="py-2.5 px-3 bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs font-semibold rounded-lg flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
                 >
                   <ShoppingCart className="w-4 h-4" />
                   <span>+ Punch Order</span>
                 </button>
-              )}
+              ) : null}
               {onOpenAICopilot && (
                 <button
                   onClick={() => {
