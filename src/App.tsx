@@ -338,10 +338,12 @@ function MainApp() {
   const handleSaveProduct = async (productData: Partial<Product>) => {
     try {
       const saved = await api.saveProduct(productData);
-      showToast(`SKU ${saved.sku} saved successfully!`, 'success');
+      showToast(`SKU ${saved.sku || saved.name} saved successfully!`, 'success');
       await loadData();
-    } catch (err) {
-      showToast('Failed to save product SKU', 'error');
+      return true;
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to save product SKU', 'error');
+      throw err;
     }
   };
 

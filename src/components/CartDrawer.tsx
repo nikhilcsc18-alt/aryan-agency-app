@@ -26,6 +26,7 @@ import {
 import QRCode from 'qrcode';
 import { CartItem, Retailer, Product } from '../types';
 import { formatINR, formatINRDecimals } from '../lib/api';
+import { ProductImage } from './ProductImage';
 import { useAuth } from '../context/AuthContext';
 import { useDistributorSettings } from '../lib/settings';
 import { DistributorSettingsModal } from './DistributorSettingsModal';
@@ -285,12 +286,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   >
                     <div className="flex items-start justify-between">
                       <div className="flex items-start space-x-2.5">
-                        <img 
-                          src={p.imageUrl} 
-                          alt={p.name}
-                          className="w-10 h-10 rounded-md object-cover border border-slate-100 shrink-0" 
-                          referrerPolicy="no-referrer"
-                        />
+                        <div className="w-10 h-10 rounded-md overflow-hidden border border-slate-100 shrink-0">
+                          <ProductImage 
+                            src={p.imageUrl} 
+                            alt={p.name}
+                            brand={p.brand}
+                            sku={p.sku}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
                         <div>
                           <h4 className="font-bold text-slate-900 text-xs leading-tight line-clamp-1">{p.name}</h4>
                           <div className="text-[11px] text-slate-500 mt-0.5">

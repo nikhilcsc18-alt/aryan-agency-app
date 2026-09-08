@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { Product } from '../types';
 import { formatINR } from '../lib/api';
+import { ProductImage } from './ProductImage';
+import { BrandLogo } from './BrandLogos';
 
 interface B2BProductCardProps {
   product: Product;
@@ -130,11 +132,14 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
     >
       {/* Top Media & Badges */}
       <div className="relative w-full aspect-[4/3] bg-slate-100 overflow-hidden border-b border-slate-100">
-        <img
-          src={product.imageUrl || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500'}
+        <ProductImage
+          src={product.imageUrl}
           alt={product.name}
-          referrerPolicy="no-referrer"
+          brand={product.brand}
+          category={product.category}
+          sku={product.sku || (product as any).product_sku}
           className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+          containerClassName="w-full h-full relative"
           loading="lazy"
         />
 
@@ -185,8 +190,9 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
         {/* Brand & Name & SKU */}
         <div>
           <div className="flex items-center justify-between gap-1.5 mb-1.5">
-            <span className="text-[9px] sm:text-[10px] font-black tracking-wider text-[#2563eb] uppercase bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 shrink-0">
-              {product.brand}
+            <span className="inline-flex items-center text-[9px] sm:text-[10px] font-black tracking-wider text-[#2563eb] uppercase bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 shrink-0">
+              <BrandLogo brand={product.brand} size="sm" className="w-3.5 h-3.5 mr-1 shrink-0 rounded-xs" />
+              <span>{product.brand}</span>
             </span>
             <div 
               className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[9px] sm:text-[10.5px] font-mono font-bold tracking-tight text-slate-800 shrink-0 max-w-[65%] truncate shadow-2xs"

@@ -285,30 +285,47 @@ export const api = {
 
   async saveProduct(product: Partial<Product>): Promise<Product> {
     const normalizedSku = product.sku || (product as any).product_sku || (product as any).productSku || '';
+    const productId = product.id || `prd_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const payload = {
       ...product,
+      id: productId,
       sku: normalizedSku,
       product_sku: normalizedSku
     };
+
+    let savedResult: Product | null = null;
+
     if (isSupabaseConfigured) {
       try {
-        const saved = await supabaseService.saveProduct(payload);
-        if (saved) return saved;
-      } catch (e) {
-        console.warn('Supabase saveProduct fallback to local API:', e);
+        savedResult = await supabaseService.saveProduct(payload);
+      } catch (e: any) {
+        console.error('Supabase saveProduct error:', e);
+        // If it was an explicit database constraint or validation error, propagate it to UI
+        throw e;
       }
     }
-    const isEdit = !!product.id;
-    const url = isEdit ? `/api/products/${product.id}` : '/api/products';
-    const method = isEdit ? 'PUT' : 'POST';
-    const result = await safeMutationFetch<Product>(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+
+    // Keep local backend API synchronized with the new/updated product
+    try {
+      const isEdit = !!product.id;
+      const url = isEdit ? `/api/products/${product.id}` : '/api/products';
+      const method = isEdit ? 'PUT' : 'POST';
+      const localResult = await safeMutationFetch<Product>(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(savedResult || payload)
+      });
+      if (!savedResult) {
+        savedResult = localResult;
+      }
+    } catch (localErr) {
+      console.warn('Local API sync fallback:', localErr);
+    }
+
+    const finalProduct = savedResult || (payload as Product);
     return {
-      ...result,
-      sku: result.sku || (result as any).product_sku || normalizedSku
+      ...finalProduct,
+      sku: finalProduct.sku || (finalProduct as any).product_sku || normalizedSku
     };
   },
 

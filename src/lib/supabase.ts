@@ -248,28 +248,56 @@ function mapDbProduct(row: any): Product {
 
 function productToDb(p: Partial<Product> | any): any {
   const out: any = {};
-  if (p.id !== undefined) out.id = p.id;
-  const skuVal = p.sku ?? p.product_sku ?? p.productSku;
-  if (skuVal !== undefined) {
-    out.sku = skuVal;
+  out.id = (p.id && String(p.id).trim()) || `prd_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  
+  let skuVal = (p.sku ?? p.product_sku ?? p.productSku ?? '').trim();
+  if (!skuVal) {
+    const brandCode = (p.brand || 'PRD').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5) || 'PRD';
+    const nameCode = (p.name || 'ITEM').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) || 'ITEM';
+    skuVal = `${brandCode}-${nameCode}-${Date.now().toString().slice(-4)}`;
   }
-  if (p.barcode !== undefined || p.barcode_number !== undefined) out.barcode = p.barcode ?? p.barcode_number;
-  if (p.name !== undefined) out.name = p.name;
-  if (p.brand !== undefined) out.brand = p.brand;
-  if (p.category !== undefined) out.category = p.category;
-  if (p.hsnCode !== undefined || p.hsn_code !== undefined) out.hsn_code = p.hsnCode ?? p.hsn_code;
-  if (p.gstRate !== undefined || p.gst_rate !== undefined) out.gst_rate = p.gstRate ?? p.gst_rate;
-  if (p.piecesPerCase !== undefined || p.pieces_per_case !== undefined) out.pieces_per_case = p.piecesPerCase ?? p.pieces_per_case;
-  if (p.mrpPiece !== undefined || p.mrp_piece !== undefined) out.mrp_piece = p.mrpPiece ?? p.mrp_piece;
-  if (p.wholesalePricePiece !== undefined || p.wholesale_price_piece !== undefined) out.wholesale_price_piece = p.wholesalePricePiece ?? p.wholesale_price_piece;
-  if (p.casePrice !== undefined || p.case_price !== undefined) out.case_price = p.casePrice ?? p.case_price;
-  if (p.currentStockCases !== undefined || p.current_stock_cases !== undefined) out.current_stock_cases = p.currentStockCases ?? p.current_stock_cases;
-  if (p.currentStockLoosePcs !== undefined || p.current_stock_loose_pcs !== undefined) out.current_stock_loose_pcs = p.currentStockLoosePcs ?? p.current_stock_loose_pcs;
-  if (p.reorderLevelCases !== undefined || p.reorder_level_cases !== undefined) out.reorder_level_cases = p.reorderLevelCases ?? p.reorder_level_cases;
-  if (p.imageUrl !== undefined || p.image_url !== undefined) out.image_url = p.imageUrl ?? p.image_url;
-  if (p.description !== undefined) out.description = p.description;
-  if (p.batches !== undefined) out.batches = p.batches;
-  if (p.activeScheme !== undefined || p.active_scheme !== undefined) out.active_scheme = p.activeScheme ?? p.active_scheme;
+  out.sku = skuVal;
+
+  out.name = (p.name || '').trim() || 'FMCG Product';
+  out.brand = (p.brand || '').trim() || 'General';
+  out.category = p.category || 'Biscuits & Bakery';
+  out.hsn_code = (p.hsnCode || p.hsn_code || '').trim() || '19053100';
+  out.gst_rate = Number(p.gstRate ?? p.gst_rate ?? 18);
+  
+  const pieces = Math.max(1, Number(p.piecesPerCase ?? p.pieces_per_case ?? 24));
+  out.pieces_per_case = pieces;
+  out.mrp_piece = Number(p.mrpPiece ?? p.mrp_piece ?? 0);
+  
+  const wp = Number(p.wholesalePricePiece ?? p.wholesale_price_piece ?? 0);
+  out.wholesale_price_piece = wp;
+  out.case_price = Number(p.casePrice ?? p.case_price ?? (wp * pieces));
+  
+  const stockCases = Math.max(0, Number(p.currentStockCases ?? p.current_stock_cases ?? 0));
+  const stockPcs = Math.max(0, Number(p.currentStockLoosePcs ?? p.current_stock_loose_pcs ?? 0));
+  out.current_stock_cases = stockCases;
+  out.current_stock_loose_pcs = stockPcs;
+  out.reorder_level_cases = Math.max(0, Number(p.reorderLevelCases ?? p.reorder_level_cases ?? 10));
+  
+  out.image_url = p.imageUrl || p.image_url || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500';
+  out.description = p.description || '';
+  
+  out.batches = Array.isArray(p.batches) && p.batches.length > 0 
+    ? p.batches 
+    : stockCases > 0 
+      ? [{
+          batchNumber: `BAT-${Date.now().toString().slice(-4)}`,
+          mfgDate: new Date().toISOString().split('T')[0],
+          expiryDate: new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          stockCases,
+          stockLoosePcs: stockPcs,
+          warehouseBin: 'BAY-A'
+        }]
+      : [];
+
+  const scheme = p.activeScheme || p.active_scheme;
+  out.active_scheme = (scheme && scheme.isActive) ? scheme : null;
+  out.updated_at = new Date().toISOString();
+
   return out;
 }
 
@@ -892,8 +920,36 @@ export const supabaseService = {
 
   async saveProduct(product: Partial<Product> | any): Promise<Product | null> {
     if (!supabase) return null;
-    const dbPayload = productToDb(product);
-    let { data, error } = await supabase.from('products').upsert(dbPayload).select().single();
+    let dbPayload = productToDb(product);
+    // Explicitly delete non-column fields if present
+    delete dbPayload.barcode;
+    delete dbPayload.barcode_number;
+
+    let { data, error } = await supabase
+      .from('products')
+      .upsert(dbPayload, { onConflict: 'id' })
+      .select()
+      .single();
+
+    // Auto-strip any column that does not exist in Supabase's schema cache (PGRST204)
+    let attempts = 0;
+    while (error && error.message && error.message.includes('in the schema cache') && attempts < 5) {
+      attempts++;
+      const match = error.message.match(/Could not find the '([^']+)' column/);
+      if (match && match[1] && match[1] in dbPayload) {
+        console.warn(`Stripping unknown column "${match[1]}" from Supabase products payload and retrying...`);
+        delete dbPayload[match[1]];
+        const retryRes = await supabase
+          .from('products')
+          .upsert(dbPayload, { onConflict: 'id' })
+          .select()
+          .single();
+        data = retryRes.data;
+        error = retryRes.error;
+      } else {
+        break;
+      }
+    }
     
     // If column 'sku' doesn't exist but 'product_sku' does (or vice-versa), retry with alternate column name
     if (error && error.message && (error.message.includes('sku') || error.message.includes('column'))) {
@@ -905,14 +961,26 @@ export const supabaseService = {
         fallbackPayload.sku = fallbackPayload.product_sku;
         delete fallbackPayload.product_sku;
       }
-      const retryRes = await supabase.from('products').upsert(fallbackPayload).select().single();
+      const retryRes = await supabase
+        .from('products')
+        .upsert(fallbackPayload, { onConflict: 'id' })
+        .select()
+        .single();
       if (!retryRes.error && retryRes.data) {
         data = retryRes.data;
         error = null;
+      } else if (retryRes.error) {
+        error = retryRes.error;
       }
     }
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23505' || error.message?.includes('products_sku_key') || error.message?.includes('unique constraint')) {
+        throw new Error(`A product with SKU code "${dbPayload.sku}" already exists. Please choose a unique SKU.`);
+      }
+      throw new Error(error.message || 'Failed to save product in database.');
+    }
+
     return mapDbProduct(data);
   },
 

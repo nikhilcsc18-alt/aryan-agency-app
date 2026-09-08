@@ -27,7 +27,12 @@ import {
   ScanLine,
   QrCode,
   Copy,
-  Barcode
+  Barcode,
+  Loader2,
+  Upload,
+  Image as ImageIcon,
+  RefreshCw,
+  ImagePlus
 } from 'lucide-react';
 import { Product, ProductCategory, TradeScheme, CartItem } from '../types';
 import { formatINR } from '../lib/api';
@@ -36,6 +41,9 @@ import { PromotionalBannerCarousel } from './PromotionalBannerCarousel';
 import { B2BProductCard } from './B2BProductCard';
 import { BrandCategoryBar } from './BrandCategoryBar';
 import { BarcodeScannerModal, PRODUCT_BARCODE_MAP } from './BarcodeScannerModal';
+import { ProductImage } from './ProductImage';
+import { BrandLogo } from './BrandLogos';
+import { FMCG_PRODUCT_PRESETS, FMCGPresetProduct, compressImageFile } from '../lib/fmcgPresets';
 
 interface ProductsViewProps {
   products: Product[];
@@ -89,6 +97,58 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   const [viewBatchesProduct, setViewBatchesProduct] = useState<Product | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
   const [copiedSku, setCopiedSku] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPresetsModal, setShowPresetsModal] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imagePreviewError, setImagePreviewError] = useState(false);
+
+  const handleImageUrlChange = (url: string) => {
+    let clean = url.trim();
+    // Auto-extract real image url if user pastes a Google Images preview link
+    if (clean.includes('google.com/imgres') && clean.includes('imgurl=')) {
+      try {
+        const parsed = new URL(clean);
+        const actual = parsed.searchParams.get('imgurl');
+        if (actual) {
+          clean = decodeURIComponent(actual);
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    setImagePreviewError(false);
+    setEditingProduct(prev => prev ? { ...prev, imageUrl: clean } : null);
+  };
+
+  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingImage(true);
+      const dataUrl = await compressImageFile(file, 800, 0.85);
+      setImagePreviewError(false);
+      setEditingProduct(prev => prev ? { ...prev, imageUrl: dataUrl } : null);
+    } catch (err) {
+      console.error('Failed to compress image file', err);
+      alert('Could not process the selected image file. Please try another image.');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleApplyPreset = (preset: FMCGPresetProduct) => {
+    setEditingProduct(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        imageUrl: preset.imageUrl,
+        brand: (!prev.brand || prev.brand === 'General') ? preset.brand : prev.brand,
+        category: (!prev.category || prev.category === 'Biscuits & Bakery') ? (preset.category as ProductCategory) : prev.category
+      };
+    });
+    setImagePreviewError(false);
+    setShowPresetsModal(false);
+  };
 
   const handleBookProduct = (productId: string) => {
     if (onOpenNewOrderWithProduct) {
@@ -203,16 +263,23 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
 
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingProduct) return;
-    const cleanSku = (editingProduct.sku || (editingProduct as any).product_sku || '').trim();
-    const finalProduct = {
-      ...editingProduct,
-      sku: cleanSku,
-      product_sku: cleanSku
-    };
-    await onSaveProduct(finalProduct);
-    setIsModalOpen(false);
-    setEditingProduct(null);
+    if (!editingProduct || isSubmitting) return;
+    try {
+      setIsSubmitting(true);
+      const cleanSku = (editingProduct.sku || (editingProduct as any).product_sku || '').trim();
+      const finalProduct = {
+        ...editingProduct,
+        sku: cleanSku,
+        product_sku: cleanSku
+      };
+      await onSaveProduct(finalProduct);
+      setIsModalOpen(false);
+      setEditingProduct(null);
+    } catch (err) {
+      console.error('Failed to save product in modal:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -534,16 +601,22 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     <tr key={product.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center space-x-3">
-                          <img
-                            src={product.imageUrl || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=100'}
-                            alt={product.name}
-                            referrerPolicy="no-referrer"
-                            className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0 bg-slate-100"
-                          />
+                          <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0 bg-slate-100">
+                            <ProductImage
+                              src={product.imageUrl}
+                              alt={product.name}
+                              brand={product.brand}
+                              category={product.category}
+                              sku={product.sku || (product as any).product_sku}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
                           <div>
                             <div className="font-bold text-slate-900">{product.name}</div>
-                            <div className="text-[11px] text-[#2563eb] font-semibold">
-                              {product.brand} • <span className="text-slate-500 font-normal">{product.category}</span>
+                            <div className="text-[11px] text-[#2563eb] font-semibold flex items-center space-x-1">
+                              <span>{product.brand}</span>
+                              <span className="text-slate-400">•</span>
+                              <span className="text-slate-500 font-normal">{product.category}</span>
                             </div>
                           </div>
                         </div>
@@ -892,15 +965,172 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Product Image URL</label>
-                <input
-                  type="text"
-                  value={editingProduct.imageUrl || ''}
-                  onChange={(e) => setEditingProduct({ ...editingProduct, imageUrl: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-[4px]"
-                  placeholder="https://images.unsplash.com/..."
-                />
+              {/* Enhanced Product Image & Packshot Section */}
+              <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/70 space-y-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                  <div>
+                    <label className="block text-slate-800 font-bold text-xs flex items-center space-x-1.5">
+                      <ImageIcon className="w-4 h-4 text-[#2563eb]" />
+                      <span>Product Packshot / Image</span>
+                    </label>
+                    <span className="text-[10.5px] text-slate-500">
+                      Paste direct URL, upload local photo, or pick from popular FMCG presets
+                    </span>
+                  </div>
+
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    {/* Upload from Device button */}
+                    <label className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer shadow-2xs">
+                      <Upload className="w-3.5 h-3.5 text-slate-500" />
+                      <span>{isUploadingImage ? 'Uploading...' : 'Upload Image'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {/* Popular FMCG Presets button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowPresetsModal(!showPresetsModal)}
+                      className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 text-[#2563eb] text-xs font-bold cursor-pointer shadow-2xs"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-[#2563eb]" />
+                      <span>FMCG Presets</span>
+                    </button>
+
+                    {editingProduct.imageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => handleImageUrlChange('')}
+                        className="text-[11px] text-slate-400 hover:text-rose-600 px-1 font-medium"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Image Live Preview and URL Input */}
+                <div className="flex items-start space-x-3 pt-1">
+                  {/* Left: Interactive Live Preview Card */}
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl border border-slate-200 bg-white overflow-hidden shrink-0 flex items-center justify-center relative shadow-xs">
+                    {editingProduct.imageUrl ? (
+                      <>
+                        <img
+                          src={editingProduct.imageUrl}
+                          alt="Preview"
+                          referrerPolicy="no-referrer"
+                          onLoad={() => setImagePreviewError(false)}
+                          onError={() => setImagePreviewError(true)}
+                          className="w-full h-full object-cover"
+                        />
+                        {imagePreviewError ? (
+                          <div className="absolute inset-0 bg-rose-950/80 text-white flex flex-col items-center justify-center p-1 text-center">
+                            <AlertCircle className="w-4 h-4 text-rose-400 mb-0.5" />
+                            <span className="text-[8px] font-bold leading-tight">Blocked or Invalid Link</span>
+                          </div>
+                        ) : (
+                          <div className="absolute top-1 right-1 w-4 h-4 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-xs">
+                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-slate-400 p-2 text-center">
+                        <ImageIcon className="w-6 h-6 mb-1 opacity-40" />
+                        <span className="text-[9px] font-medium leading-tight">No Image Set</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right: URL Input & Helper */}
+                  <div className="flex-1 space-y-1.5">
+                    <input
+                      type="text"
+                      value={editingProduct.imageUrl || ''}
+                      onChange={(e) => handleImageUrlChange(e.target.value)}
+                      className={`w-full px-3 py-2 text-xs border rounded-lg font-mono focus:ring-1 transition-colors ${
+                        imagePreviewError 
+                          ? 'border-rose-400 bg-rose-50/30 text-rose-900 focus:ring-rose-400' 
+                          : 'border-slate-300 bg-white focus:ring-blue-500'
+                      }`}
+                      placeholder="Paste image link (e.g. https://.../photo.jpg)"
+                    />
+
+                    {imagePreviewError ? (
+                      <p className="text-[11px] text-rose-600 font-medium">
+                        ⚠️ Yeh image URL load nahi ho pa raha (website hotlink protection ya invalid URL). Aap upar &apos;Upload Image&apos; par click karke apne phone/computer se photo upload kar sakte hain, ya &apos;FMCG Presets&apos; se verified image select karein.
+                      </p>
+                    ) : (
+                      <div className="flex items-center space-x-1 text-[11px] text-slate-500">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600 inline shrink-0" />
+                        <span>Google Images links are automatically cleaned &amp; verified.</span>
+                      </div>
+                    )}
+
+                    {/* Quick 1-tap presets chips */}
+                    <div className="pt-0.5 flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
+                      <span className="text-[10px] text-slate-400 font-semibold shrink-0">Quick Fill:</span>
+                      {FMCG_PRODUCT_PRESETS.slice(0, 6).map(preset => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => handleApplyPreset(preset)}
+                          className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-white border border-slate-200 hover:border-blue-400 hover:text-[#2563eb] text-slate-700 shrink-0 cursor-pointer shadow-2xs"
+                        >
+                          {preset.brand}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expandable FMCG Presets Drawer */}
+                {showPresetsModal && (
+                  <div className="mt-3 pt-3 border-t border-slate-200 space-y-2 bg-white rounded-xl p-3 border shadow-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900 flex items-center space-x-1">
+                        <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Select Verified FMCG Product Packshot:</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowPresetsModal(false)}
+                        className="text-xs text-slate-400 hover:text-slate-700"
+                      >
+                        Close
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
+                      {FMCG_PRODUCT_PRESETS.map((preset) => (
+                        <div
+                          key={preset.sku}
+                          onClick={() => handleApplyPreset(preset)}
+                          className="flex items-center space-x-2 p-1.5 rounded-lg border border-slate-200 hover:border-blue-400 hover:bg-blue-50/50 cursor-pointer transition-all group"
+                        >
+                          <img
+                            src={preset.imageUrl}
+                            alt={preset.name}
+                            referrerPolicy="no-referrer"
+                            className="w-9 h-9 rounded-md object-cover border border-slate-100 shrink-0"
+                          />
+                          <div className="min-w-0 text-left">
+                            <div className="text-[11px] font-bold text-slate-800 truncate group-hover:text-blue-600">
+                              {preset.name}
+                            </div>
+                            <div className="text-[9px] text-slate-400">
+                              {preset.brand} • ₹{preset.mrpPiece}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Trade Scheme Settings */}
@@ -979,16 +1209,25 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() => setIsModalOpen(false)}
-                  className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-[4px]"
+                  className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-[4px] disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#DD6B20] hover:bg-[#C05621] text-white font-semibold rounded-[4px] shadow-xs"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-[#DD6B20] hover:bg-[#C05621] text-white font-semibold rounded-[4px] shadow-xs flex items-center space-x-2 disabled:opacity-50 cursor-pointer"
                 >
-                  Save FMCG SKU
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
+                      <span>Saving SKU...</span>
+                    </>
+                  ) : (
+                    <span>Save FMCG SKU</span>
+                  )}
                 </button>
               </div>
 
@@ -1004,12 +1243,16 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-slate-100 pb-3 gap-3">
               <div className="flex items-center space-x-3 min-w-0">
-                <img
-                  src={viewBatchesProduct.imageUrl || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500'}
-                  alt={viewBatchesProduct.name}
-                  referrerPolicy="no-referrer"
-                  className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
-                />
+                <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-100">
+                  <ProductImage
+                    src={viewBatchesProduct.imageUrl}
+                    alt={viewBatchesProduct.name}
+                    brand={viewBatchesProduct.brand}
+                    category={viewBatchesProduct.category}
+                    sku={viewBatchesProduct.sku}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
                 <div className="min-w-0">
                   <span className="text-[10px] font-black uppercase text-[#2563eb] bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
                     {viewBatchesProduct.brand}
