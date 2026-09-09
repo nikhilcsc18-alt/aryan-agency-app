@@ -17,22 +17,15 @@ const CURRENT_APP_VERSION: string =
   ((import.meta as any)?.env?.PACKAGE_VERSION) ||
   (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.2.4');
 
-const GITHUB_REPO_OWNER = 'nikhilcsc18-alt';
-const GITHUB_REPO_NAME = 'aryan-agency-app';
-const GITHUB_API_URL = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/releases/latest`;
-const DEFAULT_APK_DOWNLOAD_URL = `https://github.com/nikhilcsc18-alt/${GITHUB_REPO_NAME}/releases/latest/download/app-debug.apk`;
+const VERSION_INFO_URL = '/download/version.json';
+const DEFAULT_APK_DOWNLOAD_URL = '/download/aryan-agency-app.apk';
 const SESSION_STORAGE_DISMISS_KEY = 'aryan_agency_update_dismissed';
 
-interface GitHubReleaseData {
-  tag_name: string;
-  name?: string;
-  body?: string;
-  html_url?: string;
-  published_at?: string;
-  assets?: Array<{
-    name: string;
-    browser_download_url: string;
-  }>;
+interface AppVersionInfo {
+  version: string;
+  downloadUrl?: string;
+  releaseNotes?: string;
+  updatedAt?: string;
 }
 
 /**
@@ -91,44 +84,42 @@ export const AppUpdateChecker: React.FC = () => {
     const checkForUpdates = async () => {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-        const response = await fetch(GITHUB_API_URL, {
+        // Fetch public version.json from Render / Express server directly (works with private GitHub repo)
+        const response = await fetch(VERSION_INFO_URL, {
           method: 'GET',
           headers: {
-            'Accept': 'application/vnd.github.v3+json',
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache',
           },
-          signal: controller.signal
+          signal: controller.signal,
         });
 
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-          // Silent exit on HTTP errors (404, 403 rate limit, private repo, etc.)
+          // Silent exit on HTTP errors
           return;
         }
 
-        const data: GitHubReleaseData = await response.json();
-        const remoteTag = data?.tag_name || data?.name || '';
-        if (!remoteTag) return;
+        const data: AppVersionInfo = await response.json();
+        const remoteVersion = data?.version?.trim() || '';
+        if (!remoteVersion) return;
 
-        // Check if remote version is strictly newer
-        if (isNewerVersion(remoteTag, CURRENT_APP_VERSION)) {
-          setLatestVersion(remoteTag.startsWith('v') ? remoteTag : `v${remoteTag}`);
-          
-          // Check if release contains an APK asset, otherwise default to latest download URL
-          const apkAsset = data.assets?.find(a => a.name?.toLowerCase().endsWith('.apk'));
-          const targetUrl = apkAsset?.browser_download_url || DEFAULT_APK_DOWNLOAD_URL;
-          setDownloadUrl(targetUrl);
+        // Check if remote version from version.json is strictly newer than installed package version
+        if (isNewerVersion(remoteVersion, CURRENT_APP_VERSION)) {
+          setLatestVersion(remoteVersion.startsWith('v') ? remoteVersion : `v${remoteVersion}`);
+          setDownloadUrl(data.downloadUrl || DEFAULT_APK_DOWNLOAD_URL);
 
-          if (data.body && data.body.trim()) {
-            setReleaseNotes(data.body.trim());
+          if (data.releaseNotes && data.releaseNotes.trim()) {
+            setReleaseNotes(data.releaseNotes.trim());
           }
 
           setIsUpdateModalOpen(true);
         }
       } catch {
-        // Handle all network/API errors silently without breaking the app
+        // Handle all network/fetch errors silently without breaking the app
       }
     };
 

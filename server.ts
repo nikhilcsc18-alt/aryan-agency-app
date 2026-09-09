@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
@@ -1044,6 +1045,34 @@ app.get('/api/ai/insights', async (req, res) => {
 app.post('/api/db/reset', requireRoles(['admin']), (req, res) => {
   const data = db.resetToDefault();
   res.json({ success: true, message: 'Database reset to default FMCG demo dataset' });
+});
+
+// Dedicated public APK and Version distribution endpoints
+app.get('/download/aryan-agency-app.apk', (req, res) => {
+  const possiblePaths = [
+    path.join(process.cwd(), 'public', 'download', 'aryan-agency-app.apk'),
+    path.join(process.cwd(), 'dist', 'download', 'aryan-agency-app.apk'),
+  ];
+  const apkPath = possiblePaths.find(p => fs.existsSync(p));
+  if (!apkPath) {
+    return res.status(404).json({ error: 'Aryan Agency APK file not found on server' });
+  }
+  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+  res.setHeader('Content-Disposition', 'attachment; filename="aryan-agency-app.apk"');
+  res.sendFile(apkPath);
+});
+
+app.get('/download/version.json', (req, res) => {
+  const possiblePaths = [
+    path.join(process.cwd(), 'public', 'download', 'version.json'),
+    path.join(process.cwd(), 'dist', 'download', 'version.json'),
+  ];
+  const versionPath = possiblePaths.find(p => fs.existsSync(p));
+  if (!versionPath) {
+    return res.status(404).json({ error: 'version.json not found on server' });
+  }
+  res.setHeader('Content-Type', 'application/json');
+  res.sendFile(versionPath);
 });
 
 // Explicit 404 handler for unmatched /api/* requests so Vite SPA never returns index.html for API calls

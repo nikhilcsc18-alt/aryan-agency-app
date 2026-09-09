@@ -22,7 +22,7 @@ const STORAGE_KEY = 'aryan_app_download_config';
 const EVENT_NAME = 'aryan_app_download_config_updated';
 
 export const DEFAULT_APP_CONFIG: AppDownloadConfig = {
-  apkUrl: '/downloads/aryan-agency-fmcg.apk',
+  apkUrl: '/download/aryan-agency-app.apk',
   version: 'v1.2.4',
   fileSize: '18.4 MB',
   releaseDate: 'March 2026',
@@ -37,7 +37,16 @@ export function getAppDownloadConfig(): AppDownloadConfig {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_APP_CONFIG;
-    return { ...DEFAULT_APP_CONFIG, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    // If the cached URL was any previous GitHub release or mock path, migrate it to the permanent public APK route
+    if (
+      parsed.apkUrl === '/downloads/aryan-agency-fmcg.apk' ||
+      parsed.apkUrl?.includes('releases/latest/download') ||
+      parsed.apkUrl?.includes('github.com')
+    ) {
+      parsed.apkUrl = DEFAULT_APP_CONFIG.apkUrl;
+    }
+    return { ...DEFAULT_APP_CONFIG, ...parsed };
   } catch (err) {
     console.warn('[appDownloadConfig] Error reading config:', err);
     return DEFAULT_APP_CONFIG;
