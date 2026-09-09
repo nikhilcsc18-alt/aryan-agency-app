@@ -30,6 +30,7 @@ import { ProductImage } from './ProductImage';
 import { useAuth } from '../context/AuthContext';
 import { useDistributorSettings } from '../lib/settings';
 import { DistributorSettingsModal } from './DistributorSettingsModal';
+import { isCreditEnabledForRetailer } from '../lib/retailerCredit';
 
 export interface CheckoutPaymentDetails {
   paymentMode: 'cod' | 'upi' | 'qr' | 'credit';
@@ -72,16 +73,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
-  // Sync default payment mode with COD availability
+  const selectedRetailer = retailers.find(r => r.id === selectedRetailerId) || retailers[0];
+  const isCreditAllowed = Boolean(selectedRetailer && isCreditEnabledForRetailer(selectedRetailer));
+
+  // Sync default payment mode with COD availability and retailer credit permissions
   useEffect(() => {
     if (!settings.allowCOD && selectedPaymentMode === 'cod') {
       setSelectedPaymentMode('qr');
     }
   }, [settings.allowCOD, selectedPaymentMode]);
 
-  if (!isOpen) return null;
+  // If Wholesale Credit mode is selected but retailer credit is disabled, safely switch mode
+  useEffect(() => {
+    if (selectedPaymentMode === 'credit' && !isCreditAllowed) {
+      setSelectedPaymentMode(settings.allowCOD ? 'cod' : 'qr');
+    }
+  }, [isCreditAllowed, selectedPaymentMode, settings.allowCOD]);
 
-  const selectedRetailer = retailers.find(r => r.id === selectedRetailerId) || retailers[0];
+  if (!isOpen) return null;
 
   // Calculate cart totals
   let subtotal = 0;
@@ -498,29 +507,55 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <p className="text-[10px] text-slate-500 leading-tight">Direct payment via UPI handles</p>
                   </button>
 
-                  {/* 15-Day Wholesale Credit */}
-                  <button
-                    type="button"
-                    disabled={settings.mandatoryOnlinePayment}
-                    onClick={() => setSelectedPaymentMode('credit')}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer relative ${
-                      settings.mandatoryOnlinePayment
-                        ? 'opacity-50 bg-slate-100 border-slate-200 cursor-not-allowed'
-                        : selectedPaymentMode === 'credit'
-                        ? 'bg-blue-50 border-blue-600 ring-2 ring-blue-500/20'
-                        : 'bg-white border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <Tag className={`w-4 h-4 ${selectedPaymentMode === 'credit' ? 'text-blue-600' : 'text-slate-500'}`} />
-                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">
-                        15 Days
-                      </span>
-                    </div>
-                    <p className="text-xs font-bold text-slate-900 mt-1">Wholesale Credit</p>
-                    <p className="text-[10px] text-slate-500 leading-tight">Distributor ledger credit</p>
-                  </button>
+                  {/* 15-Day Wholesale Credit (Only visible when credit is enabled for this retailer) */}
+                  {isCreditAllowed && (
+                    <button
+                      type="button"
+                      disabled={settings.mandatoryOnlinePayment}
+                      onClick={() => setSelectedPaymentMode('credit')}
+                      className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer relative ${
+                        settings.mandatoryOnlinePayment
+                          ? 'opacity-50 bg-slate-100 border-slate-200 cursor-not-allowed'
+                          : selectedPaymentMode === 'credit'
+                          ? 'bg-blue-50 border-blue-600 ring-2 ring-blue-500/20'
+                          : 'bg-white border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <Tag className={`w-4 h-4 ${selectedPaymentMode === 'credit' ? 'text-blue-600' : 'text-slate-500'}`} />
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">
+                          15 Days
+                        </span>
+                      </div>
+                      <p className="text-xs font-bold text-slate-900 mt-1">Wholesale Credit</p>
+                      <p className="text-[10px] text-slate-500 leading-tight">
+                        Limit: {formatINR(selectedRetailer?.creditLimit || 50000)}
+                      </p>
+                    </button>
+                  )}
                 </div>
+
+                {/* Notice when credit is disabled for this retailer */}
+                {!isCreditAllowed && (
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-[11px] text-slate-600">
+                    <span className="flex items-center space-x-1.5">
+                      <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>
+                        Credit / Udhar:{' '}
+                        <strong className="text-slate-700 font-semibold">Disabled</strong> for this outlet
+                      </span>
+                    </span>
+                    {isAdmin ? (
+                      <span className="text-[10px] text-blue-600 font-bold">
+                        (Manage in Retailers)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-500">
+                        Pay via UPI or COD
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Conditional Dynamic QR Code Display */}
                 {selectedPaymentMode === 'qr' && (

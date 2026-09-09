@@ -12,6 +12,7 @@ import {
   Brand
 } from '../types';
 import { supabaseService, isSupabaseConfigured, supabaseUrl } from './supabase';
+import { applyCreditControlsToRetailers, setRetailerCreditControl } from './retailerCredit';
 
 let activeToken: string | null = null;
 let activeUserId: string | null = null;
@@ -342,33 +343,42 @@ export const api = {
 
   // Retailers
  async getRetailers(): Promise<Retailer[]> {
+  let list: Retailer[] = [];
   if (isSupabaseConfigured) {
     try {
       const retailers = await supabaseService.getRetailers();
 
       if (retailers) {
-        if (activeUserRole === 'retailer' && activeRetailerId) {
-          return retailers.filter(r => r.id === activeRetailerId);
-        }
-
-        return retailers;
+        list = retailers;
       }
     } catch (e) {
       console.warn('Supabase getRetailers fallback to local API:', e);
     }
   }
 
-  const res = await authFetch('/api/retailers');
-  const retailers = await res.json();
-
-  if (activeUserRole === 'retailer' && activeRetailerId) {
-    return retailers.filter((r: Retailer) => r.id === activeRetailerId);
+  if (list.length === 0) {
+    const res = await authFetch('/api/retailers');
+    list = await res.json();
   }
 
-  return retailers;
+  const withCreditControls = applyCreditControlsToRetailers(list);
+
+  if (activeUserRole === 'retailer' && activeRetailerId) {
+    return withCreditControls.filter((r: Retailer) => r.id === activeRetailerId);
+  }
+
+  return withCreditControls;
 },
 
   async saveRetailer(retailer: Partial<Retailer>): Promise<Retailer> {
+    if (retailer.id && (retailer.creditEnabled !== undefined || retailer.creditLimit !== undefined)) {
+      setRetailerCreditControl(retailer.id, {
+        creditEnabled: retailer.creditEnabled !== undefined ? Boolean(retailer.creditEnabled) : false,
+        creditLimit: retailer.creditLimit,
+        creditDaysAllowed: retailer.creditDaysAllowed
+      });
+    }
+
     if (isSupabaseConfigured) {
       // Directly call Supabase service. Do NOT swallow errors so that validation or duplicate errors
       // are accurately surfaced to the user interface!

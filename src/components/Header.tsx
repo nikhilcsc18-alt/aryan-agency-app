@@ -21,8 +21,11 @@ import {
   Lock,
   ShieldAlert,
   Settings,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Download,
+  Smartphone
 } from 'lucide-react';
+import { AppDownloadModal } from './AppDownloadModal';
 
 interface HeaderProps {
   onOpenNewOrder: () => void;
@@ -53,6 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
 
   const isOwnerOrAdmin = authenticatedUser?.role === 'admin' || currentUser?.role === 'admin';
 
@@ -163,6 +167,23 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Account Actions */}
       <div className="border-t border-slate-100 mt-2 pt-2 px-3 space-y-1">
+        {/* App Download Action */}
+        <button
+          onClick={() => {
+            setShowRoleDropdown(false);
+            setIsDownloadOpen(true);
+          }}
+          className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer font-medium"
+        >
+          <div className="flex items-center space-x-2">
+            <Smartphone className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Download Android App</span>
+          </div>
+          <span className="text-[10px] px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold">
+            APK
+          </span>
+        </button>
+
         <button
           onClick={() => {
             setShowRoleDropdown(false);
@@ -250,6 +271,17 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
+            {/* Download App (APK) Button */}
+            <button
+              id="header-download-app-btn"
+              onClick={() => setIsDownloadOpen(true)}
+              className="inline-flex items-center px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-950/70 hover:bg-emerald-900/90 text-emerald-300 border border-emerald-600/60 shadow-xs transition-colors cursor-pointer"
+              title="Download Aryan Agency Android App (APK)"
+            >
+              <Download className="w-3.5 h-3.5 sm:mr-1.5 text-emerald-400" />
+              <span className="hidden sm:inline">Download App</span>
+            </button>
+
             {/* AI Copilot Button */}
             <button
               id="ai-copilot-btn"
@@ -323,6 +355,16 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Mobile Quick Action Buttons (Touch Friendly, min 40px) */}
           <div className="flex items-center space-x-1.5 shrink-0">
+            {/* Mobile App Download Button */}
+            <button
+              id="mobile-header-download-btn"
+              onClick={() => setIsDownloadOpen(true)}
+              className="w-9 h-9 rounded-lg bg-emerald-950/70 border border-emerald-600/60 flex items-center justify-center text-emerald-400 active:scale-95 transition-transform"
+              title="Download Aryan Agency Android App (APK)"
+            >
+              <Download className="w-4 h-4 text-emerald-400" />
+            </button>
+
             {/* Cart Button */}
             {onOpenCart && (
               <button
@@ -380,6 +422,14 @@ export const Header: React.FC<HeaderProps> = ({
         <DistributorSettingsModal
           isOpen={isSettingsOpen}
           onClose={() => setIsSettingsOpen(false)}
+        />
+      )}
+
+      {/* App Download Modal */}
+      {isDownloadOpen && (
+        <AppDownloadModal
+          isOpen={isDownloadOpen}
+          onClose={() => setIsDownloadOpen(false)}
         />
       )}
     </header>

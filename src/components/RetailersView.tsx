@@ -21,6 +21,7 @@ import {
 import { Retailer } from '../types';
 import { formatINR, formatINRDecimals, api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { setRetailerCreditControl, isCreditEnabledForRetailer } from '../lib/retailerCredit';
 
 interface RetailersViewProps {
   retailers: Retailer[];
@@ -41,6 +42,8 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBeat, setSelectedBeat] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [creditAccessFilter, setCreditAccessFilter] = useState<string>('all');
+  const [togglingCreditId, setTogglingCreditId] = useState<string | null>(null);
 
   // Edit / Add Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -79,9 +82,53 @@ const filteredRetailers = visibleRetailers.filter(r => {
 
   const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
 
-  return matchesSearch && matchesBeat && matchesStatus;
+  const isCreditOn = Boolean(r.creditEnabled);
+  const matchesCreditAccess = 
+    creditAccessFilter === 'all' ||
+    (creditAccessFilter === 'enabled' && isCreditOn) ||
+    (creditAccessFilter === 'disabled' && !isCreditOn);
+
+  return matchesSearch && matchesBeat && matchesStatus && matchesCreditAccess;
 
 });
+
+  const handleToggleCredit = async (retailer: Retailer, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAdmin && !isAccounts) return;
+    const currentStatus = Boolean(retailer.creditEnabled);
+    const newStatus = !currentStatus;
+
+    setTogglingCreditId(retailer.id);
+    // Instant optimistic update in local credit registry & custom event
+    setRetailerCreditControl(retailer.id, {
+      creditEnabled: newStatus,
+      creditLimit: retailer.creditLimit,
+      creditDaysAllowed: retailer.creditDaysAllowed
+    });
+
+    try {
+      await onSaveRetailer({
+        id: retailer.id,
+        storeName: retailer.storeName,
+        ownerName: retailer.ownerName,
+        phone: retailer.phone,
+        address: retailer.address,
+        area: retailer.area,
+        beatName: retailer.beatName,
+        gstin: retailer.gstin,
+        panNumber: retailer.panNumber,
+        creditLimit: retailer.creditLimit,
+        currentOutstanding: retailer.currentOutstanding,
+        creditDaysAllowed: retailer.creditDaysAllowed,
+        status: retailer.status,
+        creditEnabled: newStatus
+      });
+    } catch (err: any) {
+      console.error('[RetailersView Toggle Credit Error]:', err);
+    } finally {
+      setTogglingCreditId(null);
+    }
+  };
 
   const handleOpenAdd = () => {
     setModalError(null);
@@ -99,7 +146,8 @@ const filteredRetailers = visibleRetailers.filter(r => {
       creditLimit: 50000,
       currentOutstanding: 0,
       creditDaysAllowed: 14,
-      status: 'active'
+      status: 'active',
+      creditEnabled: false // Disabled by default for new outlets until Admin explicitly approves
     });
     setIsModalOpen(true);
   };
@@ -107,7 +155,10 @@ const filteredRetailers = visibleRetailers.filter(r => {
   const handleOpenEdit = (retailer: Retailer) => {
     setModalError(null);
     setIsSaving(false);
-    setEditingRetailer({ ...retailer });
+    setEditingRetailer({ 
+      ...retailer,
+      creditEnabled: retailer.creditEnabled !== undefined ? Boolean(retailer.creditEnabled) : false
+    });
     setIsModalOpen(true);
   };
 
@@ -218,7 +269,7 @@ const filteredRetailers = visibleRetailers.filter(r => {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
@@ -250,10 +301,22 @@ const filteredRetailers = visibleRetailers.filter(r => {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
             >
-              <option value="all">All Credit Statuses</option>
+              <option value="all">All Standing Statuses</option>
               <option value="active">Active (Good Standing)</option>
               <option value="overdue">Overdue / Exceeded Limit</option>
               <option value="blocked">Blocked / Suspended</option>
+            </select>
+          </div>
+
+          <div>
+            <select
+              value={creditAccessFilter}
+              onChange={(e) => setCreditAccessFilter(e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+            >
+              <option value="all">All Credit Access (ON & OFF)</option>
+              <option value="enabled">✓ Credit / Udhar: Enabled Only</option>
+              <option value="disabled">✕ Credit / Udhar: Disabled Only</option>
             </select>
           </div>
 
@@ -336,6 +399,49 @@ const filteredRetailers = visibleRetailers.filter(r => {
                       }`}
                       style={{ width: `${creditPct}%` }}
                     />
+                  </div>
+
+                  {/* Admin Credit Control Switch */}
+                  <div className="mt-2.5 pt-2 border-t border-slate-200/90 flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      <CreditCard className={`w-3.5 h-3.5 ${retailer.creditEnabled ? 'text-emerald-600' : 'text-slate-400'}`} />
+                      <span className="text-[11px] font-semibold text-slate-700">
+                        Credit / Udhar:
+                      </span>
+                    </div>
+
+                    {isAdmin || isAccounts ? (
+                      <div className="flex items-center space-x-1.5">
+                        <button
+                          type="button"
+                          disabled={togglingCreditId === retailer.id}
+                          onClick={(e) => handleToggleCredit(retailer, e)}
+                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                            retailer.creditEnabled ? 'bg-emerald-600' : 'bg-slate-300'
+                          } ${togglingCreditId === retailer.id ? 'opacity-60 cursor-wait' : ''}`}
+                          title={retailer.creditEnabled ? 'Click to Disable credit for this retailer' : 'Click to Enable credit for this retailer'}
+                        >
+                          <span
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+                              retailer.creditEnabled ? 'translate-x-4' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                          retailer.creditEnabled ? 'text-emerald-700' : 'text-slate-500'
+                        }`}>
+                          {retailer.creditEnabled ? 'ON' : 'OFF'}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        retailer.creditEnabled 
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                          : 'bg-slate-100 text-slate-600 border border-slate-200'
+                      }`}>
+                        {retailer.creditEnabled ? 'Active' : 'Disabled'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -533,47 +639,95 @@ const filteredRetailers = visibleRetailers.filter(r => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
-                    Credit Limit (₹) {!isAdmin && !isAccounts && <span className="text-[10px] text-slate-400 font-normal">(Admin setting)</span>}
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    disabled={!isAdmin && !isAccounts}
-                    value={editingRetailer.creditLimit || 50000}
-                    onChange={(e) => setEditingRetailer({ ...editingRetailer, creditLimit: Number(e.target.value) })}
-                    className={`w-full px-3 py-2 font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] ${!isAdmin && !isAccounts ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
-                  />
+              {/* Admin Credit Control & Limits Box */}
+              <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${editingRetailer.creditEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-700'}`}>
+                      <CreditCard className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">
+                        Retailer Credit / Udhar Control
+                      </h4>
+                      <p className="text-[10px] text-slate-500">
+                        {isAdmin || isAccounts 
+                          ? 'Allow or restrict 15-Day Wholesale Credit during checkout' 
+                          : 'Admin restricted: Retailer cannot modify their own credit settings'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {isAdmin || isAccounts ? (
+                    <div className="flex items-center space-x-2">
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(editingRetailer.creditEnabled)}
+                          onChange={(e) => setEditingRetailer({ ...editingRetailer, creditEnabled: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                      </label>
+                      <span className={`text-xs font-bold ${editingRetailer.creditEnabled ? 'text-emerald-700' : 'text-slate-500'}`}>
+                        {editingRetailer.creditEnabled ? 'ENABLED' : 'DISABLED'}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded ${
+                      editingRetailer.creditEnabled ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                    }`}>
+                      {editingRetailer.creditEnabled ? 'Credit Enabled' : 'Credit Disabled'}
+                    </span>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
-                    Credit Days Allowed {!isAdmin && !isAccounts && <span className="text-[10px] text-slate-400 font-normal">(Admin setting)</span>}
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    disabled={!isAdmin && !isAccounts}
-                    value={editingRetailer.creditDaysAllowed || 14}
-                    onChange={(e) => setEditingRetailer({ ...editingRetailer, creditDaysAllowed: Number(e.target.value) })}
-                    className={`w-full px-3 py-2 font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] ${!isAdmin && !isAccounts ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">
-                    Account Status {!isAdmin && <span className="text-[10px] text-slate-400 font-normal">(Admin setting)</span>}
-                  </label>
-                  <select
-                    disabled={!isAdmin}
-                    value={editingRetailer.status || 'active'}
-                    onChange={(e) => setEditingRetailer({ ...editingRetailer, status: e.target.value as any })}
-                    className={`w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] ${!isAdmin ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
-                  >
-                    <option value="active">Active</option>
-                    <option value="overdue">Overdue</option>
-                    <option value="blocked">Blocked</option>
-                  </select>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2.5 border-t border-blue-100">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1 text-xs">
+                      Credit Limit Amount (₹) {!isAdmin && !isAccounts && <span className="text-[10px] text-slate-400 font-normal">(Admin setting)</span>}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1000"
+                      required
+                      disabled={!isAdmin && !isAccounts}
+                      value={editingRetailer.creditLimit !== undefined ? editingRetailer.creditLimit : 50000}
+                      onChange={(e) => setEditingRetailer({ ...editingRetailer, creditLimit: Number(e.target.value) })}
+                      className={`w-full px-3 py-2 font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs ${!isAdmin && !isAccounts ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1 text-xs">
+                      Credit Days Allowed {!isAdmin && !isAccounts && <span className="text-[10px] text-slate-400 font-normal">(Admin setting)</span>}
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="90"
+                      required
+                      disabled={!isAdmin && !isAccounts}
+                      value={editingRetailer.creditDaysAllowed !== undefined ? editingRetailer.creditDaysAllowed : 14}
+                      onChange={(e) => setEditingRetailer({ ...editingRetailer, creditDaysAllowed: Number(e.target.value) })}
+                      className={`w-full px-3 py-2 font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs ${!isAdmin && !isAccounts ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1 text-xs">
+                      Account Status {!isAdmin && <span className="text-[10px] text-slate-400 font-normal">(Admin setting)</span>}
+                    </label>
+                    <select
+                      disabled={!isAdmin}
+                      value={editingRetailer.status || 'active'}
+                      onChange={(e) => setEditingRetailer({ ...editingRetailer, status: e.target.value as any })}
+                      className={`w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs ${!isAdmin ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
+                    >
+                      <option value="active">Active</option>
+                      <option value="overdue">Overdue</option>
+                      <option value="blocked">Blocked</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 

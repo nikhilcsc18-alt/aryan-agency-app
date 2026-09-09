@@ -398,6 +398,7 @@ app.post('/api/retailers', requireRoles(['admin', 'salesman', 'accounts']), (req
   newRetailer.creditLimit = Number(newRetailer.creditLimit) >= 0 ? Number(newRetailer.creditLimit) : 50000;
   newRetailer.currentOutstanding = Number(newRetailer.currentOutstanding) || 0;
   newRetailer.creditDaysAllowed = Number(newRetailer.creditDaysAllowed) || 14;
+  newRetailer.creditEnabled = newRetailer.creditEnabled !== undefined ? Boolean(newRetailer.creditEnabled) : false;
   newRetailer.status = newRetailer.status || 'active';
   newRetailer.createdAt = newRetailer.createdAt || new Date().toISOString().split('T')[0];
 
@@ -411,6 +412,10 @@ app.put('/api/retailers/:id', requireRoles(['admin', 'salesman', 'accounts']), (
   if (!existing) {
     return res.status(404).json({ error: 'Retailer not found' });
   }
+
+  // Security & Business Rule: Retailer and Salesman cannot alter their own credit settings.
+  // Only Admin and Accounts can turn credit ON/OFF or edit credit limits.
+  const isPrivilegedCreditAdmin = req.userRole === 'admin' || req.userRole === 'accounts';
 
   const rawPhone = req.body.phone !== undefined ? req.body.phone?.trim() : existing.phone;
   if (rawPhone) {
@@ -432,7 +437,20 @@ app.put('/api/retailers/:id', requireRoles(['admin', 'salesman', 'accounts']), (
     }
   }
 
-  const updated = { ...existing, ...req.body, id };
+  const updated = { 
+    ...existing, 
+    ...req.body, 
+    id,
+    creditEnabled: isPrivilegedCreditAdmin 
+      ? (req.body.creditEnabled !== undefined ? Boolean(req.body.creditEnabled) : existing.creditEnabled) 
+      : existing.creditEnabled,
+    creditLimit: isPrivilegedCreditAdmin 
+      ? (req.body.creditLimit !== undefined ? Number(req.body.creditLimit) : existing.creditLimit) 
+      : existing.creditLimit,
+    creditDaysAllowed: isPrivilegedCreditAdmin 
+      ? (req.body.creditDaysAllowed !== undefined ? Number(req.body.creditDaysAllowed) : existing.creditDaysAllowed) 
+      : existing.creditDaysAllowed
+  };
   db.saveRetailer(updated);
   res.json(updated);
 });

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { isSupabaseConfigured } from '../lib/supabase';
 import { User } from '../types';
 import { AryanAgencyLogo } from './AryanAgencyLogo';
 import { 
@@ -12,19 +11,27 @@ import {
   Loader2, 
   CheckCircle2, 
   ArrowRight,
-  ArrowLeft,
-  ShieldCheck,
-  User as UserIcon,
-  Phone,
-  ShoppingCart,
-  FileText,
-  BookOpen,
-  Receipt,
-  MapPin,
-  Headphones,
-  Sparkles,
-  LogIn
+  ArrowLeft, 
+  ShieldCheck, 
+  User as UserIcon, 
+  Phone, 
+  ShoppingCart, 
+  FileText, 
+  BookOpen, 
+  Receipt, 
+  MapPin, 
+  Headphones, 
+  Sparkles, 
+  LogIn,
+  Building2,
+  Shield,
+  Clock,
+  ExternalLink,
+  Download,
+  Smartphone,
+  QrCode
 } from 'lucide-react';
+import { AppDownloadModal } from './AppDownloadModal';
 
 interface LoginPageProps {
   onLoginSuccess?: (user?: User) => void;
@@ -47,6 +54,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
 
   // Load remembered email on mount
   useEffect(() => {
@@ -172,42 +180,75 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col font-sans selection:bg-blue-600 selection:text-white bg-slate-900 relative overflow-x-hidden">
+    <div className="min-h-screen w-full flex flex-col font-sans selection:bg-blue-600 selection:text-white bg-slate-950 relative overflow-x-hidden">
       
+      {/* Top Banner on Mobile */}
+      <div className="lg:hidden w-full bg-gradient-to-r from-blue-900 via-[#07152d] to-slate-900 text-white px-4 py-2.5 flex items-center justify-between border-b border-blue-800/40 text-xs">
+        <div className="flex items-center space-x-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="font-semibold text-slate-200">Aryan Agency Portal</span>
+        </div>
+        <a 
+          href="tel:+919140529661" 
+          className="inline-flex items-center space-x-1 text-amber-400 font-bold hover:text-amber-300"
+        >
+          <Phone className="w-3 h-3" />
+          <span>+91 9140529661</span>
+        </a>
+      </div>
+
       {/* Main Split Screen Container */}
       <div className="flex-1 flex flex-col lg:flex-row w-full min-h-screen relative">
         
         {/* ========================================================= */}
-        {/* LEFT SIDE: BRANDING, FEATURES & FMCG SHOWCASE (~55%)     */}
+        {/* LEFT SIDE: BRANDING, ENTERPRISE INFO & CONTACT US (54%)   */}
         {/* ========================================================= */}
-        <section className="w-full lg:w-[55%] xl:w-[56%] bg-gradient-to-br from-[#041530] via-[#092248] to-[#0d2a58] text-white p-6 sm:p-8 md:p-10 lg:p-12 relative flex flex-col justify-between overflow-hidden z-10 shadow-2xl">
+        <section className="w-full lg:w-[54%] xl:w-[55%] bg-gradient-to-br from-[#051329] via-[#091e3e] to-[#0e2c59] text-white p-6 sm:p-8 md:p-10 lg:p-12 xl:p-14 relative flex flex-col justify-between overflow-hidden z-10 shadow-2xl">
           
-          {/* Subtle Background Pattern & Ambient Glows */}
+          {/* Subtle Geometric Background Pattern */}
           <div 
             className="absolute inset-0 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:24px_24px] opacity-10 pointer-events-none" 
             aria-hidden="true" 
           />
+          {/* Ambient Lighting Spheres */}
           <div 
-            className="absolute -top-20 -left-20 w-80 h-80 rounded-full bg-blue-500/15 blur-3xl pointer-events-none" 
+            className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-blue-600/20 blur-3xl pointer-events-none" 
             aria-hidden="true" 
           />
           <div 
-            className="absolute bottom-10 left-1/3 w-96 h-96 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" 
+            className="absolute top-1/2 -right-20 w-80 h-80 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" 
+            aria-hidden="true" 
+          />
+          <div 
+            className="absolute -bottom-20 left-1/4 w-96 h-96 rounded-full bg-indigo-500/15 blur-3xl pointer-events-none" 
             aria-hidden="true" 
           />
 
-          {/* TOP SECTION: LOGO, COMPANY NAME & TAGLINE */}
-          <div className="relative z-10">
-            <div className="flex items-center gap-4 mb-3">
-              {/* 3D Isometric Cube Logo with ® symbol */}
-              <div className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 drop-shadow-[0_8px_16px_rgba(0,0,0,0.4)]">
+          {/* TOP SECTION: BRAND IDENTITY & TAGLINE */}
+          <div className="relative z-10 space-y-4">
+            
+            {/* Enterprise Status Badge */}
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/[0.08] border border-white/15 backdrop-blur-md shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
+              <span className="text-[11px] font-bold tracking-wider uppercase text-blue-200">
+                Official FMCG Distribution Hub
+              </span>
+              <span className="text-white/30">•</span>
+              <span className="text-[11px] font-medium text-amber-300">
+                Utraula, Balrampur (U.P.)
+              </span>
+            </div>
+
+            {/* Logo, Heading & Subtitle */}
+            <div className="flex items-start sm:items-center space-x-4 pt-1">
+              {/* Aryan Agency Logo Mark */}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 p-1.5 rounded-2xl bg-white/[0.08] border border-white/20 backdrop-blur-md shadow-[0_12px_24px_rgba(0,0,0,0.3)] group hover:scale-105 transition-transform">
                 <img 
                   src="/assets/aryan_agency_icon.png" 
-                  alt="Aryan Agency 3D Logo" 
-                  className="w-full h-full object-contain"
+                  alt="Aryan Agency Mark" 
+                  className="w-full h-full object-contain drop-shadow-md"
                   referrerPolicy="no-referrer"
                   onError={(e) => {
-                    // Fallback to vector component if image load fails
                     e.currentTarget.style.display = 'none';
                     const fallback = document.getElementById('vector-logo-fallback-left');
                     if (fallback) fallback.style.display = 'block';
@@ -219,170 +260,193 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               </div>
 
               <div>
-                <div className="flex items-baseline">
-                  <span className="text-3xl sm:text-4xl xl:text-5xl font-extrabold tracking-tight text-white drop-shadow-sm">
-                    Aryan
-                  </span>
-                  <span className="text-3xl sm:text-4xl xl:text-5xl font-extrabold tracking-tight text-amber-400 ml-2 drop-shadow-sm">
-                    Agency
-                  </span>
-                </div>
-                <p className="text-[11px] sm:text-xs font-bold tracking-[0.2em] text-slate-300 uppercase mt-0.5">
-                  FMCG DISTRIBUTION & SUPPLY CHAIN
+                {/* Heading */}
+                <h1 className="text-3xl sm:text-4xl xl:text-5xl font-black tracking-tight text-white flex items-baseline">
+                  <span>Aryan</span>
+                  <span className="text-amber-400 ml-2.5 drop-shadow-sm">Agency</span>
+                </h1>
+                
+                {/* Subtitle */}
+                <p className="text-xs sm:text-sm font-bold tracking-wider text-blue-200/90 uppercase mt-1">
+                  FMCG Distribution &amp; Retail Management
                 </p>
               </div>
             </div>
 
-            {/* Elegant Tagline */}
-            <div className="mt-3 text-xs sm:text-sm italic font-serif text-slate-200/90 flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              <span className="text-amber-300 font-medium">Better Products</span>
-              <span className="text-slate-500 not-italic">|</span>
-              <span className="text-white font-medium">Stronger Partnerships</span>
-              <span className="text-slate-500 not-italic">|</span>
-              <span className="text-blue-300 font-medium">A Brighter Tomorrow</span>
+            {/* Professional Tagline */}
+            <div className="pt-1">
+              <p className="text-sm sm:text-base xl:text-lg font-medium text-slate-100/90 leading-relaxed max-w-xl">
+                <span className="text-amber-300 font-semibold">Smart Distribution.</span>{' '}
+                <span className="text-white font-semibold">Better Business.</span>{' '}
+                <span className="text-cyan-300 font-semibold">Faster Growth.</span>
+              </p>
             </div>
+
           </div>
 
-          {/* MIDDLE SECTION: CORE RETAIL & DISTRIBUTION FEATURES */}
-          <div className="my-7 lg:my-8 relative z-10">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-[11px] sm:text-xs uppercase font-extrabold tracking-wider text-amber-400">
-                CORE RETAIL & DISTRIBUTION FEATURES
+          {/* MIDDLE SECTION: VALUE PILLARS & FEATURE CARDS */}
+          <div className="my-6 lg:my-8 relative z-10 space-y-3.5">
+            <div className="flex items-center space-x-2">
+              <span className="text-[11px] font-black uppercase tracking-wider text-amber-400">
+                Core FMCG Operations Platform
               </span>
-              <div className="h-px flex-1 bg-gradient-to-r from-amber-400/40 via-blue-500/30 to-transparent" />
+              <div className="h-px flex-1 bg-gradient-to-r from-amber-400/40 via-blue-400/20 to-transparent" />
             </div>
 
-            {/* 4 Premium Features in a Responsive Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-3.5">
+            {/* 3 Value Proposition Glass Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               
-              {/* Feature 1: Distributor Catalog */}
-              <div className="flex flex-col items-center text-center p-3 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-amber-400/50 hover:bg-white/[0.08] transition-all duration-200 group">
-                <div className="w-12 h-12 rounded-full border-2 border-amber-400/80 bg-amber-400/10 flex items-center justify-center text-amber-300 mb-2.5 shadow-[0_0_15px_rgba(245,158,11,0.2)] group-hover:scale-105 transition-transform">
+              {/* Card 1: Fast B2B Ordering */}
+              <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/10 hover:border-amber-400/40 hover:bg-white/[0.09] transition-all duration-200 group">
+                <div className="w-10 h-10 rounded-xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-300 mb-2.5 group-hover:scale-105 transition-transform shadow-xs">
                   <ShoppingCart className="w-5 h-5 text-amber-300" />
                 </div>
                 <h4 className="text-xs sm:text-[13px] font-bold text-white leading-snug">
-                  Distributor Catalog
+                  Fast B2B Order Booking
                 </h4>
-                <p className="text-[10px] sm:text-[11px] text-slate-300/80 mt-1 font-medium">
-                  Explore FMCG Products
+                <p className="text-[11px] text-slate-300/80 mt-1 leading-relaxed">
+                  Real-time catalog, volume schemes, and multi-case wholesale pricing.
                 </p>
               </div>
 
-              {/* Feature 2: My Orders & Invoices */}
-              <div className="flex flex-col items-center text-center p-3 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-amber-400/50 hover:bg-white/[0.08] transition-all duration-200 group">
-                <div className="w-12 h-12 rounded-full border-2 border-amber-400/80 bg-amber-400/10 flex items-center justify-center text-amber-300 mb-2.5 shadow-[0_0_15px_rgba(245,158,11,0.2)] group-hover:scale-105 transition-transform">
-                  <FileText className="w-5 h-5 text-amber-300" />
+              {/* Card 2: Live Stock & Ledger */}
+              <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/10 hover:border-blue-400/40 hover:bg-white/[0.09] transition-all duration-200 group">
+                <div className="w-10 h-10 rounded-xl bg-blue-400/15 border border-blue-400/30 flex items-center justify-center text-blue-300 mb-2.5 group-hover:scale-105 transition-transform shadow-xs">
+                  <FileText className="w-5 h-5 text-blue-300" />
                 </div>
                 <h4 className="text-xs sm:text-[13px] font-bold text-white leading-snug">
-                  My Orders & Invoices
+                  Warehouse &amp; Invoices
                 </h4>
-                <p className="text-[10px] sm:text-[11px] text-slate-300/80 mt-1 font-medium">
-                  Track Your Orders
+                <p className="text-[11px] text-slate-300/80 mt-1 leading-relaxed">
+                  GST-compliant billing, batch expiry control, and instant PDF receipts.
                 </p>
               </div>
 
-              {/* Feature 3: Account & Credit Ledger */}
-              <div className="flex flex-col items-center text-center p-3 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-amber-400/50 hover:bg-white/[0.08] transition-all duration-200 group">
-                <div className="w-12 h-12 rounded-full border-2 border-amber-400/80 bg-amber-400/10 flex items-center justify-center text-amber-300 mb-2.5 shadow-[0_0_15px_rgba(245,158,11,0.2)] group-hover:scale-105 transition-transform">
-                  <BookOpen className="w-5 h-5 text-amber-300" />
+              {/* Card 3: Credit & Retailers */}
+              <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/10 hover:border-emerald-400/40 hover:bg-white/[0.09] transition-all duration-200 group">
+                <div className="w-10 h-10 rounded-xl bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300 mb-2.5 group-hover:scale-105 transition-transform shadow-xs">
+                  <BookOpen className="w-5 h-5 text-emerald-300" />
                 </div>
                 <h4 className="text-xs sm:text-[13px] font-bold text-white leading-snug">
-                  Account & Credit Ledger
+                  Retailer Credit Ledger
                 </h4>
-                <p className="text-[10px] sm:text-[11px] text-slate-300/80 mt-1 font-medium">
-                  Manage Your Account
-                </p>
-              </div>
-
-              {/* Feature 4: Payment Receipts */}
-              <div className="flex flex-col items-center text-center p-3 rounded-2xl bg-white/[0.04] border border-white/10 hover:border-amber-400/50 hover:bg-white/[0.08] transition-all duration-200 group">
-                <div className="w-12 h-12 rounded-full border-2 border-amber-400/80 bg-amber-400/10 flex items-center justify-center text-amber-300 mb-2.5 shadow-[0_0_15px_rgba(245,158,11,0.2)] group-hover:scale-105 transition-transform">
-                  <Receipt className="w-5 h-5 text-amber-300" />
-                </div>
-                <h4 className="text-xs sm:text-[13px] font-bold text-white leading-snug">
-                  Payment Receipts
-                </h4>
-                <p className="text-[10px] sm:text-[11px] text-slate-300/80 mt-1 font-medium">
-                  View Payment History
+                <p className="text-[11px] text-slate-300/80 mt-1 leading-relaxed">
+                  Clear outstanding balances, payment receipts, and delivery run-sheets.
                 </p>
               </div>
 
             </div>
+
+            {/* Authorized Brands Marquee / Strip */}
+            <div className="pt-2">
+              <div className="p-2.5 rounded-xl bg-black/25 border border-white/10 backdrop-blur-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <span className="text-[10.5px] font-bold uppercase tracking-wider text-amber-300 shrink-0">
+                  Authorized FMCG Partner:
+                </span>
+                <span className="text-[11px] text-slate-300 font-medium truncate">
+                  Parle • Britannia • Amul • Tata Tea • Nestlé • Cadbury • Surf Excel • Lay&apos;s • Haldiram&apos;s
+                </span>
+              </div>
+            </div>
+
+            {/* Download Aryan Agency App Card (Website to App Download System) */}
+            <div className="pt-3">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-blue-500/20 border border-emerald-400/35 backdrop-blur-md shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 group hover:border-emerald-400/50 transition-all">
+                <div className="flex items-center space-x-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
+                    <Smartphone className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <h4 className="text-sm font-bold text-white tracking-tight">
+                        Aryan Agency Mobile App
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-400/20 text-emerald-300 border border-emerald-400/40">
+                        Direct APK
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-100/80 mt-0.5">
+                      Faster Kirana ordering, instant barcode scanning &amp; offline DSR sync
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsDownloadModalOpen(true)}
+                  className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-95 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/25 transition-all cursor-pointer shrink-0"
+                >
+                  <Download className="w-4 h-4 text-slate-950" />
+                  <span>Download App</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* BOTTOM SECTION: TRUSTED SUPPLIER, LOCATION, CONTACT, BRANDS & SHOWCASE */}
-          <div className="relative z-10 pt-4 border-t border-blue-900/50 space-y-4">
+          {/* BOTTOM SECTION: CONTACT US (CRITICAL REQUIREMENT) */}
+          <div className="relative z-10 pt-4 border-t border-blue-900/60">
             
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            {/* Contact Us Modern Glass Card */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-white/[0.08] to-white/[0.04] border border-white/15 backdrop-blur-md shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               
-              {/* Left Column: Supplier, Location & Brand List */}
-              <div className="md:col-span-7 space-y-3">
-                {/* Script Heading */}
-                <div>
-                  <h3 className="text-base sm:text-lg font-serif italic text-amber-300 drop-shadow-xs">
-                    Trusted FMCG Supplier
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2">
+                  <div className="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center justify-center shrink-0">
+                    <Headphones className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                    Contact Us
                   </h3>
-                  <p className="text-xs sm:text-sm font-serif italic text-slate-200">
-                    in Utraula & Surrounding Areas
-                  </p>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Helpdesk Ready
+                  </span>
                 </div>
-
-                {/* Location & Phone Badges */}
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center gap-2.5 text-slate-200">
-                    <div className="w-6 h-6 rounded-full bg-blue-600/30 border border-blue-400/40 flex items-center justify-center shrink-0">
-                      <MapPin className="w-3.5 h-3.5 text-amber-400" />
-                    </div>
-                    <span className="font-medium text-slate-100">Utraula, Dist. Balrampur (U.P.)</span>
-                  </div>
-
-                  <div className="flex items-center gap-2.5 text-slate-200">
-                    <div className="w-6 h-6 rounded-full bg-blue-600/30 border border-blue-400/40 flex items-center justify-center shrink-0">
-                      <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                    </div>
-                    <div>
-                      <span className="text-[11px] text-slate-400 block">Contact Us</span>
-                      <span className="font-semibold text-slate-100">+91 945xxxxxx</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* OUR BRANDS SECTION */}
-                <div className="pt-2">
-                  <h5 className="text-[11px] font-bold uppercase tracking-wider text-amber-400 mb-1">
-                    OUR BRANDS
-                  </h5>
-                  <p className="text-[11px] sm:text-xs text-slate-300 font-medium leading-relaxed">
-                    Kurkure | Uncle Chips | Pramod | Frymps | Honey Bunny | Kinder Joy | Agarbatti | Paradise Bakery | And Many More
-                  </p>
-                </div>
+                <p className="text-[11px] text-slate-300">
+                  For dealership onboarding, order placement assistance, or account queries:
+                </p>
               </div>
 
-              {/* Right Column: FMCG Product Visual Showcase */}
-              <div className="md:col-span-5 relative">
-                <div className="rounded-2xl overflow-hidden border border-white/15 shadow-xl bg-gradient-to-t from-black/60 to-transparent p-1 relative group">
-                  <img 
-                    src="/assets/fmcg_products_showcase.jpg" 
-                    alt="FMCG Products Collection" 
-                    className="w-full h-36 sm:h-40 object-cover rounded-xl group-hover:scale-102 transition-transform duration-300"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#041530]/90 via-transparent to-transparent pointer-events-none rounded-xl" />
-                  <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between text-[10px] text-amber-300 font-bold uppercase tracking-wider">
-                    <span>Authorized Partner</span>
-                    <span className="text-white font-mono text-[9px]">100% Genuine</span>
-                  </div>
-                </div>
+              {/* Clickable Phone & Email Buttons */}
+              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
+                
+                {/* Phone: tel:+919140529661 */}
+                <a
+                  href="tel:+919140529661"
+                  className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer group"
+                  title="Call Aryan Agency"
+                >
+                  <Phone className="w-3.5 h-3.5 text-slate-950 group-hover:rotate-12 transition-transform" />
+                  <span>+91 9140529661</span>
+                </a>
+
+                {/* Email: mailto:aryanagency@zohomail.in */}
+                <a
+                  href="mailto:aryanagency@zohomail.in"
+                  className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-medium text-xs border border-white/20 transition-all cursor-pointer group"
+                  title="Email Aryan Agency"
+                >
+                  <Mail className="w-3.5 h-3.5 text-cyan-300 group-hover:scale-110 transition-transform" />
+                  <span className="font-mono">aryanagency@zohomail.in</span>
+                </a>
+
               </div>
 
             </div>
 
+            {/* Location Address Note */}
+            <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 px-1">
+              <span className="flex items-center space-x-1.5">
+                <MapPin className="w-3 h-3 text-amber-400 shrink-0" />
+                <span>Utraula, Dist. Balrampur (U.P.) - 271307</span>
+              </span>
+              <span className="hidden sm:inline text-slate-500">
+                Mon - Sat: 8:00 AM - 8:00 PM
+              </span>
+            </div>
+
           </div>
 
-          {/* Desktop Curved Dividing Swoosh (Yellow/Gold & Cyan/Blue wave transition) */}
+          {/* Desktop Curved Dividing Wave */}
           <div 
             className="hidden lg:block absolute top-0 bottom-0 -right-7 w-14 pointer-events-none z-20"
             aria-hidden="true"
@@ -390,7 +454,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
             <svg 
               className="h-full w-full" 
               viewBox="0 0 100 1000" 
-              preserveAspectRatio="none"
+              preserveAspectRatio="none" 
               fill="none" 
               xmlns="http://www.w3.org/2000/svg"
             >
@@ -398,13 +462,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               <path 
                 d="M0,0 Q60,350 15,650 T40,1000 L0,1000 Z" 
                 fill="#f59e0b" 
-                opacity="0.95"
+                opacity="0.95" 
               />
               {/* Royal Blue Accent Wave */}
               <path 
                 d="M0,0 Q40,350 0,650 T20,1000 L0,1000 Z" 
                 fill="#1d4ed8" 
-                opacity="0.8"
+                opacity="0.85" 
               />
             </svg>
           </div>
@@ -412,12 +476,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
         </section>
 
         {/* ========================================================= */}
-        {/* RIGHT SIDE: SOFT LIGHT BACKGROUND & PREMIUM LOGIN CARD   */}
+        {/* RIGHT SIDE: MODERN, CLEAN, PREMIUM LOGIN FORM (46%)       */}
         {/* ========================================================= */}
-        <section className="w-full lg:w-[45%] xl:w-[44%] bg-gradient-to-br from-slate-100 via-blue-50/50 to-slate-200 relative flex flex-col justify-center items-center p-4 sm:p-8 lg:p-10 xl:p-12 overflow-hidden">
+        <section className="w-full lg:w-[46%] xl:w-[45%] bg-gradient-to-br from-slate-100 via-blue-50/40 to-slate-200/90 relative flex flex-col justify-center items-center p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 overflow-hidden">
           
-          {/* Soft blurred supermarket aisle background */}
-          <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
+          {/* Subtle blurred supermarket background */}
+          <div className="absolute inset-0 opacity-15 pointer-events-none overflow-hidden">
             <img 
               src="/assets/supermarket_aisle_blur.jpg" 
               alt="Retail background" 
@@ -431,16 +495,46 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
           {/* Soft ambient lighting rings */}
           <div 
-            className="absolute top-1/4 right-1/4 w-72 h-72 rounded-full bg-blue-400/10 blur-3xl pointer-events-none" 
+            className="absolute top-1/4 right-1/4 w-80 h-80 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" 
+            aria-hidden="true" 
+          />
+          <div 
+            className="absolute bottom-1/4 left-1/4 w-80 h-80 rounded-full bg-amber-500/10 blur-3xl pointer-events-none" 
             aria-hidden="true" 
           />
 
-          {/* Floating White Premium Login Card (Rounded 24px = rounded-3xl) */}
-          <div className="w-full max-w-[440px] bg-white/95 backdrop-blur-md rounded-[24px] border border-slate-200 shadow-[0_20px_50px_rgba(15,23,42,0.12)] p-6 sm:p-8 relative z-20 transition-all">
+          {/* Top Mobile App Quick Download Banner */}
+          <div className="w-full max-w-[460px] mb-3 flex items-center justify-between bg-white/90 backdrop-blur-md border border-slate-200/90 px-3.5 py-2 rounded-2xl shadow-xs relative z-20">
+            <div className="flex items-center space-x-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-[11.5px] font-bold text-slate-800">
+                Kirana &amp; Sales Mobile App
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsDownloadModalOpen(true)}
+              className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 font-bold text-xs transition-colors cursor-pointer"
+            >
+              <Download className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Download APK</span>
+            </button>
+          </div>
+
+          {/* Floating White Premium Login Card */}
+          <div className="w-full max-w-[460px] bg-white/95 backdrop-blur-xl rounded-[28px] border border-slate-200/90 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.14)] p-6 sm:p-8 relative z-20 transition-all">
             
-            {/* Top Logo & Enterprise Name */}
-            <div className="flex flex-col items-center text-center mb-5">
-              <div className="w-14 h-14 mb-2 drop-shadow-sm">
+            {/* Top Security & Trust Indicator Pill */}
+            <div className="flex justify-center mb-4">
+              <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200/80 text-blue-700 text-[11px] font-bold shadow-2xs">
+                <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                <span>Secure Business Management Portal</span>
+              </div>
+            </div>
+
+            {/* Mobile / Card Top Logo */}
+            <div className="flex flex-col items-center text-center mb-4">
+              <div className="w-12 h-12 mb-1.5 drop-shadow-sm">
                 <img 
                   src="/assets/aryan_agency_icon.png" 
                   alt="Aryan Agency Mark" 
@@ -453,35 +547,34 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   }}
                 />
                 <div id="vector-logo-fallback-card" style={{ display: 'none' }}>
-                  <AryanAgencyLogo variant="icon" size="md" />
+                  <AryanAgencyLogo variant="icon" size="sm" />
                 </div>
               </div>
 
               <div className="flex items-baseline">
-                <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+                <span className="text-xl font-extrabold tracking-tight text-slate-900">
                   Aryan
                 </span>
-                <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-amber-500 ml-1.5">
+                <span className="text-xl font-extrabold tracking-tight text-amber-500 ml-1.5">
                   Agency
                 </span>
               </div>
-              
               <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mt-0.5">
-                FMCG DISTRIBUTION & SUPPLY CHAIN
+                FMCG Distribution &amp; Retail Management
               </span>
             </div>
 
             {/* Heading & Subheading */}
             <div className="text-center mb-5">
-              <h2 className="text-2xl sm:text-[26px] font-extrabold text-slate-900 tracking-tight">
-                {mode === 'signin' && 'Welcome Back'}
-                {mode === 'signup' && 'Register Account'}
-                {mode === 'forgot' && 'Reset Password'}
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                {mode === 'signin' && 'Sign In to Your Account'}
+                {mode === 'signup' && 'Register Retailer Account'}
+                {mode === 'forgot' && 'Reset Your Password'}
               </h2>
-              <p className="text-xs text-slate-500 mt-1 font-medium">
-                {mode === 'signin' && 'Sign in to your account to continue'}
-                {mode === 'signup' && 'Create your verified retailer / partner account'}
-                {mode === 'forgot' && 'Enter your registered email for password recovery'}
+              <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed">
+                {mode === 'signin' && 'Access inventory, wholesale orders, billing, and retail management'}
+                {mode === 'signup' && 'Create your verified B2B distributor / retailer account'}
+                {mode === 'forgot' && 'Enter your registered email address to receive recovery instructions'}
               </p>
             </div>
 
@@ -507,11 +600,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               </div>
             )}
 
-            {/* FORGOT PASSWORD FORM */}
+            {/* ========================================================= */}
+            {/* FORGOT PASSWORD FORM                                      */}
+            {/* ========================================================= */}
             {mode === 'forgot' ? (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label htmlFor="card-forgot-email" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  <label htmlFor="card-forgot-email" className="block text-xs font-bold text-slate-700 mb-1.5">
                     Email Address <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
@@ -526,7 +621,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@company.com"
-                      className="w-full pl-10 pr-3.5 py-2.5 sm:py-3 bg-slate-50/70 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-60 transition-all"
+                      className="w-full pl-10 pr-3.5 py-2.5 sm:py-3 bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-60 transition-all shadow-2xs"
                     />
                   </div>
                 </div>
@@ -534,7 +629,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-[0.99] text-white text-xs sm:text-sm font-bold rounded-xl shadow-lg shadow-blue-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-[0.99] text-white text-xs sm:text-sm font-bold rounded-xl shadow-lg shadow-blue-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <>
@@ -560,19 +655,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     className="text-xs font-semibold text-blue-600 hover:text-blue-800 cursor-pointer inline-flex items-center gap-1 transition-colors"
                   >
                     <ArrowLeft className="w-3.5 h-3.5" />
-                    Back to Sign In
+                    <span>Back to Sign In</span>
                   </button>
                 </div>
               </form>
             ) : (
-              /* SIGN IN & SIGN UP FORMS */
+              /* ========================================================= */
+              /* SIGN IN & SIGN UP FORMS                                   */
+              /* ========================================================= */
               <form onSubmit={handleSubmit} className="space-y-4">
                 
                 {/* Additional Registration Fields */}
                 {mode === 'signup' && (
                   <>
                     <div>
-                      <label htmlFor="card-signup-name" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      <label htmlFor="card-signup-name" className="block text-xs font-bold text-slate-700 mb-1.5">
                         Full Name / Retailer Name <span className="text-rose-500">*</span>
                       </label>
                       <div className="relative">
@@ -586,14 +683,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                           disabled={loading}
                           value={name}
                           onChange={(e) => setName(e.target.value)}
-                          placeholder="e.g. Ramesh Gupta"
-                          className="w-full pl-10 pr-3.5 py-2.5 sm:py-3 bg-slate-50/70 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-60 transition-all"
+                          placeholder="e.g. Ramesh Kumar (Gupta General Store)"
+                          className="w-full pl-10 pr-3.5 py-2.5 sm:py-3 bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-60 transition-all shadow-2xs"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label htmlFor="card-signup-phone" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      <label htmlFor="card-signup-phone" className="block text-xs font-bold text-slate-700 mb-1.5">
                         Contact Phone Number
                       </label>
                       <div className="relative">
@@ -607,7 +704,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           placeholder="+91 94500 12345"
-                          className="w-full pl-10 pr-3.5 py-2.5 sm:py-3 bg-slate-50/70 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-60 transition-all"
+                          className="w-full pl-10 pr-3.5 py-2.5 sm:py-3 bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-60 transition-all shadow-2xs"
                         />
                       </div>
                     </div>
@@ -616,7 +713,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
                 {/* Email Address Field */}
                 <div>
-                  <label htmlFor="card-email" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  <label htmlFor="card-email" className="block text-xs font-bold text-slate-700 mb-1.5">
                     Email Address <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
@@ -632,16 +729,32 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="name@company.com"
-                      className="w-full pl-10 pr-3.5 py-2.5 sm:py-3 bg-slate-50/70 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-60 transition-all"
+                      className="w-full pl-10 pr-3.5 py-2.5 sm:py-3 bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-60 transition-all shadow-2xs"
                     />
                   </div>
                 </div>
 
                 {/* Password Field */}
                 <div>
-                  <label htmlFor="card-password" className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Password <span className="text-rose-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label htmlFor="card-password" className="block text-xs font-bold text-slate-700">
+                      Password <span className="text-rose-500">*</span>
+                    </label>
+                    {mode === 'signin' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMode('forgot');
+                          setError(null);
+                          setSuccess(null);
+                        }}
+                        className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 cursor-pointer transition-colors"
+                      >
+                        Forgot Password?
+                      </button>
+                    )}
+                  </div>
+
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                       <Lock className="w-4 h-4" />
@@ -655,7 +768,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••••••"
-                      className="w-full pl-10 pr-10 py-2.5 sm:py-3 bg-slate-50/70 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-60 transition-all"
+                      className="w-full pl-10 pr-10 py-2.5 sm:py-3 bg-slate-50/80 hover:bg-white focus:bg-white border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/15 disabled:opacity-60 transition-all shadow-2xs"
                     />
                     <button
                       type="button"
@@ -669,7 +782,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   </div>
                 </div>
 
-                {/* Remember Me & Forgot Password Row */}
+                {/* Remember Me Checkbox (Sign in mode only) */}
                 {mode === 'signin' && (
                   <div className="flex items-center justify-between pt-0.5">
                     <label className="flex items-center space-x-2 text-xs text-slate-600 cursor-pointer select-none">
@@ -679,29 +792,21 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                         onChange={(e) => setRememberMe(e.target.checked)}
                         className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
                       />
-                      <span>Remember me</span>
+                      <span>Remember my email</span>
                     </label>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMode('forgot');
-                        setError(null);
-                        setSuccess(null);
-                      }}
-                      className="text-xs font-semibold text-blue-600 hover:text-blue-800 cursor-pointer transition-colors"
-                    >
-                      Forgot Password?
-                    </button>
+                    <span className="text-[11px] text-slate-400 font-medium">
+                      256-bit Encrypted
+                    </span>
                   </div>
                 )}
 
-                {/* Blue to Indigo Gradient Button: "Sign In to Dashboard →" */}
+                {/* Modern Gradient Login Button */}
                 <button
                   id="sign-in-btn"
                   type="submit"
                   disabled={loading}
-                  className="w-full mt-2 py-3 px-4 bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-[0.99] text-white text-xs sm:text-sm font-bold rounded-xl shadow-lg shadow-blue-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full mt-2 py-3 sm:py-3.5 px-4 bg-gradient-to-r from-blue-600 via-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-[0.99] text-white text-xs sm:text-sm font-bold rounded-xl shadow-lg shadow-blue-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed group"
                 >
                   {loading ? (
                     <>
@@ -710,19 +815,22 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     </>
                   ) : (
                     <>
-                      <LogIn className="w-4 h-4" />
-                      <span>{mode === 'signin' ? 'Sign In to Dashboard →' : 'Complete Registration →'}</span>
+                      <LogIn className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                      <span>
+                        {mode === 'signin' ? 'Sign In to Dashboard' : 'Complete Registration'}
+                      </span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </>
                   )}
                 </button>
               </form>
             )}
 
-            {/* Divider with Or / Register Option */}
+            {/* Mode Switcher: Register / Sign In */}
             <div className="mt-5 pt-4 border-t border-slate-100 text-center">
               {mode === 'signin' ? (
                 <p className="text-xs text-slate-600">
-                  Don't have an account?{' '}
+                  New Retailer or Partner?{' '}
                   <button
                     type="button"
                     onClick={() => {
@@ -730,7 +838,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       setError(null);
                       setSuccess(null);
                     }}
-                    className="font-bold text-blue-600 hover:text-blue-800 cursor-pointer transition-colors inline-flex items-center gap-1"
+                    className="font-bold text-blue-600 hover:text-blue-800 cursor-pointer transition-colors inline-flex items-center gap-1 ml-1"
                   >
                     <span>Register Account</span>
                     <ArrowRight className="w-3 h-3" />
@@ -746,57 +854,79 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                       setError(null);
                       setSuccess(null);
                     }}
-                    className="font-bold text-blue-600 hover:text-blue-800 cursor-pointer transition-colors inline-flex items-center gap-1"
+                    className="font-bold text-blue-600 hover:text-blue-800 cursor-pointer transition-colors inline-flex items-center gap-1 ml-1"
                   >
                     <ArrowLeft className="w-3 h-3" />
-                    <span>Sign In to Dashboard</span>
+                    <span>Back to Sign In</span>
                   </button>
                 </p>
               ) : null}
             </div>
 
-            {/* Middle Footer inside Card */}
-            <div className="mt-4 pt-3 border-t border-slate-100 text-center">
-              <p className="text-[10px] text-slate-500 font-medium">
-                Aryan Agency | FMCG Distribution | Utraula, Balrampur (U.P.)
-              </p>
-              <p className="text-[9px] text-slate-400 mt-0.5">
-                Trusted Supplier • Better Service • Growing Together
-              </p>
+            {/* Mobile Contact Quick Bar: Clickable phone & email right under the card */}
+            <div className="mt-4 pt-3.5 border-t border-slate-100 lg:hidden bg-slate-50/80 -mx-6 -mb-6 p-4 rounded-b-[28px] text-center space-y-2">
+              <span className="text-[11px] font-bold text-slate-700 block">
+                Need help or quick support? Contact Us:
+              </span>
+              <div className="flex items-center justify-center gap-3 text-xs">
+                <a 
+                  href="tel:+919140529661" 
+                  className="inline-flex items-center space-x-1 font-bold text-blue-600 hover:text-blue-800"
+                >
+                  <Phone className="w-3 h-3 text-emerald-600" />
+                  <span>+91 9140529661</span>
+                </a>
+                <span className="text-slate-300">•</span>
+                <a 
+                  href="mailto:aryanagency@zohomail.in" 
+                  className="inline-flex items-center space-x-1 font-medium text-slate-700 hover:text-blue-600"
+                >
+                  <Mail className="w-3 h-3 text-blue-500" />
+                  <span>aryanagency@zohomail.in</span>
+                </a>
+              </div>
             </div>
 
-            {/* Bottom 3 Trust Indicators */}
-            <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
+            {/* Trust & Security Badges below card for Desktop */}
+            <div className="hidden lg:grid mt-5 pt-3.5 border-t border-slate-100 grid-cols-3 gap-2 text-center">
               <div className="flex flex-col items-center">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 mb-0.5" />
-                <span className="text-[10px] font-bold text-slate-700">Secure Access</span>
+                <span className="text-[10px] font-bold text-slate-700">SSL 256-Bit</span>
+                <span className="text-[9px] text-slate-400">Encrypted</span>
               </div>
               <div className="flex flex-col items-center">
-                <Lock className="w-4 h-4 text-blue-600 mb-0.5" />
-                <span className="text-[10px] font-bold text-slate-700">Your Data is Safe</span>
+                <Shield className="w-4 h-4 text-blue-600 mb-0.5" />
+                <span className="text-[10px] font-bold text-slate-700">Supabase Auth</span>
+                <span className="text-[9px] text-slate-400">Verified</span>
               </div>
               <div className="flex flex-col items-center">
-                <Headphones className="w-4 h-4 text-amber-600 mb-0.5" />
-                <span className="text-[10px] font-bold text-slate-700">24/7 Support</span>
+                <Clock className="w-4 h-4 text-amber-600 mb-0.5" />
+                <span className="text-[10px] font-bold text-slate-700">99.9% Uptime</span>
+                <span className="text-[9px] text-slate-400">Active Node</span>
               </div>
             </div>
 
           </div>
 
-          {/* Bottom Right "Together We Grow" Graphic Callout */}
-          <div className="hidden sm:flex absolute bottom-4 right-6 items-center flex-col select-none pointer-events-none z-30">
-            <span className="text-base font-serif italic font-bold text-blue-900 drop-shadow-xs tracking-wide">
-              Together We Grow
-            </span>
-            {/* Hand-drawn style underline swoosh */}
-            <svg width="110" height="12" viewBox="0 0 110 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2 7C30 1 75 2 108 9" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" />
-            </svg>
+          {/* Bottom Enterprise Credit Line */}
+          <div className="mt-5 text-center relative z-20">
+            <p className="text-[11px] font-medium text-slate-500">
+              © Aryan Agency • FMCG Distribution &amp; Retail Management
+            </p>
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              Utraula, Balrampur (U.P.) • All Rights Reserved
+            </p>
           </div>
 
         </section>
 
       </div>
+
+      {/* App Download Modal with APK Link, QR Code & Setup */}
+      <AppDownloadModal 
+        isOpen={isDownloadModalOpen} 
+        onClose={() => setIsDownloadModalOpen(false)} 
+      />
 
     </div>
   );

@@ -13,6 +13,7 @@ import {
   Category,
   Brand
 } from '../types';
+import { getRetailerCreditSettings, setRetailerCreditControl, applyCreditControlsToRetailers } from './retailerCredit';
 
 // Read Supabase environment credentials from client or server environment with multiple alias fallbacks
 const env = (import.meta as any).env || {};
@@ -302,7 +303,7 @@ function productToDb(p: Partial<Product> | any): any {
 }
 
 function mapDbRetailer(row: any): Retailer {
-  return {
+  const base: Partial<Retailer> = {
     id: row.id,
     storeName: row.store_name,
     ownerName: row.owner_name,
@@ -319,7 +320,15 @@ function mapDbRetailer(row: any): Retailer {
     lat: row.lat ? Number(row.lat) : undefined,
     lng: row.lng ? Number(row.lng) : undefined,
     status: row.status || 'active',
-    createdAt: row.created_at || new Date().toISOString()
+    createdAt: row.created_at || new Date().toISOString(),
+    creditEnabled: row.credit_enabled !== undefined ? Boolean(row.credit_enabled) : undefined
+  };
+  const creditSettings = getRetailerCreditSettings(base);
+  return {
+    ...base as Retailer,
+    creditEnabled: creditSettings.creditEnabled,
+    creditLimit: creditSettings.creditLimit !== undefined ? creditSettings.creditLimit : Number(row.credit_limit || 50000),
+    creditDaysAllowed: creditSettings.creditDaysAllowed !== undefined ? creditSettings.creditDaysAllowed : Number(row.credit_days_allowed || 14)
   };
 }
 
@@ -338,6 +347,7 @@ function retailerToDb(r: Partial<Retailer>): any {
   if (r.creditLimit !== undefined) out.credit_limit = r.creditLimit;
   if (r.currentOutstanding !== undefined) out.current_outstanding = r.currentOutstanding;
   if (r.creditDaysAllowed !== undefined) out.credit_days_allowed = r.creditDaysAllowed;
+  if (r.creditEnabled !== undefined) out.credit_enabled = Boolean(r.creditEnabled);
   if (r.status !== undefined) out.status = r.status;
   return out;
 }
@@ -996,7 +1006,8 @@ export const supabaseService = {
     if (!supabase) return null;
     const { data, error } = await supabase.from('retailers').select('*').order('store_name');
     if (error) throw error;
-    return (data || []).map(mapDbRetailer);
+    const list = (data || []).map(mapDbRetailer);
+    return applyCreditControlsToRetailers(list);
   },
 
   async saveRetailer(retailer: Partial<Retailer>): Promise<Retailer | null> {
@@ -1066,6 +1077,15 @@ export const supabaseService = {
     // 3. Ensure a deterministic, unique ID is assigned for new retailer records
     const id = retailer.id || `ret_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
+    // Sync credit settings in local persistent storage
+    if (retailer.creditEnabled !== undefined || retailer.creditLimit !== undefined) {
+      setRetailerCreditControl(id, {
+        creditEnabled: retailer.creditEnabled !== undefined ? Boolean(retailer.creditEnabled) : false,
+        creditLimit: Number(retailer.creditLimit) >= 0 ? Number(retailer.creditLimit) : 50000,
+        creditDaysAllowed: Number(retailer.creditDaysAllowed) || 14
+      });
+    }
+
     // 4. Construct complete retailer model with FMCG defaults
     const completeRetailer: Retailer = {
       id,
@@ -1082,25 +1102,43 @@ export const supabaseService = {
       currentOutstanding: Number(retailer.currentOutstanding) || 0,
       creditDaysAllowed: Number(retailer.creditDaysAllowed) || 14,
       status: retailer.status || 'active',
-      createdAt: retailer.createdAt || new Date().toISOString()
+      createdAt: retailer.createdAt || new Date().toISOString(),
+      creditEnabled: retailer.creditEnabled !== undefined ? Boolean(retailer.creditEnabled) : false
     };
 
     const dbPayload = retailerToDb(completeRetailer);
     // Explicitly guarantee ID is present in payload
     dbPayload.id = id;
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('retailers')
       .upsert(dbPayload)
       .select()
       .single();
+
+    // If column credit_enabled is not yet in Supabase schema cache, strip it and retry safely
+    if (error && (error.message?.includes('credit_enabled') || error.code === 'PGRST204')) {
+      console.warn('[Supabase saveRetailer] Column credit_enabled not yet in database schema cache. Retrying without it.');
+      delete dbPayload.credit_enabled;
+      const retryResult = await supabase
+        .from('retailers')
+        .upsert(dbPayload)
+        .select()
+        .single();
+      data = retryResult.data;
+      error = retryResult.error;
+    }
 
     if (error) {
       console.error('[Supabase saveRetailer error]:', error);
       throw new Error(`Database error saving retailer: ${error.message || 'Operation failed'}`);
     }
 
-    return mapDbRetailer(data);
+    const mapped = mapDbRetailer(data);
+    if (retailer.creditEnabled !== undefined) {
+      mapped.creditEnabled = Boolean(retailer.creditEnabled);
+    }
+    return mapped;
   },
 
   async deleteRetailer(id: string): Promise<boolean | null> {

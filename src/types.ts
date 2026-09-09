@@ -104,6 +104,7 @@ export interface Retailer {
   lng?: number;
   status: 'active' | 'overdue' | 'blocked';
   createdAt: string;
+  creditEnabled?: boolean; // Admin-controlled toggle for Credit/Udhar access
 }
 
 export interface Salesman {
