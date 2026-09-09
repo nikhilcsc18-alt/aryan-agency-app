@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
+import pkg from './package.json';
 
 export default defineConfig(() => {
   return {
@@ -10,6 +11,10 @@ export default defineConfig(() => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       },
+    },
+    define: {
+      '__APP_VERSION__': JSON.stringify(pkg.version),
+      'import.meta.env.PACKAGE_VERSION': JSON.stringify(pkg.version),
     },
     envPrefix: ['VITE_', 'SUPABASE_'],
     server: {

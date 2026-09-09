@@ -16,6 +16,7 @@ import { CartDrawer, CheckoutPaymentDetails } from './components/CartDrawer';
 import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { AppUpdateChecker } from './components/AppUpdateChecker';
 import { api } from './lib/api';
 import { 
   Product, 
@@ -823,6 +824,7 @@ export default function App() {
   return (
     <AuthProvider>
       <MainApp />
+      <AppUpdateChecker />
     </AuthProvider>
   );
 }
