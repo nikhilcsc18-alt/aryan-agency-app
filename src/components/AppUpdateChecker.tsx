@@ -15,10 +15,23 @@ declare const __APP_VERSION__: string | undefined;
 // Current application version resolved from Vite build or package.json
 const CURRENT_APP_VERSION: string = 
   ((import.meta as any)?.env?.PACKAGE_VERSION) ||
-  (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.2.4');
+  (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.2.5');
 
-const VERSION_INFO_URL = '/download/version.json';
-const DEFAULT_APK_DOWNLOAD_URL = '/download/aryan-agency-app.apk';
+// Base URL resolution: in Capacitor/Android builds, resolve to the deployed public app URL via VITE_APP_URL,
+// falling back safely to the current web origin for standard web browser builds.
+const APP_BASE_URL: string = (() => {
+  const envUrl = ((import.meta as any)?.env?.VITE_APP_URL || (import.meta as any)?.env?.APP_URL || '').trim();
+  if (envUrl) {
+    return envUrl.replace(/\/+$/, '');
+  }
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin.replace(/\/+$/, '');
+  }
+  return '';
+})();
+
+const VERSION_INFO_URL = `${APP_BASE_URL}/download/version.json`;
+const DEFAULT_APK_DOWNLOAD_URL = `${APP_BASE_URL}/download/aryan-agency-app.apk`;
 const SESSION_STORAGE_DISMISS_KEY = 'aryan_agency_update_dismissed';
 
 interface AppVersionInfo {
@@ -110,7 +123,11 @@ export const AppUpdateChecker: React.FC = () => {
         // Check if remote version from version.json is strictly newer than installed package version
         if (isNewerVersion(remoteVersion, CURRENT_APP_VERSION)) {
           setLatestVersion(remoteVersion.startsWith('v') ? remoteVersion : `v${remoteVersion}`);
-          setDownloadUrl(data.downloadUrl || DEFAULT_APK_DOWNLOAD_URL);
+          const rawDownload = data.downloadUrl?.trim();
+          const resolvedDownload = rawDownload
+            ? (rawDownload.startsWith('http') ? rawDownload : `${APP_BASE_URL}${rawDownload.startsWith('/') ? '' : '/'}${rawDownload}`)
+            : DEFAULT_APK_DOWNLOAD_URL;
+          setDownloadUrl(resolvedDownload);
 
           if (data.releaseNotes && data.releaseNotes.trim()) {
             setReleaseNotes(data.releaseNotes.trim());

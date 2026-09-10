@@ -1057,9 +1057,15 @@ app.get('/download/aryan-agency-app.apk', (req, res) => {
   if (!apkPath) {
     return res.status(404).json({ error: 'Aryan Agency APK file not found on server' });
   }
+
+  const stat = fs.statSync(apkPath);
   res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+  res.setHeader('Content-Length', stat.size.toString());
   res.setHeader('Content-Disposition', 'attachment; filename="aryan-agency-app.apk"');
-  res.sendFile(apkPath);
+  res.setHeader('Cache-Control', 'public, max-age=300');
+
+  const readStream = fs.createReadStream(apkPath);
+  readStream.pipe(res);
 });
 
 app.get('/download/version.json', (req, res) => {

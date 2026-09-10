@@ -15,6 +15,7 @@ import { InvoiceModal } from './components/InvoiceModal';
 import { CartDrawer, CheckoutPaymentDetails } from './components/CartDrawer';
 import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
+import { HomePage } from './components/HomePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AppUpdateChecker } from './components/AppUpdateChecker';
 import { api } from './lib/api';
@@ -37,6 +38,10 @@ import { AlertCircle, CheckCircle2, Building2, Loader2 } from 'lucide-react';
 function MainApp() {
   const { currentRole, currentUser, isLoading: isAuthLoading, isRetailer, isSalesman, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+
+  // Public visitor view: 'home' (official FMCG distribution landing page) or 'auth' (login/signup)
+  const [publicView, setPublicView] = useState<'home' | 'auth'>('home');
+  const [authInitialMode, setAuthInitialMode] = useState<'signin' | 'signup'>('signin');
 
   // Master State
   const [products, setProducts] = useState<Product[]>([]);
@@ -518,10 +523,23 @@ function MainApp() {
     );
   }
 
-  // 2. Unauthenticated Guard: Dashboard and all modules are strictly inaccessible without authentication
+  // 2. Unauthenticated Guard: Show official FMCG Distribution Home Page first, or Auth Page upon clicking Login/SignUp
   if (!currentUser) {
+    if (publicView === 'home') {
+      return (
+        <HomePage
+          onOpenAuth={(mode = 'signin') => {
+            setAuthInitialMode(mode);
+            setPublicView('auth');
+          }}
+        />
+      );
+    }
+
     return (
       <LoginPage
+        initialMode={authInitialMode}
+        onBackToHome={() => setPublicView('home')}
         onLoginSuccess={(loggedInUser) => {
           const role = loggedInUser?.role || currentRole;
           if (role === 'delivery') {

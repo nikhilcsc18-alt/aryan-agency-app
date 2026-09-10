@@ -29,18 +29,28 @@ import {
   ExternalLink,
   Download,
   Smartphone,
-  QrCode
+  QrCode,
+  Truck,
+  Boxes,
+  Award,
+  CheckCircle
 } from 'lucide-react';
 import { AppDownloadModal } from './AppDownloadModal';
 
 interface LoginPageProps {
   onLoginSuccess?: (user?: User) => void;
+  onBackToHome?: () => void;
+  initialMode?: 'signin' | 'signup' | 'forgot';
 }
 
-export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
+export const LoginPage: React.FC<LoginPageProps> = ({ 
+  onLoginSuccess,
+  onBackToHome,
+  initialMode = 'signin'
+}) => {
   const { signInWithEmail, signUpWithEmail, resetPassword } = useAuth();
 
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -185,6 +195,16 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       {/* Top Banner on Mobile */}
       <div className="lg:hidden w-full bg-gradient-to-r from-blue-900 via-[#07152d] to-slate-900 text-white px-4 py-2.5 flex items-center justify-between border-b border-blue-800/40 text-xs">
         <div className="flex items-center space-x-2">
+          {onBackToHome && (
+            <button
+              type="button"
+              onClick={onBackToHome}
+              className="inline-flex items-center space-x-1 px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 text-amber-300 font-bold text-[11px] mr-1"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </button>
+          )}
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
           <span className="font-semibold text-slate-200">Aryan Agency Portal</span>
         </div>
@@ -201,52 +221,74 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
       <div className="flex-1 flex flex-col lg:flex-row w-full min-h-screen relative">
         
         {/* ========================================================= */}
-        {/* LEFT SIDE: BRANDING, ENTERPRISE INFO & CONTACT US (54%)   */}
+        {/* LEFT SIDE: BRANDING & ENTERPRISE SHOWCASE (52% on desktop)*/}
         {/* ========================================================= */}
-        <section className="w-full lg:w-[54%] xl:w-[55%] bg-gradient-to-br from-[#051329] via-[#091e3e] to-[#0e2c59] text-white p-6 sm:p-8 md:p-10 lg:p-12 xl:p-14 relative flex flex-col justify-between overflow-hidden z-10 shadow-2xl">
+        <section className="w-full lg:w-[52%] xl:w-[54%] bg-gradient-to-br from-[#030914] via-[#07172e] to-[#0a2347] text-white p-5 sm:p-7 md:p-8 lg:p-10 xl:p-12 relative flex flex-col justify-between overflow-hidden z-10 shadow-2xl border-b lg:border-b-0 lg:border-r border-blue-900/40">
           
-          {/* Subtle Geometric Background Pattern */}
+          {/* Subtle Grid Lines & Micro Dot Engineering Matrix */}
           <div 
-            className="absolute inset-0 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:24px_24px] opacity-10 pointer-events-none" 
+            className="absolute inset-0 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:24px_24px] opacity-[0.06] pointer-events-none" 
             aria-hidden="true" 
           />
-          {/* Ambient Lighting Spheres */}
+          {/* Subtle diagonal micro lines */}
           <div 
-            className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-blue-600/20 blur-3xl pointer-events-none" 
+            className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b08_1px,transparent_1px),linear-gradient(to_bottom,#1e293b08_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none"
+            aria-hidden="true"
+          />
+          
+          {/* Ambient Lighting Spheres with Deep Rich Saturation */}
+          <div 
+            className="absolute -top-28 -left-28 w-[420px] h-[420px] rounded-full bg-blue-600/18 blur-[100px] pointer-events-none" 
             aria-hidden="true" 
           />
           <div 
-            className="absolute top-1/2 -right-20 w-80 h-80 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" 
+            className="absolute top-1/3 -right-24 w-80 h-80 rounded-full bg-amber-500/12 blur-[100px] pointer-events-none" 
             aria-hidden="true" 
           />
           <div 
-            className="absolute -bottom-20 left-1/4 w-96 h-96 rounded-full bg-indigo-500/15 blur-3xl pointer-events-none" 
+            className="absolute -bottom-24 left-1/3 w-[400px] h-[400px] rounded-full bg-indigo-500/15 blur-[120px] pointer-events-none" 
             aria-hidden="true" 
           />
 
-          {/* TOP SECTION: BRAND IDENTITY & TAGLINE */}
+          {/* TOP SECTION: BRAND IDENTITY & ACCREDITATION */}
           <div className="relative z-10 space-y-4">
             
-            {/* Enterprise Status Badge */}
-            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/[0.08] border border-white/15 backdrop-blur-md shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
-              <span className="text-[11px] font-bold tracking-wider uppercase text-blue-200">
-                Official FMCG Distribution Hub
-              </span>
-              <span className="text-white/30">•</span>
-              <span className="text-[11px] font-medium text-amber-300">
-                Utraula, Balrampur (U.P.)
-              </span>
+            {/* Top Row with Home Navigation & Official Super-Stockist Accreditation */}
+            <div className="flex items-center justify-between gap-3">
+              {onBackToHome && (
+                <button
+                  type="button"
+                  onClick={onBackToHome}
+                  className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-full bg-white/[0.08] hover:bg-white/[0.16] text-amber-300 hover:text-amber-200 border border-white/15 text-xs font-semibold tracking-wide transition-all cursor-pointer shadow-xs active:scale-95"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Home</span>
+                </button>
+              )}
+
+              <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-gradient-to-r from-blue-950/80 to-slate-900/80 border border-blue-500/30 backdrop-blur-md shadow-xs ml-auto">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-bold tracking-wider uppercase text-blue-200">
+                  Authorized Super-Stockist
+                </span>
+                <span className="text-white/20">•</span>
+                <span className="text-[10px] sm:text-[11px] font-semibold text-amber-300">
+                  Utraula (U.P.)
+                </span>
+              </div>
             </div>
 
-            {/* Logo, Heading & Subtitle */}
-            <div className="flex items-start sm:items-center space-x-4 pt-1">
-              {/* Aryan Agency Logo Mark */}
-              <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 p-1.5 rounded-2xl bg-white/[0.08] border border-white/20 backdrop-blur-md shadow-[0_12px_24px_rgba(0,0,0,0.3)] group hover:scale-105 transition-transform">
+            {/* Logo Presentation & Corporate Typographic Hierarchy */}
+            <div className="flex items-center space-x-4 pt-1">
+              {/* Aryan Agency Verified Logo Mark with Crisp Glass Frame */}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-[84px] lg:h-[84px] shrink-0 p-2 rounded-2xl bg-gradient-to-b from-white/[0.12] to-white/[0.04] border border-white/25 backdrop-blur-md shadow-[0_16px_32px_rgba(0,0,0,0.4)] ring-1 ring-white/10 group hover:scale-[1.03] transition-all flex items-center justify-center">
                 <img 
                   src="/assets/aryan_agency_icon.png" 
-                  alt="Aryan Agency Mark" 
-                  className="w-full h-full object-contain drop-shadow-md"
+                  alt="Aryan Agency Official Logo" 
+                  className="w-full h-full object-contain drop-shadow-md rounded-xl"
                   referrerPolicy="no-referrer"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
@@ -259,114 +301,127 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </div>
               </div>
 
-              <div>
-                {/* Heading */}
-                <h1 className="text-3xl sm:text-4xl xl:text-5xl font-black tracking-tight text-white flex items-baseline">
-                  <span>Aryan</span>
-                  <span className="text-amber-400 ml-2.5 drop-shadow-sm">Agency</span>
-                </h1>
+              {/* Company Wordmark & Corporate Subtitle */}
+              <div className="space-y-1">
+                <div className="flex items-baseline">
+                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white flex items-baseline leading-none">
+                    <span>Aryan</span>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-300 ml-2.5 drop-shadow-xs">Agency</span>
+                  </h1>
+                </div>
                 
-                {/* Subtitle */}
-                <p className="text-xs sm:text-sm font-bold tracking-wider text-blue-200/90 uppercase mt-1">
-                  FMCG Distribution &amp; Retail Management
+                <p className="text-[11px] sm:text-xs lg:text-[13px] font-bold tracking-widest text-blue-200/90 uppercase">
+                  FMCG Super-Stockist &amp; Wholesale Distribution
                 </p>
+
+                <div className="flex items-center space-x-2 pt-0.5">
+                  <span className="inline-flex items-center space-x-1 text-[10px] font-medium text-slate-300 bg-white/[0.06] border border-white/10 px-2 py-0.5 rounded-md">
+                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                    <span>Verified GST Distributor</span>
+                  </span>
+                  <span className="inline-flex items-center space-x-1 text-[10px] font-medium text-slate-300 bg-white/[0.06] border border-white/10 px-2 py-0.5 rounded-md">
+                    <Truck className="w-3 h-3 text-cyan-400" />
+                    <span>Direct Beat Routes</span>
+                  </span>
+                </div>
               </div>
             </div>
 
-            {/* Professional Tagline */}
-            <div className="pt-1">
-              <p className="text-sm sm:text-base xl:text-lg font-medium text-slate-100/90 leading-relaxed max-w-xl">
-                <span className="text-amber-300 font-semibold">Smart Distribution.</span>{' '}
-                <span className="text-white font-semibold">Better Business.</span>{' '}
-                <span className="text-cyan-300 font-semibold">Faster Growth.</span>
+            {/* Corporate Value Statement */}
+            <div className="pt-1 hidden sm:block">
+              <p className="text-xs sm:text-sm lg:text-[15px] font-medium text-slate-200 leading-relaxed max-w-xl">
+                <span className="text-amber-300 font-bold">Authorized FMCG Distribution.</span>{' '}
+                <span className="text-slate-100">Batch-tested fresh stock, direct company margins, and daily door-to-door delivery for retail partners.</span>
               </p>
             </div>
 
           </div>
 
-          {/* MIDDLE SECTION: VALUE PILLARS & FEATURE CARDS */}
-          <div className="my-6 lg:my-8 relative z-10 space-y-3.5">
+          {/* MIDDLE SECTION: ENTERPRISE FMCG PILLARS & BRAND NETWORK */}
+          <div className="hidden sm:block my-4 lg:my-6 relative z-10 space-y-3.5">
             <div className="flex items-center space-x-2">
-              <span className="text-[11px] font-black uppercase tracking-wider text-amber-400">
-                Core FMCG Operations Platform
+              <span className="text-[10.5px] font-black uppercase tracking-wider text-amber-400 flex items-center space-x-1.5">
+                <Boxes className="w-3.5 h-3.5 text-amber-400" />
+                <span>Super-Stockist Infrastructure</span>
               </span>
               <div className="h-px flex-1 bg-gradient-to-r from-amber-400/40 via-blue-400/20 to-transparent" />
             </div>
 
-            {/* 3 Value Proposition Glass Cards */}
+            {/* 3 Value Proposition Glass Cards with Refined Icons & Metrics */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               
               {/* Card 1: Fast B2B Ordering */}
-              <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/10 hover:border-amber-400/40 hover:bg-white/[0.09] transition-all duration-200 group">
-                <div className="w-10 h-10 rounded-xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-300 mb-2.5 group-hover:scale-105 transition-transform shadow-xs">
-                  <ShoppingCart className="w-5 h-5 text-amber-300" />
+              <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.07] to-white/[0.02] border border-white/10 hover:border-amber-400/40 hover:bg-white/[0.09] transition-all duration-200 group">
+                <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-300 mb-2 group-hover:scale-105 transition-transform shadow-xs">
+                  <ShoppingCart className="w-4.5 h-4.5 text-amber-300" />
                 </div>
-                <h4 className="text-xs sm:text-[13px] font-bold text-white leading-snug">
-                  Fast B2B Order Booking
+                <h4 className="text-xs font-bold text-white leading-snug">
+                  Direct B2B Orders
                 </h4>
-                <p className="text-[11px] text-slate-300/80 mt-1 leading-relaxed">
-                  Real-time catalog, volume schemes, and multi-case wholesale pricing.
+                <p className="text-[10.5px] text-slate-300/80 mt-1 leading-relaxed">
+                  Real-time wholesale booking, trade schemes, and volume case margins.
                 </p>
               </div>
 
               {/* Card 2: Live Stock & Ledger */}
-              <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/10 hover:border-blue-400/40 hover:bg-white/[0.09] transition-all duration-200 group">
-                <div className="w-10 h-10 rounded-xl bg-blue-400/15 border border-blue-400/30 flex items-center justify-center text-blue-300 mb-2.5 group-hover:scale-105 transition-transform shadow-xs">
-                  <FileText className="w-5 h-5 text-blue-300" />
+              <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.07] to-white/[0.02] border border-white/10 hover:border-blue-400/40 hover:bg-white/[0.09] transition-all duration-200 group">
+                <div className="w-9 h-9 rounded-xl bg-blue-400/15 border border-blue-400/30 flex items-center justify-center text-blue-300 mb-2 group-hover:scale-105 transition-transform shadow-xs">
+                  <FileText className="w-4.5 h-4.5 text-blue-300" />
                 </div>
-                <h4 className="text-xs sm:text-[13px] font-bold text-white leading-snug">
-                  Warehouse &amp; Invoices
+                <h4 className="text-xs font-bold text-white leading-snug">
+                  GST Invoicing
                 </h4>
-                <p className="text-[11px] text-slate-300/80 mt-1 leading-relaxed">
-                  GST-compliant billing, batch expiry control, and instant PDF receipts.
+                <p className="text-[10.5px] text-slate-300/80 mt-1 leading-relaxed">
+                  100% compliant tax billing, batch expiry tracking &amp; instant digital receipts.
                 </p>
               </div>
 
               {/* Card 3: Credit & Retailers */}
-              <div className="p-3.5 rounded-2xl bg-white/[0.05] border border-white/10 hover:border-emerald-400/40 hover:bg-white/[0.09] transition-all duration-200 group">
-                <div className="w-10 h-10 rounded-xl bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300 mb-2.5 group-hover:scale-105 transition-transform shadow-xs">
-                  <BookOpen className="w-5 h-5 text-emerald-300" />
+              <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.07] to-white/[0.02] border border-white/10 hover:border-emerald-400/40 hover:bg-white/[0.09] transition-all duration-200 group">
+                <div className="w-9 h-9 rounded-xl bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300 mb-2 group-hover:scale-105 transition-transform shadow-xs">
+                  <BookOpen className="w-4.5 h-4.5 text-emerald-300" />
                 </div>
-                <h4 className="text-xs sm:text-[13px] font-bold text-white leading-snug">
-                  Retailer Credit Ledger
+                <h4 className="text-xs font-bold text-white leading-snug">
+                  Retailer Ledger
                 </h4>
-                <p className="text-[11px] text-slate-300/80 mt-1 leading-relaxed">
-                  Clear outstanding balances, payment receipts, and delivery run-sheets.
+                <p className="text-[10.5px] text-slate-300/80 mt-1 leading-relaxed">
+                  Transparent credit balances, UPI settlement receipts &amp; delivery run-sheets.
                 </p>
               </div>
 
             </div>
 
-            {/* Authorized Brands Marquee / Strip */}
-            <div className="pt-2">
-              <div className="p-2.5 rounded-xl bg-black/25 border border-white/10 backdrop-blur-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-                <span className="text-[10.5px] font-bold uppercase tracking-wider text-amber-300 shrink-0">
-                  Authorized FMCG Partner:
+            {/* Authorized Brand Network Ribbon */}
+            <div className="pt-0.5">
+              <div className="p-2.5 rounded-xl bg-black/30 border border-white/10 backdrop-blur-xs flex flex-col lg:flex-row lg:items-center justify-between gap-1.5 text-xs">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-300 shrink-0 flex items-center space-x-1">
+                  <Award className="w-3 h-3 text-amber-300" />
+                  <span>Authorized FMCG Brands:</span>
                 </span>
                 <span className="text-[11px] text-slate-300 font-medium truncate">
-                  Parle • Britannia • Amul • Tata Tea • Nestlé • Cadbury • Surf Excel • Lay&apos;s • Haldiram&apos;s
+                  Parle • Britannia • Amul • Tata Tea • Nestlé • Cadbury • Lay&apos;s • Haldiram&apos;s • Fortune
                 </span>
               </div>
             </div>
 
-            {/* Download Aryan Agency App Card (Website to App Download System) */}
-            <div className="pt-3">
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-blue-500/20 border border-emerald-400/35 backdrop-blur-md shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 group hover:border-emerald-400/50 transition-all">
-                <div className="flex items-center space-x-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shrink-0 shadow-lg shadow-emerald-500/30 group-hover:scale-105 transition-transform">
-                    <Smartphone className="w-5 h-5 text-white" />
+            {/* Android Mobile App Promotion Box */}
+            <div className="pt-1">
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-blue-500/15 border border-emerald-400/30 backdrop-blur-md shadow-lg flex items-center justify-between gap-3 group hover:border-emerald-400/50 transition-all">
+                <div className="flex items-center space-x-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-emerald-500/25 group-hover:scale-105 transition-transform">
+                    <Smartphone className="w-4.5 h-4.5 text-white" />
                   </div>
                   <div>
                     <div className="flex items-center space-x-2">
-                      <h4 className="text-sm font-bold text-white tracking-tight">
+                      <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight">
                         Aryan Agency Mobile App
                       </h4>
-                      <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-400/20 text-emerald-300 border border-emerald-400/40">
-                        Direct APK
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-400/20 text-emerald-300 border border-emerald-400/40">
+                        Android APK
                       </span>
                     </div>
-                    <p className="text-[11px] text-emerald-100/80 mt-0.5">
-                      Faster Kirana ordering, instant barcode scanning &amp; offline DSR sync
+                    <p className="text-[10.5px] text-emerald-100/80 mt-0.5">
+                      Faster Kirana re-orders, barcode stock scanning &amp; offline beat sync
                     </p>
                   </div>
                 </div>
@@ -374,72 +429,70 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <button
                   type="button"
                   onClick={() => setIsDownloadModalOpen(true)}
-                  className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 active:scale-95 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/25 transition-all cursor-pointer shrink-0"
+                  className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 active:scale-95 text-slate-950 font-bold text-xs shadow-md shadow-emerald-500/20 transition-all cursor-pointer shrink-0"
                 >
-                  <Download className="w-4 h-4 text-slate-950" />
-                  <span>Download App</span>
+                  <Download className="w-3.5 h-3.5 text-slate-950" />
+                  <span>Get APK</span>
                 </button>
               </div>
             </div>
           </div>
 
-          {/* BOTTOM SECTION: CONTACT US (CRITICAL REQUIREMENT) */}
-          <div className="relative z-10 pt-4 border-t border-blue-900/60">
+          {/* BOTTOM SECTION: ENTERPRISE HELPDESK & MAIN DEPOT ADDRESS */}
+          <div className="relative z-10 pt-3 sm:pt-4 border-t border-blue-900/60 mt-3 sm:mt-0 space-y-2.5">
             
-            {/* Contact Us Modern Glass Card */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-white/[0.08] to-white/[0.04] border border-white/15 backdrop-blur-md shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Contact Support Glass Card */}
+            <div className="p-3 sm:p-4 rounded-2xl bg-gradient-to-r from-white/[0.08] to-white/[0.03] border border-white/15 backdrop-blur-md shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <div className="flex items-center space-x-2">
-                  <div className="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center justify-center shrink-0">
-                    <Headphones className="w-4 h-4" />
+                  <div className="w-6 h-6 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/30 flex items-center justify-center shrink-0">
+                    <Headphones className="w-3.5 h-3.5" />
                   </div>
-                  <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">
-                    Contact Us
+                  <h3 className="text-xs sm:text-sm font-bold text-white tracking-tight">
+                    Distribution Helpdesk
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    Helpdesk Ready
+                    Helpdesk Active
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-300">
-                  For dealership onboarding, order placement assistance, or account queries:
+                <p className="text-[10.5px] text-slate-300 hidden sm:block">
+                  For dealership onboarding, wholesale order booking, or payment ledger assistance:
                 </p>
               </div>
 
               {/* Clickable Phone & Email Buttons */}
-              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 shrink-0">
-                
-                {/* Phone: tel:+919140529661 */}
+              <div className="flex items-center gap-2 shrink-0">
                 <a
                   href="tel:+919140529661"
-                  className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer group"
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 active:scale-95 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/25 transition-all cursor-pointer group"
                   title="Call Aryan Agency"
                 >
                   <Phone className="w-3.5 h-3.5 text-slate-950 group-hover:rotate-12 transition-transform" />
                   <span>+91 9140529661</span>
                 </a>
 
-                {/* Email: mailto:aryanagency@zohomail.in */}
                 <a
                   href="mailto:aryanagency@zohomail.in"
-                  className="inline-flex items-center space-x-2 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-medium text-xs border border-white/20 transition-all cursor-pointer group"
+                  className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-medium text-xs border border-white/20 transition-all cursor-pointer group"
                   title="Email Aryan Agency"
                 >
                   <Mail className="w-3.5 h-3.5 text-cyan-300 group-hover:scale-110 transition-transform" />
-                  <span className="font-mono">aryanagency@zohomail.in</span>
+                  <span className="font-mono text-[11px]">Email</span>
                 </a>
-
               </div>
 
             </div>
 
-            {/* Location Address Note */}
-            <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 px-1">
+            {/* Official Depot Location Address */}
+            <div className="flex items-center justify-between text-[10.5px] sm:text-[11px] text-slate-400 px-1">
               <span className="flex items-center space-x-1.5">
-                <MapPin className="w-3 h-3 text-amber-400 shrink-0" />
-                <span>Utraula, Dist. Balrampur (U.P.) - 271307</span>
+                <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="truncate max-w-[290px] sm:max-w-none text-slate-300 font-medium">
+                  Main Depot, Subhash Nagar, Hatan Road, Utraula, Dist. Balrampur (U.P.) - 271604
+                </span>
               </span>
-              <span className="hidden sm:inline text-slate-500">
+              <span className="hidden md:inline text-slate-400 shrink-0 ml-2">
                 Mon - Sat: 8:00 AM - 8:00 PM
               </span>
             </div>
@@ -524,17 +577,28 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
           {/* Floating White Premium Login Card */}
           <div className="w-full max-w-[460px] bg-white/95 backdrop-blur-xl rounded-[28px] border border-slate-200/90 shadow-[0_25px_60px_-15px_rgba(15,23,42,0.14)] p-6 sm:p-8 relative z-20 transition-all">
             
-            {/* Top Security & Trust Indicator Pill */}
-            <div className="flex justify-center mb-4">
+            {/* Top Navigation Row inside Card */}
+            <div className="flex items-center justify-between mb-4">
+              {onBackToHome ? (
+                <button
+                  type="button"
+                  onClick={onBackToHome}
+                  className="inline-flex items-center space-x-1 text-xs font-bold text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Home</span>
+                </button>
+              ) : <div />}
+
               <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-blue-50 border border-blue-200/80 text-blue-700 text-[11px] font-bold shadow-2xs">
                 <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                <span>Secure Business Management Portal</span>
+                <span>Secure B2B Portal</span>
               </div>
             </div>
 
-            {/* Mobile / Card Top Logo */}
-            <div className="flex flex-col items-center text-center mb-4">
-              <div className="w-12 h-12 mb-1.5 drop-shadow-sm">
+            {/* Mobile / Card Top Logo: visible on mobile for identity, hidden on lg desktop since left branding panel already features large logo */}
+            <div className="flex flex-col items-center text-center mb-3 lg:hidden">
+              <div className="w-10 h-10 mb-1 drop-shadow-xs">
                 <img 
                   src="/assets/aryan_agency_icon.png" 
                   alt="Aryan Agency Mark" 
@@ -547,21 +611,18 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                   }}
                 />
                 <div id="vector-logo-fallback-card" style={{ display: 'none' }}>
-                  <AryanAgencyLogo variant="icon" size="sm" />
+                  <AryanAgencyLogo variant="icon" size="xs" />
                 </div>
               </div>
 
               <div className="flex items-baseline">
-                <span className="text-xl font-extrabold tracking-tight text-slate-900">
+                <span className="text-lg font-extrabold tracking-tight text-slate-900">
                   Aryan
                 </span>
-                <span className="text-xl font-extrabold tracking-tight text-amber-500 ml-1.5">
+                <span className="text-lg font-extrabold tracking-tight text-amber-500 ml-1.5">
                   Agency
                 </span>
               </div>
-              <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase mt-0.5">
-                FMCG Distribution &amp; Retail Management
-              </span>
             </div>
 
             {/* Heading & Subheading */}

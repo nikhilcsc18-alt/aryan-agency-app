@@ -407,7 +407,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                       required
                       value={editVersion}
                       onChange={(e) => setEditVersion(e.target.value)}
-                      placeholder="v1.2.4"
+                      placeholder="v1.2.5"
                       className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-600 font-mono"
                     />
                   </div>

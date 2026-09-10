@@ -23,7 +23,7 @@ const EVENT_NAME = 'aryan_app_download_config_updated';
 
 export const DEFAULT_APP_CONFIG: AppDownloadConfig = {
   apkUrl: '/download/aryan-agency-app.apk',
-  version: 'v1.2.4',
+  version: 'v1.2.5',
   fileSize: '18.4 MB',
   releaseDate: 'March 2026',
   minAndroidVersion: 'Android 8.0 (Oreo) or later',
