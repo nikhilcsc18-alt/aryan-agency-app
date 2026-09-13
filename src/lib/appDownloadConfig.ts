@@ -23,14 +23,14 @@ const EVENT_NAME = 'aryan_app_download_config_updated';
 
 export const DEFAULT_APP_CONFIG: AppDownloadConfig = {
   apkUrl: '/download/aryan-agency-app.apk',
-  version: 'v1.2.5',
+  version: 'v1.2.6',
   fileSize: '18.4 MB',
-  releaseDate: 'March 2026',
+  releaseDate: 'September 2026',
   minAndroidVersion: 'Android 8.0 (Oreo) or later',
   appName: 'Aryan Agency FMCG Distribution',
   packageName: 'in.aryanagency.fmcg',
   isAvailable: true,
-  notes: 'Direct Android APK for Kirana retailers, DSR salesmen, and delivery drivers with offline order sync and barcode scanning.'
+  notes: 'Direct Android APK for Kirana retailers, DSR salesmen, and delivery drivers with new FMCG Home Page and offline order sync.'
 };
 
 export function getAppDownloadConfig(): AppDownloadConfig {

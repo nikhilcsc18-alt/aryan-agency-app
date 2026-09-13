@@ -18,20 +18,23 @@ const CURRENT_APP_VERSION: string =
   (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.2.5');
 
 // Base URL resolution: in Capacitor/Android builds, resolve to the deployed public app URL via VITE_APP_URL,
-// falling back safely to the current web origin for standard web browser builds.
+// falling back safely to the official Render domain or web origin.
 const APP_BASE_URL: string = (() => {
   const envUrl = ((import.meta as any)?.env?.VITE_APP_URL || (import.meta as any)?.env?.APP_URL || '').trim();
   if (envUrl) {
     return envUrl.replace(/\/+$/, '');
   }
   if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin.replace(/\/+$/, '');
+    const origin = window.location.origin.replace(/\/+$/, '');
+    // In Capacitor or local builds, avoid using localhost as the update base URL
+    if (!origin.includes('localhost') && !origin.startsWith('capacitor') && !origin.startsWith('file:')) {
+      return origin;
+    }
   }
-  return '';
+  return 'https://aryan-agency-app.onrender.com';
 })();
 
-const VERSION_INFO_URL = `${APP_BASE_URL}/download/version.json`;
-const DEFAULT_APK_DOWNLOAD_URL = `${APP_BASE_URL}/download/aryan-agency-app.apk`;
+const DEFAULT_APK_DOWNLOAD_URL = 'https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk';
 const SESSION_STORAGE_DISMISS_KEY = 'aryan_agency_update_dismissed';
 
 interface AppVersionInfo {
@@ -95,48 +98,62 @@ export const AppUpdateChecker: React.FC = () => {
     }
 
     const checkForUpdates = async () => {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000);
+      // Multiple fallback endpoints so Android phone APK, Web preview, and Render always find the latest version
+      const endpoints = [
+        `${APP_BASE_URL}/download/version.json`,
+        'https://aryan-agency-app.onrender.com/download/version.json',
+        'https://raw.githubusercontent.com/nikhilcsc18-alt/aryan-agency-app/main/public/download/version.json',
+        'https://api.github.com/repos/nikhilcsc18-alt/aryan-agency-app/releases/latest',
+      ];
 
-        // Fetch public version.json from Render / Express server directly (works with private GitHub repo)
-        const response = await fetch(VERSION_INFO_URL, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache',
-          },
-          signal: controller.signal,
-        });
+      for (const endpoint of endpoints) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-        clearTimeout(timeoutId);
+          const response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'Cache-Control': 'no-cache',
+            },
+            signal: controller.signal,
+          });
 
-        if (!response.ok) {
-          // Silent exit on HTTP errors
-          return;
-        }
+          clearTimeout(timeoutId);
+          if (!response.ok) continue;
 
-        const data: AppVersionInfo = await response.json();
-        const remoteVersion = data?.version?.trim() || '';
-        if (!remoteVersion) return;
+          const data: any = await response.json();
+          // Support both version.json format and GitHub releases API format
+          let remoteVersion = (data?.version || data?.tag_name || '').trim().replace(/^v/i, '');
+          if (!remoteVersion) continue;
 
-        // Check if remote version from version.json is strictly newer than installed package version
-        if (isNewerVersion(remoteVersion, CURRENT_APP_VERSION)) {
-          setLatestVersion(remoteVersion.startsWith('v') ? remoteVersion : `v${remoteVersion}`);
-          const rawDownload = data.downloadUrl?.trim();
-          const resolvedDownload = rawDownload
-            ? (rawDownload.startsWith('http') ? rawDownload : `${APP_BASE_URL}${rawDownload.startsWith('/') ? '' : '/'}${rawDownload}`)
-            : DEFAULT_APK_DOWNLOAD_URL;
-          setDownloadUrl(resolvedDownload);
-
-          if (data.releaseNotes && data.releaseNotes.trim()) {
-            setReleaseNotes(data.releaseNotes.trim());
+          let rawDownload = (data?.downloadUrl || '').trim();
+          if (!rawDownload && Array.isArray(data?.assets)) {
+            const apkAsset = data.assets.find((a: any) => a.name?.endsWith('.apk'));
+            if (apkAsset?.browser_download_url) {
+              rawDownload = apkAsset.browser_download_url;
+            }
           }
 
-          setIsUpdateModalOpen(true);
+          if (isNewerVersion(remoteVersion, CURRENT_APP_VERSION)) {
+            setLatestVersion(`v${remoteVersion}`);
+            const resolvedDownload = rawDownload
+              ? (rawDownload.startsWith('http') ? rawDownload : `${APP_BASE_URL}${rawDownload.startsWith('/') ? '' : '/'}${rawDownload}`)
+              : DEFAULT_APK_DOWNLOAD_URL;
+            setDownloadUrl(resolvedDownload);
+
+            const notes = data.releaseNotes || data.body || '';
+            if (notes && notes.trim()) {
+              setReleaseNotes(notes.trim());
+            }
+
+            setIsUpdateModalOpen(true);
+            return; // Successfully found update and opened modal
+          }
+        } catch {
+          // Try next endpoint
         }
-      } catch {
-        // Handle all network/fetch errors silently without breaking the app
       }
     };
 
@@ -153,13 +170,22 @@ export const AppUpdateChecker: React.FC = () => {
   };
 
   const handleUpdateNow = () => {
-    // Open the direct APK download URL
+    const targetUrl = downloadUrl || DEFAULT_APK_DOWNLOAD_URL;
     try {
-      window.open(downloadUrl || DEFAULT_APK_DOWNLOAD_URL, '_blank', 'noopener,noreferrer');
+      const isCapacitor = typeof window !== 'undefined' && (
+        (window as any).Capacitor !== undefined ||
+        window.location.protocol === 'capacitor:' ||
+        window.location.origin.includes('localhost')
+      );
+
+      if (isCapacitor && (window as any).Capacitor?.Plugins?.Browser?.open) {
+        (window as any).Capacitor.Plugins.Browser.open({ url: targetUrl });
+      } else {
+        window.open(targetUrl, '_system') || window.open(targetUrl, '_blank') || (window.location.href = targetUrl);
+      }
     } catch {
-      window.location.href = downloadUrl || DEFAULT_APK_DOWNLOAD_URL;
+      window.location.href = targetUrl;
     }
-    // Also dismiss modal for this session
     handleDismiss();
   };
 
