@@ -403,7 +403,7 @@
     },
     {
       "id": "prd_12",
-      "sku": "HALDIRAM-ALOO-BHUJIA-400G",
+      "sku": "HLD-AB-400G",
       "name": "Haldiram's Nagpur Aloo Bhujia (400g)",
       "brand": "Haldiram",
       "category": "Snacks & Namkeen",
@@ -428,6 +428,114 @@
           "warehouseBin": "A-04-02"
         }
       ]
+    },
+    {
+      "id": "prd_13",
+      "sku": "KURK-CHUTNEY-60G",
+      "name": "Kurkure Green Chutney (60g)",
+      "brand": "Kurkure",
+      "category": "Snacks & Namkeen",
+      "hsnCode": "20052000",
+      "gstRate": 12,
+      "piecesPerCase": 48,
+      "mrpPiece": 25,
+      "wholesalePricePiece": 15,
+      "casePrice": 720,
+      "currentStockCases": 90,
+      "currentStockLoosePcs": 12,
+      "reorderLevelCases": 20,
+      "imageUrl": "https://images.unsplash.com/photo-1621996346565-e3d5d6281290?w=500&auto=format&fit=crop&q=80",
+      "description": "Crispy Kurkure extruded snack infused with zesty north-Indian green chutney mint spices.",
+      "batches": [
+        {
+          "batchNumber": "KURK-26-09",
+          "mfgDate": "2026-08-10",
+          "expiryDate": "2027-02-10",
+          "stockCases": 90,
+          "stockLoosePcs": 12,
+          "warehouseBin": "A-04-03"
+        }
+      ],
+      "activeScheme": {
+        "id": "sch_13",
+        "title": "Kurkure ₹10 OFF Deal",
+        "description": "Special distributor scheme: ₹10 flat discount off MRP",
+        "minQtyCases": 1,
+        "discountFlatRs": 10,
+        "isActive": true
+      }
+    },
+    {
+      "id": "prd_14",
+      "sku": "LAYS-CLASSIC-52G",
+      "name": "Lay's Classic Salted (52g)",
+      "brand": "Lay's",
+      "category": "Snacks & Namkeen",
+      "hsnCode": "20052000",
+      "gstRate": 12,
+      "piecesPerCase": 50,
+      "mrpPiece": 40,
+      "wholesalePricePiece": 20,
+      "casePrice": 1000,
+      "currentStockCases": 120,
+      "currentStockLoosePcs": 25,
+      "reorderLevelCases": 30,
+      "imageUrl": "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=500&auto=format&fit=crop&q=80",
+      "description": "Crispy, golden-fried wafer-thin potato chips seasoned with fine salt.",
+      "batches": [
+        {
+          "batchNumber": "LAY-CLS-77",
+          "mfgDate": "2026-08-15",
+          "expiryDate": "2027-02-15",
+          "stockCases": 120,
+          "stockLoosePcs": 25,
+          "warehouseBin": "A-03-02"
+        }
+      ],
+      "activeScheme": {
+        "id": "sch_14",
+        "title": "Lay's ₹20 OFF Promo",
+        "description": "Special wholesale offer: Flat ₹20 off per piece margin",
+        "minQtyCases": 1,
+        "discountFlatRs": 20,
+        "isActive": true
+      }
+    },
+    {
+      "id": "prd_15",
+      "sku": "HB-DIAPER-S1",
+      "name": "Honey Bunny Diaper (S1 Small)",
+      "brand": "Honey Bunny",
+      "category": "Baby Care",
+      "hsnCode": "96190010",
+      "gstRate": 12,
+      "piecesPerCase": 12,
+      "mrpPiece": 600,
+      "wholesalePricePiece": 450,
+      "casePrice": 5400,
+      "currentStockCases": 35,
+      "currentStockLoosePcs": 4,
+      "reorderLevelCases": 10,
+      "imageUrl": "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=500&auto=format&fit=crop&q=80",
+      "description": "Ultra-soft, quick-absorb baby diaper pants with wetness indicator for newborn infants.",
+      "batches": [
+        {
+          "batchNumber": "HB-DPR-2026",
+          "mfgDate": "2026-07-01",
+          "expiryDate": "2029-07-01",
+          "stockCases": 35,
+          "stockLoosePcs": 4,
+          "warehouseBin": "D-02-01"
+        }
+      ],
+      "activeScheme": {
+        "id": "sch_15",
+        "title": "Baby Care Festive Discount",
+        "description": "Flat ₹150 OFF per pack for retail pharmacies and kirana stores",
+        "minQtyCases": 1,
+        "discountFlatRs": 150,
+        "isActive": true
+      }
     }
   ],
   "retailers": [],

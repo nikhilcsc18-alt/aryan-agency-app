@@ -23,7 +23,11 @@ import {
   Settings,
   SlidersHorizontal,
   Download,
-  Smartphone
+  Smartphone,
+  Bell,
+  Search,
+  Menu,
+  User
 } from 'lucide-react';
 import { AppDownloadModal } from './AppDownloadModal';
 
@@ -33,6 +37,10 @@ interface HeaderProps {
   onResetData: () => void;
   cartItemCount?: number;
   onOpenCart?: () => void;
+  searchQuery?: string;
+  onSearchChange?: (q: string) => void;
+  notificationCount?: number;
+  onToggleMenu?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -40,7 +48,11 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAICopilot,
   onResetData,
   cartItemCount = 0,
-  onOpenCart
+  onOpenCart,
+  searchQuery = '',
+  onSearchChange,
+  notificationCount = 3,
+  onToggleMenu
 }) => {
   const { 
     currentUser, 
@@ -224,7 +236,7 @@ export const Header: React.FC<HeaderProps> = ({
   );
 
   return (
-    <header className="bg-[#1e293b] text-white border-b border-slate-700/80 sticky top-0 z-40 shadow-xs">
+    <header className="bg-[#0B1E3F] text-white border-b border-blue-900/60 sticky top-0 z-40 shadow-md">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         
         {/* ========================================================================= */}
@@ -234,11 +246,36 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Brand Logo & Name */}
           <div className="flex items-center space-x-3.5">
             <AryanAgencyLogo 
-              variant="horizontal" 
+              variant="fmcg-basket" 
               size="md" 
               theme="dark" 
             />
           </div>
+
+          {/* Desktop Search Bar */}
+          {onSearchChange && (
+            <div className="flex-1 max-w-md mx-6">
+              <div className="relative">
+                <Search className="w-4 h-4 text-blue-300 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  id="desktop-header-search"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  placeholder="Search products, brands, FMCG categories..."
+                  className="w-full bg-[#13284c] border border-blue-800/80 rounded-full pl-9 pr-4 py-1.5 text-xs text-white placeholder-blue-300/70 focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-transparent transition-all"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => onSearchChange('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-blue-300 hover:text-white"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Action Tools & Role Switcher */}
           <div className="flex items-center space-x-2.5 sm:space-x-3">
@@ -246,19 +283,35 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="header-supabase-auth-btn"
               onClick={openAuthModal}
-              className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600/80 shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center px-2.5 py-1.5 text-xs font-medium rounded-lg bg-[#13284c] hover:bg-[#1a3666] text-slate-200 border border-blue-800/80 shadow-xs transition-colors cursor-pointer"
               title="Supabase Authentication & Role Manager"
             >
               <KeyRound className="w-3.5 h-3.5 sm:mr-1.5 text-emerald-400" />
               <span className="hidden lg:inline">{isAuthenticatedWithSupabase ? 'Supabase Auth' : 'Auth Login'}</span>
             </button>
 
+            {/* Notification Bell */}
+            <div className="relative">
+              <button
+                id="header-notifications-btn"
+                className="relative p-2 rounded-lg bg-[#13284c] hover:bg-[#1a3666] text-white border border-blue-800/80 transition-colors"
+                title="Notifications"
+              >
+                <Bell className="w-4 h-4 text-blue-200" />
+                {notificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#E53E3E] text-white font-bold text-[10px] flex items-center justify-center ring-2 ring-[#0B1E3F]">
+                    {notificationCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
             {/* Shopping Cart Button */}
             {onOpenCart && (
               <button
                 id="header-cart-btn"
                 onClick={onOpenCart}
-                className="relative inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600/80 shadow-xs transition-colors cursor-pointer"
+                className="relative inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-[#13284c] hover:bg-[#1a3666] text-slate-200 border border-blue-800/80 shadow-xs transition-colors cursor-pointer"
                 title="View Active Order Cart"
               >
                 <ShoppingCart className="w-3.5 h-3.5 sm:mr-1.5 text-amber-400" />
@@ -286,7 +339,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="ai-copilot-btn"
               onClick={onOpenAICopilot}
-              className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600/80 shadow-xs transition-colors cursor-pointer"
+              className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-[#13284c] hover:bg-[#1a3666] text-slate-200 border border-blue-800/80 shadow-xs transition-colors cursor-pointer"
               title="AI FMCG Demand & Order Assistant"
             >
               <Sparkles className="w-3.5 h-3.5 mr-1.5 text-blue-400" />
@@ -298,7 +351,7 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 id="header-punch-order-btn"
                 onClick={onOpenNewOrder}
-                className="inline-flex items-center px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors cursor-pointer"
+                className="inline-flex items-center px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-[#1A73E8] hover:bg-blue-700 text-white shadow-xs transition-colors cursor-pointer"
               >
                 <PlusCircle className="w-4 h-4 mr-1.5" />
                 <span>Punch Order</span>
@@ -310,16 +363,16 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 id="role-switch-btn"
                 onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-                className="flex items-center space-x-2.5 bg-slate-800/90 hover:bg-slate-700 text-white text-xs px-3 py-1.5 rounded-lg border border-slate-700 transition-colors focus:outline-none cursor-pointer"
+                className="flex items-center space-x-2.5 bg-[#13284c] hover:bg-[#1a3666] text-white text-xs px-3 py-1.5 rounded-lg border border-blue-800 transition-colors focus:outline-none cursor-pointer"
               >
-                <div className="w-6 h-6 rounded-full bg-[#2563eb] overflow-hidden flex items-center justify-center shrink-0 text-white font-bold text-[10px]">
+                <div className="w-6 h-6 rounded-full bg-[#1A73E8] overflow-hidden flex items-center justify-center shrink-0 text-white font-bold text-[10px]">
                   {currentUser?.name ? currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2) : 'AA'}
                 </div>
                 <div className="text-left hidden sm:block">
                   <div className="font-semibold leading-tight text-slate-100 max-w-[120px] truncate">{currentUser?.name}</div>
-                  <div className="text-[10px] text-slate-400">{badge.label}</div>
+                  <div className="text-[10px] text-blue-200">{badge.label}</div>
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-blue-300" />
               </button>
 
               {/* Dropdown Menu */}
@@ -341,78 +394,88 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* ========================================================================= */}
         {/* MOBILE COMPACT ANDROID APP BAR (screens <= 767px)                         */}
-        {/* Clean, high-density, no horizontal overflow, touch-optimized              */}
+        {/* Exact match to reference image:                                           */}
+        {/* Menu | Aryan Agency FMCG Logo | Search | Notification | Profile           */}
         {/* ========================================================================= */}
-        <div className="md:hidden flex items-center justify-between h-14">
-          {/* Mobile Brand */}
-          <div className="flex items-center space-x-2 min-w-0">
-            <AryanAgencyLogo 
-              variant="horizontal" 
-              size="sm" 
-              theme="dark" 
-            />
-          </div>
+        <div className="md:hidden py-2.5 space-y-2">
+          <div className="flex items-center justify-between">
+            {/* Left: Menu & Brand Logo */}
+            <div className="flex items-center space-x-2 min-w-0">
+              {onToggleMenu && (
+                <button
+                  id="mobile-header-menu-btn"
+                  onClick={onToggleMenu}
+                  className="w-9 h-9 rounded-lg bg-[#13284c] border border-blue-800/80 flex items-center justify-center text-white active:scale-95 transition-transform"
+                  title="Open FMCG Navigation"
+                >
+                  <Menu className="w-5 h-5 text-white" />
+                </button>
+              )}
+              <AryanAgencyLogo 
+                variant="fmcg-basket" 
+                size="sm" 
+                theme="dark" 
+              />
+            </div>
 
-          {/* Mobile Quick Action Buttons (Touch Friendly, min 40px) */}
-          <div className="flex items-center space-x-1.5 shrink-0">
-            {/* Mobile App Download Button */}
-            <button
-              id="mobile-header-download-btn"
-              onClick={() => setIsDownloadOpen(true)}
-              className="w-9 h-9 rounded-lg bg-emerald-950/70 border border-emerald-600/60 flex items-center justify-center text-emerald-400 active:scale-95 transition-transform"
-              title="Download Aryan Agency Android App (APK)"
-            >
-              <Download className="w-4 h-4 text-emerald-400" />
-            </button>
-
-            {/* Cart Button */}
-            {onOpenCart && (
+            {/* Right: Notifications, Profile */}
+            <div className="flex items-center space-x-2 shrink-0">
+              {/* Notification Icon */}
               <button
-                id="mobile-header-cart-btn"
-                onClick={onOpenCart}
-                className="relative w-9 h-9 rounded-lg bg-slate-800/90 border border-slate-700 flex items-center justify-center text-amber-400 active:scale-95 transition-transform"
-                title="Cart"
+                id="mobile-header-notification-btn"
+                className="relative w-9 h-9 rounded-lg bg-[#13284c] border border-blue-800/80 flex items-center justify-center text-white active:scale-95 transition-transform"
+                title="Notifications"
               >
-                <ShoppingCart className="w-4 h-4" />
-                {cartItemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-slate-950 font-bold text-[10px] flex items-center justify-center leading-none">
-                    {cartItemCount}
+                <Bell className="w-4 h-4 text-blue-200" />
+                {notificationCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#E53E3E] text-white font-bold text-[10px] flex items-center justify-center ring-2 ring-[#0B1E3F]">
+                    {notificationCount}
                   </span>
                 )}
               </button>
-            )}
 
-            {/* Quick Punch Order Button - Salesman and Admin only */}
-            {!isRetailer && (isSalesman || isAdmin) && (
-              <button
-                id="mobile-header-punch-btn"
-                onClick={onOpenNewOrder}
-                className="h-9 px-2.5 rounded-lg bg-[#2563eb] text-white text-xs font-bold flex items-center space-x-1 active:scale-95 shadow-sm transition-transform cursor-pointer"
-                title="Punch Order"
-              >
-                <PlusCircle className="w-3.5 h-3.5" />
-                <span>Order</span>
-              </button>
-            )}
+              {/* User Profile / Account Trigger */}
+              <div className="relative">
+                <button
+                  id="mobile-header-profile-btn"
+                  onClick={() => setShowRoleDropdown(!showRoleDropdown)}
+                  className="w-9 h-9 rounded-lg bg-[#13284c] border border-blue-800/80 flex items-center justify-center text-white active:scale-95 transition-transform relative"
+                  title="Profile & Roles"
+                >
+                  <div className="w-6 h-6 rounded-full bg-[#1A73E8] flex items-center justify-center text-[10px] font-bold">
+                    {currentUser?.name ? currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2) : 'AA'}
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#0B1E3F]" />
+                </button>
 
-            {/* User Profile / Role Trigger */}
-            <div className="relative">
-              <button
-                id="mobile-header-profile-btn"
-                onClick={() => setShowRoleDropdown(!showRoleDropdown)}
-                className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-white active:scale-95 transition-transform relative"
-                title="Profile & Roles"
-              >
-                <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold">
-                  {currentUser?.name ? currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2) : 'AA'}
-                </div>
-                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#1e293b]" />
-              </button>
-
-              {/* Mobile Dropdown Popup */}
-              {showRoleDropdown && renderDropdown()}
+                {/* Mobile Dropdown Popup */}
+                {showRoleDropdown && renderDropdown()}
+              </div>
             </div>
           </div>
+
+          {/* Mobile Search Bar - Directly visible as in reference UI */}
+          {onSearchChange && (
+            <div className="relative pt-0.5">
+              <Search className="w-4 h-4 text-blue-300 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                id="mobile-header-search"
+                type="text"
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                placeholder="Search products, brands, biscuits, snacks..."
+                className="w-full bg-[#13284c] border border-blue-800/80 rounded-full pl-9 pr-8 py-2 text-xs text-white placeholder-blue-300/70 focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-transparent shadow-inner"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => onSearchChange('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-blue-300 hover:text-white"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
       </div>

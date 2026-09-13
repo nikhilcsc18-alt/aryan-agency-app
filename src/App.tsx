@@ -17,6 +17,7 @@ import { AuthModal } from './components/AuthModal';
 import { LoginPage } from './components/LoginPage';
 import { HomePage } from './components/HomePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { MobileHomeView } from './components/MobileHomeView';
 import { AppUpdateChecker } from './components/AppUpdateChecker';
 import { api } from './lib/api';
 import { 
@@ -36,8 +37,10 @@ import {
 import { AlertCircle, CheckCircle2, Building2, Loader2 } from 'lucide-react';
 
 function MainApp() {
-  const { currentRole, currentUser, isLoading: isAuthLoading, isRetailer, isSalesman, isAdmin } = useAuth();
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const { currentRole, currentUser, isLoading: isAuthLoading, isRetailer, isSalesman, isAdmin, openAuthModal } = useAuth();
+  const [activeTab, setActiveTab] = useState<string>('home');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   // Public visitor view: 'home' (official FMCG distribution landing page) or 'auth' (login/signup)
   const [publicView, setPublicView] = useState<'home' | 'auth'>('home');
@@ -116,14 +119,15 @@ function MainApp() {
   };
 
   useEffect(() => {
-    if (currentRole === 'delivery' && !['deliveries', 'delivery', 'orders', 'payments'].includes(activeTab)) {
-      setActiveTab('deliveries');
-    } else if (currentRole === 'salesman' && !['dashboard', 'orders', 'retailers', 'products', 'payments'].includes(activeTab)) {
-      setActiveTab('dashboard');
-    } else if (currentRole === 'accounts' && !['payments', 'retailers', 'orders', 'dashboard'].includes(activeTab)) {
-      setActiveTab('payments');
-    } else if (currentRole === 'retailer' && !['products', 'orders', 'retailers', 'payments'].includes(activeTab)) {
-      setActiveTab('products');
+    if (activeTab === 'home') return;
+    if (currentRole === 'delivery' && !['deliveries', 'delivery', 'orders', 'payments', 'home'].includes(activeTab)) {
+      setActiveTab('home');
+    } else if (currentRole === 'salesman' && !['dashboard', 'orders', 'retailers', 'products', 'payments', 'home'].includes(activeTab)) {
+      setActiveTab('home');
+    } else if (currentRole === 'accounts' && !['payments', 'retailers', 'orders', 'dashboard', 'home'].includes(activeTab)) {
+      setActiveTab('home');
+    } else if (currentRole === 'retailer' && !['products', 'orders', 'retailers', 'payments', 'home'].includes(activeTab)) {
+      setActiveTab('home');
     }
   }, [currentRole]);
 
@@ -540,19 +544,8 @@ function MainApp() {
       <LoginPage
         initialMode={authInitialMode}
         onBackToHome={() => setPublicView('home')}
-        onLoginSuccess={(loggedInUser) => {
-          const role = loggedInUser?.role || currentRole;
-          if (role === 'delivery') {
-            setActiveTab('deliveries');
-          } else if (role === 'retailer') {
-            setActiveTab('products');
-          } else if (role === 'accounts') {
-            setActiveTab('payments');
-          } else if (role === 'salesman') {
-            setActiveTab('dashboard');
-          } else {
-            setActiveTab('dashboard');
-          }
+        onLoginSuccess={() => {
+          setActiveTab('home');
         }}
       />
     );
@@ -616,6 +609,9 @@ function MainApp() {
         onResetData={loadData}
         cartItemCount={totalCartCount}
         onOpenCart={() => setIsCartOpen(true)}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onToggleMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
       />
 
       {/* Module Navigation Tabs */}
@@ -624,6 +620,11 @@ function MainApp() {
         onSelectTab={(tab) => setActiveTab(tab)}
         ordersBadge={pendingOrdersCount}
         lowStockBadge={criticalBatchesCount}
+        cartCount={totalCartCount}
+        onOpenCart={() => setIsCartOpen(true)}
+        onOpenAccountModal={openAuthModal}
+        isMobileMenuOpen={isMobileMenuOpen}
+        setIsMobileMenuOpen={setIsMobileMenuOpen}
         onOpenNewOrder={() => {
           setSelectedProductForOrder(undefined);
           setIsNewOrderModalOpen(true);
@@ -636,12 +637,26 @@ function MainApp() {
       {/* View Router Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 pb-24 md:pb-8">
         
+        {/* Mobile Home Page View - Reference UI match */}
+        {activeTab === 'home' && (
+          <MobileHomeView
+            products={products}
+            orders={orders}
+            onAddToCart={handleAddToCart}
+            onNavigateTab={(tab) => setActiveTab(tab)}
+            onOpenCart={() => setIsCartOpen(true)}
+            onOpenAccountModal={openAuthModal}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+          />
+        )}
+
         {/* Dashboard View - Protected */}
         {activeTab === 'dashboard' && (
           <ProtectedRoute 
             pageName="Distribution Dashboard" 
             allowedRoles={['admin', 'salesman', 'accounts']}
-            onNavigateHome={() => setActiveTab(getRoleHomeTab())}
+            onNavigateHome={() => setActiveTab('home')}
           >
             <DashboardView
               products={products}

@@ -36,7 +36,9 @@ export type ProductCategory =
   | 'Dairy & Refrigerated' 
   | 'Confectionery & Chocolates' 
   | 'Snacks & Namkeen' 
-  | 'Household & Hygiene';
+  | 'Household & Hygiene'
+  | 'Home Care'
+  | 'Baby Care';
 
 export interface ProductBatch {
   batchNumber: string;

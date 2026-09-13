@@ -1,12 +1,111 @@
 import React from 'react';
 
 interface AryanAgencyLogoProps {
-  variant?: 'icon' | 'square' | 'horizontal' | 'badge';
+  variant?: 'icon' | 'square' | 'horizontal' | 'badge' | 'fmcg-basket';
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
   theme?: 'dark' | 'light' | 'auto';
   className?: string;
   useImageAsset?: boolean;
 }
+
+export const AryanAgencyFMCGLogo: React.FC<{
+  className?: string;
+  size?: 'sm' | 'md' | 'lg';
+  theme?: 'dark' | 'light';
+  showSubline?: boolean;
+}> = ({
+  className = '',
+  size = 'md',
+  theme = 'dark',
+  showSubline = true
+}) => {
+  const isDark = theme === 'dark';
+  const iconSizes = {
+    sm: { basket: 32, text: 'text-xs', sub: 'text-[9px]' },
+    md: { basket: 42, text: 'text-sm', sub: 'text-[10px]' },
+    lg: { basket: 52, text: 'text-lg', sub: 'text-xs' }
+  }[size];
+
+  return (
+    <div className={`inline-flex flex-col items-center select-none ${className}`}>
+      {/* Shopping Basket with FMCG Products */}
+      <div className="relative flex items-center justify-center">
+        <svg 
+          width={iconSizes.basket} 
+          height={iconSizes.basket * 0.8} 
+          viewBox="0 0 54 44" 
+          fill="none" 
+          xmlns="http://www.w3.org/2000/svg"
+          className="drop-shadow-xs"
+        >
+          {/* Products inside basket */}
+          {/* Orange juice carton / bottle */}
+          <rect x="10" y="8" width="10" height="18" rx="2" fill="#F97316" />
+          <rect x="13" y="4" width="4" height="4" rx="1" fill="#EA580C" />
+          <circle cx="15" cy="15" r="2.5" fill="#FEF08A" />
+
+          {/* Cyan detergent / spray bottle */}
+          <path d="M23 10C23 7 26 7 26 5H29C29 7 32 7 32 10V26H23V10Z" fill="#06B6D4" />
+          <rect x="25" y="2" width="5" height="3" rx="1" fill="#0891B2" />
+          <path d="M29 5L33 3" stroke="#0891B2" strokeWidth="1.5" strokeLinecap="round" />
+
+          {/* Green beverage bottle */}
+          <rect x="34" y="9" width="9" height="17" rx="2" fill="#10B981" />
+          <rect x="36.5" y="5" width="4" height="4" rx="1" fill="#059669" />
+
+          {/* Wire Shopping Basket */}
+          {/* Handles */}
+          <path 
+            d="M13 22L19 12M41 22L35 12" 
+            stroke="#38BDF8" 
+            strokeWidth="2" 
+            strokeLinecap="round" 
+          />
+          {/* Basket Body */}
+          <path 
+            d="M6 21H48L42 38C41.5 39.5 40 40.5 38.5 40.5H15.5C14 40.5 12.5 39.5 12 38L6 21Z" 
+            fill="#0284C7" 
+            stroke="#38BDF8" 
+            strokeWidth="2"
+          />
+          {/* Basket Grid Lines */}
+          <path d="M12 27H42" stroke="#BAE6FD" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.8" />
+          <path d="M15 33H39" stroke="#BAE6FD" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.8" />
+          <path d="M20 21V39M27 21V39M34 21V39" stroke="#BAE6FD" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.6" />
+        </svg>
+      </div>
+
+      {/* Typography: ARYAN AGENCY with dynamic orange arc */}
+      <div className="flex flex-col items-center mt-0.5 leading-none">
+        <div className="relative flex flex-col items-center">
+          <div className="flex items-center">
+            <span className={`font-black tracking-wider uppercase ${isDark ? 'text-white' : 'text-slate-900'} ${iconSizes.text}`}>
+              ARYAN
+            </span>
+            <span className={`font-black tracking-wider uppercase text-[#F59E0B] ml-1 ${iconSizes.text}`}>
+              AGENCY
+            </span>
+          </div>
+          {/* Curved orange smile swoosh */}
+          <svg className="w-full h-1.5 -mt-0.5 overflow-visible" viewBox="0 0 60 6" fill="none">
+            <path 
+              d="M3 1.5C18 5 42 5 57 1.5" 
+              stroke="#EA580C" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+            />
+          </svg>
+        </div>
+        
+        {showSubline && (
+          <span className={`font-bold tracking-tight text-[9px] mt-0.5 ${isDark ? 'text-slate-200' : 'text-slate-600'} uppercase`}>
+            FMCG Distribution
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
 
 export const AryanAgencyLogo: React.FC<AryanAgencyLogoProps> = ({
   variant = 'horizontal',
@@ -151,6 +250,17 @@ export const AryanAgencyLogo: React.FC<AryanAgencyLogoProps> = ({
         <span className="font-bold tracking-tight text-xs">Aryan Agency</span>
         <span className="text-[10px] uppercase font-semibold opacity-75">FMCG</span>
       </div>
+    );
+  }
+
+  // 3.5 FMCG SHOPPING BASKET BRAND MARK
+  if (variant === 'fmcg-basket') {
+    return (
+      <AryanAgencyFMCGLogo 
+        size={size === 'sm' || size === 'xs' ? 'sm' : size === 'lg' || size === 'xl' || size === '2xl' ? 'lg' : 'md'} 
+        theme={theme === 'light' ? 'light' : 'dark'}
+        className={className}
+      />
     );
   }
 

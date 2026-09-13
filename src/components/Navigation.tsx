@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
+  Home,
   LayoutDashboard, 
   ShoppingCart, 
   Package, 
@@ -15,10 +16,14 @@ import {
   ChevronRight,
   ShieldCheck,
   LogOut,
-  Sparkles
+  Sparkles,
+  LayoutGrid,
+  BadgePercent,
+  User
 } from 'lucide-react';
 
 export type NavTab = 
+  | 'home'
   | 'dashboard' 
   | 'orders' 
   | 'products' 
@@ -33,8 +38,13 @@ interface NavigationProps {
   onSelectTab: (tab: NavTab) => void;
   ordersBadge?: number;
   lowStockBadge?: number;
+  cartCount?: number;
+  onOpenCart?: () => void;
+  onOpenAccountModal?: () => void;
   onOpenNewOrder?: () => void;
   onOpenAICopilot?: () => void;
+  isMobileMenuOpen?: boolean;
+  setIsMobileMenuOpen?: (open: boolean) => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -42,17 +52,27 @@ export const Navigation: React.FC<NavigationProps> = ({
   onSelectTab,
   ordersBadge,
   lowStockBadge,
+  cartCount = 0,
+  onOpenCart,
+  onOpenAccountModal,
   onOpenNewOrder,
-  onOpenAICopilot
+  onOpenAICopilot,
+  isMobileMenuOpen: externalIsMenuOpen,
+  setIsMobileMenuOpen: externalSetIsMenuOpen
 }) => {
   const { currentRole, currentUser, logout, isAdmin, isSalesman, isRetailer } = useAuth();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [internalMenuOpen, setInternalMenuOpen] = useState(false);
 
-  // Define tab items based on persona
-  let navItems: { id: NavTab; label: string; icon: React.ReactNode; badge?: number }[] = [];
+  const isMobileMenuOpen = externalIsMenuOpen !== undefined ? externalIsMenuOpen : internalMenuOpen;
+  const setIsMobileMenuOpen = externalSetIsMenuOpen || setInternalMenuOpen;
+
+  // Base navigation items - includes 'home' as primary landing tab
+  let navItems: { id: NavTab; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { id: 'home', label: 'Home', icon: <Home className="w-4 h-4" /> }
+  ];
 
   if (currentRole === 'admin') {
-    navItems = [
+    navItems.push(
       { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
       { id: 'orders', label: 'Orders & Dispatch', icon: <ShoppingCart className="w-4 h-4" />, badge: ordersBadge },
       { id: 'products', label: 'Products & Schemes', icon: <Package className="w-4 h-4" /> },
@@ -61,43 +81,43 @@ export const Navigation: React.FC<NavigationProps> = ({
       { id: 'salesmen', label: 'Salesmen & Beats', icon: <Users className="w-4 h-4" /> },
       { id: 'deliveries', label: 'Delivery Run Sheets', icon: <Truck className="w-4 h-4" /> },
       { id: 'payments', label: 'Payments & Ledger', icon: <IndianRupee className="w-4 h-4" /> }
-    ];
+    );
   } else if (currentRole === 'salesman') {
-    navItems = [
+    navItems.push(
       { id: 'dashboard', label: 'Beat Overview', icon: <LayoutDashboard className="w-4 h-4" /> },
       { id: 'orders', label: 'Booked Orders', icon: <ShoppingCart className="w-4 h-4" /> },
       { id: 'retailers', label: 'My Beat Outlets', icon: <Store className="w-4 h-4" /> },
       { id: 'products', label: 'Catalog & Schemes', icon: <Package className="w-4 h-4" /> },
       { id: 'payments', label: 'Collections', icon: <IndianRupee className="w-4 h-4" /> }
-    ];
+    );
   } else if (currentRole === 'delivery') {
-    navItems = [
+    navItems.push(
       { id: 'deliveries', label: 'My Trip Sheet (POD)', icon: <Truck className="w-4 h-4" /> },
       { id: 'orders', label: 'Assigned Orders', icon: <ShoppingCart className="w-4 h-4" /> },
       { id: 'payments', label: 'Spot Cash/UPI Collections', icon: <IndianRupee className="w-4 h-4" /> }
-    ];
+    );
   } else if (currentRole === 'accounts') {
-    navItems = [
+    navItems.push(
       { id: 'payments', label: 'Payments & Ledger', icon: <IndianRupee className="w-4 h-4" /> },
       { id: 'retailers', label: 'Retailer Outstandings & Limits', icon: <Store className="w-4 h-4" /> },
       { id: 'orders', label: 'GST Invoices & Billing', icon: <ShoppingCart className="w-4 h-4" />, badge: ordersBadge },
       { id: 'dashboard', label: 'Financial Analytics', icon: <LayoutDashboard className="w-4 h-4" /> }
-    ];
+    );
   } else if (currentRole === 'retailer') {
-    navItems = [
+    navItems.push(
       { id: 'products', label: 'Distributor Catalog', icon: <Package className="w-4 h-4" /> },
       { id: 'orders', label: 'My Orders', icon: <ShoppingCart className="w-4 h-4" />, badge: ordersBadge },
       { id: 'payments', label: 'My Payments & Ledger', icon: <IndianRupee className="w-4 h-4" /> },
       { id: 'retailers', label: 'Store Profile & Credit', icon: <Store className="w-4 h-4" /> }
-    ];
+    );
   } else {
     // Default fallback
-    navItems = [
+    navItems.push(
       { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
       { id: 'orders', label: 'Orders', icon: <ShoppingCart className="w-4 h-4" /> },
       { id: 'products', label: 'Products', icon: <Package className="w-4 h-4" /> },
       { id: 'payments', label: 'Payments', icon: <IndianRupee className="w-4 h-4" /> }
-    ];
+    );
   }
 
   // Determine top 4 tabs for mobile bottom navigation
@@ -150,67 +170,113 @@ export const Navigation: React.FC<NavigationProps> = ({
 
       {/* ========================================================================= */}
       {/* MOBILE BOTTOM APP NAVIGATION BAR (screens <= 767px)                       */}
-      {/* Professional Android FMCG navigation with safe touch targets and badges    */}
+      {/* Exact 5-tab fixed navigation matching reference image                     */}
+      {/* Home | Categories | Cart | Offers | Account                               */}
       {/* ========================================================================= */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0f172a] border-t border-slate-800/90 shadow-2xl backdrop-blur-md pb-safe">
-        <div className="grid grid-flow-col auto-cols-fr items-center h-16 px-1">
-          {mobilePrimaryTabs.map((item) => {
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                id={`mobile-nav-${item.id}`}
-                onClick={() => handleMobileTabClick(item.id)}
-                className={`relative flex flex-col items-center justify-center h-full py-1 text-center transition-all cursor-pointer select-none active:scale-95 ${
-                  isActive ? 'text-[#38bdf8]' : 'text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                {/* Active Indicator Top Bar */}
-                {isActive && (
-                  <span className="absolute top-0 w-8 h-1 bg-[#38bdf8] rounded-full shadow-[0_0_8px_rgba(56,189,248,0.6)]" />
-                )}
-
-                <div className="relative mt-0.5">
-                  <span className="inline-block transition-transform duration-150">
-                    {item.icon}
-                  </span>
-                  {item.badge !== undefined && item.badge > 0 && (
-                    <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white font-bold text-[9px] flex items-center justify-center leading-none ring-2 ring-[#0f172a]">
-                      {item.badge > 99 ? '99+' : item.badge}
-                    </span>
-                  )}
-                </div>
-
-                <span className={`text-[10px] mt-1 tracking-tight truncate max-w-[68px] ${
-                  isActive ? 'font-bold text-white' : 'font-medium text-slate-400'
-                }`}>
-                  {item.label.split(' ')[0]}
-                </span>
-              </button>
-            );
-          })}
-
-          {/* More / Menu Drawer Toggle on Mobile */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-safe">
+        <div className="grid grid-cols-5 items-center h-16 px-1">
+          
+          {/* 1. Home Tab */}
           <button
-            id="mobile-nav-more-btn"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            id="mobile-nav-home"
+            onClick={() => handleMobileTabClick('home')}
             className={`relative flex flex-col items-center justify-center h-full py-1 text-center transition-all cursor-pointer select-none active:scale-95 ${
-              isMobileMenuOpen || !mobilePrimaryTabs.some(t => t.id === activeTab)
-                ? 'text-[#38bdf8]'
-                : 'text-slate-400 hover:text-slate-200'
+              activeTab === 'home' ? 'text-[#1A73E8]' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            {(!mobilePrimaryTabs.some(t => t.id === activeTab) || isMobileMenuOpen) && (
-              <span className="absolute top-0 w-8 h-1 bg-[#38bdf8] rounded-full shadow-[0_0_8px_rgba(56,189,248,0.6)]" />
-            )}
             <div className="relative mt-0.5">
-              <Menu className="w-4 h-4" />
-              {hasMoreTabs && lowStockBadge !== undefined && lowStockBadge > 0 && (
-                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-[#0f172a]" />
+              <Home className={`w-5 h-5 ${activeTab === 'home' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+            </div>
+            <span className={`text-[11px] mt-1 tracking-tight ${
+              activeTab === 'home' ? 'font-black text-[#1A73E8]' : 'font-semibold text-slate-500'
+            }`}>
+              Home
+            </span>
+            {activeTab === 'home' && (
+              <span className="w-4 h-0.5 bg-[#1A73E8] rounded-full mt-0.5" />
+            )}
+          </button>
+
+          {/* 2. Categories Tab */}
+          <button
+            id="mobile-nav-categories"
+            onClick={() => handleMobileTabClick('products')}
+            className={`relative flex flex-col items-center justify-center h-full py-1 text-center transition-all cursor-pointer select-none active:scale-95 ${
+              activeTab === 'products' ? 'text-[#1A73E8]' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <div className="relative mt-0.5">
+              <LayoutGrid className={`w-5 h-5 ${activeTab === 'products' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+            </div>
+            <span className={`text-[11px] mt-1 tracking-tight ${
+              activeTab === 'products' ? 'font-black text-[#1A73E8]' : 'font-semibold text-slate-500'
+            }`}>
+              Categories
+            </span>
+            {activeTab === 'products' && (
+              <span className="w-4 h-0.5 bg-[#1A73E8] rounded-full mt-0.5" />
+            )}
+          </button>
+
+          {/* 3. Cart Tab with Notification Badge */}
+          <button
+            id="mobile-nav-cart"
+            onClick={() => {
+              if (onOpenCart) {
+                onOpenCart();
+              } else {
+                handleMobileTabClick('orders');
+              }
+            }}
+            className="relative flex flex-col items-center justify-center h-full py-1 text-center transition-all cursor-pointer select-none active:scale-95 text-slate-500 hover:text-slate-800"
+          >
+            <div className="relative mt-0.5">
+              <ShoppingCart className="w-5 h-5 stroke-[1.8]" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1.5 -right-2.5 min-w-[17px] h-[17px] px-1 rounded-full bg-[#E53E3E] text-white font-black text-[10px] flex items-center justify-center shadow-xs ring-2 ring-white">
+                  {cartCount > 99 ? '99+' : cartCount}
+                </span>
               )}
             </div>
-            <span className="text-[10px] mt-1 font-medium tracking-tight">Menu</span>
+            <span className="text-[11px] mt-1 font-semibold text-slate-500 tracking-tight">
+              Cart
+            </span>
           </button>
+
+          {/* 4. Offers Tab */}
+          <button
+            id="mobile-nav-offers"
+            onClick={() => handleMobileTabClick('products')}
+            className="relative flex flex-col items-center justify-center h-full py-1 text-center transition-all cursor-pointer select-none active:scale-95 text-slate-500 hover:text-slate-800"
+          >
+            <div className="relative mt-0.5">
+              <BadgePercent className="w-5 h-5 stroke-[1.8]" />
+            </div>
+            <span className="text-[11px] mt-1 font-semibold text-slate-500 tracking-tight">
+              Offers
+            </span>
+          </button>
+
+          {/* 5. Account Tab */}
+          <button
+            id="mobile-nav-account"
+            onClick={() => {
+              if (onOpenAccountModal) {
+                onOpenAccountModal();
+              } else {
+                setIsMobileMenuOpen(true);
+              }
+            }}
+            className="relative flex flex-col items-center justify-center h-full py-1 text-center transition-all cursor-pointer select-none active:scale-95 text-slate-500 hover:text-slate-800"
+          >
+            <div className="relative mt-0.5">
+              <User className="w-5 h-5 stroke-[1.8]" />
+            </div>
+            <span className="text-[11px] mt-1 font-semibold text-slate-500 tracking-tight">
+              Account
+            </span>
+          </button>
+
         </div>
       </div>
 
