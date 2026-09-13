@@ -245,11 +245,21 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                   <span>Download Aryan Agency APK ({config.fileSize})</span>
                 </button>
 
+                <a
+                  href="https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition-all flex items-center justify-center space-x-2 text-xs border border-slate-300/80"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Direct GitHub Releases Mirror (18.4 MB APK)</span>
+                </a>
+
                 {downloadSuccess && (
                   <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center space-x-2 animate-in fade-in duration-200">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>
-                      APK download initiated! Check your browser or notifications for the file.
+                      APK download initiated! Check your browser or notifications for the 18.4 MB file.
                     </span>
                   </div>
                 )}

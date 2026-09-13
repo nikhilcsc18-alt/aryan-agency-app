@@ -1048,24 +1048,31 @@ app.post('/api/db/reset', requireRoles(['admin']), (req, res) => {
 });
 
 // Dedicated public APK and Version distribution endpoints
+const GITHUB_LATEST_APK_URL = 'https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk';
+
 app.get('/download/aryan-agency-app.apk', (req, res) => {
   const possiblePaths = [
     path.join(process.cwd(), 'public', 'download', 'aryan-agency-app.apk'),
     path.join(process.cwd(), 'dist', 'download', 'aryan-agency-app.apk'),
   ];
   const apkPath = possiblePaths.find(p => fs.existsSync(p));
-  if (!apkPath) {
-    return res.status(404).json({ error: 'Aryan Agency APK file not found on server' });
+
+  // If local file exists and is a real compiled Android APK (> 1MB), stream directly
+  if (apkPath) {
+    const stat = fs.statSync(apkPath);
+    if (stat.size > 1024 * 1024) {
+      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+      res.setHeader('Content-Length', stat.size.toString());
+      res.setHeader('Content-Disposition', 'attachment; filename="aryan-agency-app.apk"');
+      res.setHeader('Cache-Control', 'public, max-age=300');
+
+      const readStream = fs.createReadStream(apkPath);
+      return readStream.pipe(res);
+    }
   }
 
-  const stat = fs.statSync(apkPath);
-  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-  res.setHeader('Content-Length', stat.size.toString());
-  res.setHeader('Content-Disposition', 'attachment; filename="aryan-agency-app.apk"');
-  res.setHeader('Cache-Control', 'public, max-age=300');
-
-  const readStream = fs.createReadStream(apkPath);
-  readStream.pipe(res);
+  // If local file is missing or is just a placeholder (< 1MB), redirect to GitHub Releases where the 18MB APK is hosted!
+  return res.redirect(302, GITHUB_LATEST_APK_URL);
 });
 
 app.get('/download/version.json', (req, res) => {
