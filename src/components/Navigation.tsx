@@ -19,7 +19,8 @@ import {
   Sparkles,
   LayoutGrid,
   BadgePercent,
-  User
+  User,
+  ClipboardList
 } from 'lucide-react';
 
 export type NavTab = 
@@ -170,11 +171,11 @@ export const Navigation: React.FC<NavigationProps> = ({
 
       {/* ========================================================================= */}
       {/* MOBILE BOTTOM APP NAVIGATION BAR (screens <= 767px)                       */}
-      {/* Exact 5-tab fixed navigation matching reference image                     */}
-      {/* Home | Categories | Cart | Offers | Account                               */}
+      {/* 4-tab fixed navigation: Home | Orders | Cart | Account                     */}
+      {/* Category removed from bottom navigation as requested                       */}
       {/* ========================================================================= */}
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200/90 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-safe">
-        <div className="grid grid-cols-5 items-center h-16 px-1">
+        <div className="grid grid-cols-4 items-center h-16 px-1">
           
           {/* 1. Home Tab */}
           <button
@@ -197,23 +198,28 @@ export const Navigation: React.FC<NavigationProps> = ({
             )}
           </button>
 
-          {/* 2. Categories Tab */}
+          {/* 2. Orders Tab */}
           <button
-            id="mobile-nav-categories"
-            onClick={() => handleMobileTabClick('products')}
+            id="mobile-nav-orders"
+            onClick={() => handleMobileTabClick('orders')}
             className={`relative flex flex-col items-center justify-center h-full py-1 text-center transition-all cursor-pointer select-none active:scale-95 ${
-              activeTab === 'products' ? 'text-[#1A73E8]' : 'text-slate-500 hover:text-slate-800'
+              activeTab === 'orders' ? 'text-[#1A73E8]' : 'text-slate-500 hover:text-slate-800'
             }`}
           >
             <div className="relative mt-0.5">
-              <LayoutGrid className={`w-5 h-5 ${activeTab === 'products' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+              <ClipboardList className={`w-5 h-5 ${activeTab === 'orders' ? 'stroke-[2.5]' : 'stroke-[1.8]'}`} />
+              {ordersBadge !== undefined && ordersBadge > 0 && (
+                <span className="absolute -top-1.5 -right-2.5 min-w-[17px] h-[17px] px-1 rounded-full bg-blue-600 text-white font-black text-[10px] flex items-center justify-center shadow-xs ring-2 ring-white">
+                  {ordersBadge > 99 ? '99+' : ordersBadge}
+                </span>
+              )}
             </div>
             <span className={`text-[11px] mt-1 tracking-tight ${
-              activeTab === 'products' ? 'font-black text-[#1A73E8]' : 'font-semibold text-slate-500'
+              activeTab === 'orders' ? 'font-black text-[#1A73E8]' : 'font-semibold text-slate-500'
             }`}>
-              Categories
+              Orders
             </span>
-            {activeTab === 'products' && (
+            {activeTab === 'orders' && (
               <span className="w-4 h-0.5 bg-[#1A73E8] rounded-full mt-0.5" />
             )}
           </button>
@@ -243,21 +249,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             </span>
           </button>
 
-          {/* 4. Offers Tab */}
-          <button
-            id="mobile-nav-offers"
-            onClick={() => handleMobileTabClick('products')}
-            className="relative flex flex-col items-center justify-center h-full py-1 text-center transition-all cursor-pointer select-none active:scale-95 text-slate-500 hover:text-slate-800"
-          >
-            <div className="relative mt-0.5">
-              <BadgePercent className="w-5 h-5 stroke-[1.8]" />
-            </div>
-            <span className="text-[11px] mt-1 font-semibold text-slate-500 tracking-tight">
-              Offers
-            </span>
-          </button>
-
-          {/* 5. Account Tab */}
+          {/* 4. Account Tab (Directly opens logged-in user Account Details) */}
           <button
             id="mobile-nav-account"
             onClick={() => {

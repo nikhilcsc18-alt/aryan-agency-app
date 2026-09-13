@@ -37,6 +37,7 @@ interface HeaderProps {
   onResetData: () => void;
   cartItemCount?: number;
   onOpenCart?: () => void;
+  onOpenAccount?: () => void;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   notificationCount?: number;
@@ -49,6 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
   onResetData,
   cartItemCount = 0,
   onOpenCart,
+  onOpenAccount,
   searchQuery = '',
   onSearchChange,
   notificationCount = 3,
@@ -195,6 +197,19 @@ export const Header: React.FC<HeaderProps> = ({
             APK
           </span>
         </button>
+
+        {onOpenAccount && (
+          <button
+            onClick={() => {
+              setShowRoleDropdown(false);
+              onOpenAccount();
+            }}
+            className="w-full flex items-center justify-center space-x-1.5 text-xs font-bold text-slate-800 hover:text-blue-700 py-2 bg-blue-50/70 hover:bg-blue-100/80 rounded-lg transition-colors cursor-pointer"
+          >
+            <User className="w-3.5 h-3.5 text-blue-600" />
+            <span>My Account Details</span>
+          </button>
+        )}
 
         <button
           onClick={() => {

@@ -333,6 +333,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         );
 
       case 'cadbury':
+      case 'mondelez':
         return (
           <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-xs">
             <rect x="4" y="10" width="92" height="80" rx="16" fill="#381460" />
@@ -365,6 +366,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         );
 
       case 'colgate':
+      case 'colgate-palmolive':
         return (
           <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-xs">
             <rect x="4" y="16" width="92" height="68" rx="12" fill="#D32F2F" />
@@ -379,6 +381,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
 
       case 'lays':
       case 'lay\'s':
+      case 'pepsico':
         return (
           <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-xs">
             {/* Golden sun circle */}
@@ -422,6 +425,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         );
 
       case 'dettol':
+      case 'reckitt':
         return (
           <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-xs">
             {/* Green Shield */}
@@ -436,11 +440,12 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           </svg>
         );
 
+      case 'haldiram':
       case 'haldiram\'s':
       case 'haldirams':
         return (
           <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-xs">
-            <ellipse cx="50" cy="50" rx="44" ry="34" fill="#B71C1C" stroke="#FFC107" strokeWidth="4" />
+            <ellipse cx="50" cy="50" rx="44" ry="34" fill="#B71C1C" stroke="#FFD54F" strokeWidth="4" />
             <ellipse cx="50" cy="50" rx="40" ry="30" fill="#C62828" />
             <text x="50" y="48" fill="#FFFFFF" fontSize="13" fontWeight="bold" fontFamily="cursive, serif" textAnchor="middle">
               Haldiram&apos;s
@@ -452,6 +457,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         );
 
       case 'fortune':
+      case 'adani wilmar':
         return (
           <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow-xs">
             <rect x="4" y="10" width="92" height="80" rx="16" fill="#FFFFFF" stroke="#81C784" strokeWidth="2" />

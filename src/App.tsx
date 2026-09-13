@@ -18,6 +18,7 @@ import { LoginPage } from './components/LoginPage';
 import { HomePage } from './components/HomePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { MobileHomeView } from './components/MobileHomeView';
+import { AccountDetailsModal } from './components/AccountDetailsModal';
 import { AppUpdateChecker } from './components/AppUpdateChecker';
 import { api } from './lib/api';
 import { 
@@ -37,7 +38,7 @@ import {
 import { AlertCircle, CheckCircle2, Building2, Loader2 } from 'lucide-react';
 
 function MainApp() {
-  const { currentRole, currentUser, isLoading: isAuthLoading, isRetailer, isSalesman, isAdmin, openAuthModal } = useAuth();
+  const { currentRole, currentUser, isLoading: isAuthLoading, isRetailer, isSalesman, isAdmin, openAuthModal, logout } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('home');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -63,6 +64,7 @@ function MainApp() {
   const [selectedCartRetailerId, setSelectedCartRetailerId] = useState<string>('');
 
   // Modals state
+  const [isAccountDetailsModalOpen, setIsAccountDetailsModalOpen] = useState(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [selectedProductForOrder, setSelectedProductForOrder] = useState<string | undefined>(undefined);
   const [activeInvoiceOrder, setActiveInvoiceOrder] = useState<Order | null>(null);
@@ -609,6 +611,7 @@ function MainApp() {
         onResetData={loadData}
         cartItemCount={totalCartCount}
         onOpenCart={() => setIsCartOpen(true)}
+        onOpenAccount={() => setIsAccountDetailsModalOpen(true)}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onToggleMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -622,7 +625,7 @@ function MainApp() {
         lowStockBadge={criticalBatchesCount}
         cartCount={totalCartCount}
         onOpenCart={() => setIsCartOpen(true)}
-        onOpenAccountModal={openAuthModal}
+        onOpenAccountModal={() => setIsAccountDetailsModalOpen(true)}
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
         onOpenNewOrder={() => {
@@ -645,7 +648,7 @@ function MainApp() {
             onAddToCart={handleAddToCart}
             onNavigateTab={(tab) => setActiveTab(tab)}
             onOpenCart={() => setIsCartOpen(true)}
-            onOpenAccountModal={openAuthModal}
+            onOpenAccountModal={() => setIsAccountDetailsModalOpen(true)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
           />
@@ -843,6 +846,21 @@ function MainApp() {
 
       {/* Supabase Authentication & Role Modal */}
       <AuthModal />
+
+      {/* Logged-In User Account Details Modal */}
+      <AccountDetailsModal
+        isOpen={isAccountDetailsModalOpen}
+        onClose={() => setIsAccountDetailsModalOpen(false)}
+        currentUser={currentUser}
+        retailers={retailers}
+        salesmen={salesmen}
+        orders={orders}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab);
+          setIsAccountDetailsModalOpen(false);
+        }}
+        onLogout={logout}
+      />
 
       {/* Footer Branding */}
       <footer className="bg-white border-t border-slate-200 py-3 px-4 text-center text-[11px] text-slate-500">
