@@ -41,6 +41,7 @@ interface HeaderProps {
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   notificationCount?: number;
+  onOpenNotifications?: () => void;
   onToggleMenu?: () => void;
 }
 
@@ -53,7 +54,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenAccount,
   searchQuery = '',
   onSearchChange,
-  notificationCount = 3,
+  notificationCount = 0,
+  onOpenNotifications,
   onToggleMenu
 }) => {
   const { 
@@ -309,12 +311,15 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="relative">
               <button
                 id="header-notifications-btn"
-                className="relative p-2 rounded-lg bg-[#13284c] hover:bg-[#1a3666] text-white border border-blue-800/80 transition-colors"
-                title="Notifications"
+                type="button"
+                onClick={onOpenNotifications}
+                className="relative p-2 rounded-lg bg-[#13284c] hover:bg-[#1a3666] text-white border border-blue-800/80 transition-colors cursor-pointer"
+                title="View Notifications & Alerts"
+                aria-label="View Notifications"
               >
                 <Bell className="w-4 h-4 text-blue-200" />
                 {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#E53E3E] text-white font-bold text-[10px] flex items-center justify-center ring-2 ring-[#0B1E3F]">
+                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#E53E3E] text-white font-black text-[10px] flex items-center justify-center ring-2 ring-[#0B1E3F]">
                     {notificationCount}
                   </span>
                 )}
@@ -438,12 +443,15 @@ export const Header: React.FC<HeaderProps> = ({
               {/* Notification Icon */}
               <button
                 id="mobile-header-notification-btn"
-                className="relative w-9 h-9 rounded-lg bg-[#13284c] border border-blue-800/80 flex items-center justify-center text-white active:scale-95 transition-transform"
-                title="Notifications"
+                type="button"
+                onClick={onOpenNotifications}
+                className="relative w-9 h-9 rounded-lg bg-[#13284c] border border-blue-800/80 flex items-center justify-center text-white active:scale-95 transition-transform cursor-pointer"
+                title="View Notifications & Alerts"
+                aria-label="View Notifications"
               >
                 <Bell className="w-4 h-4 text-blue-200" />
                 {notificationCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#E53E3E] text-white font-bold text-[10px] flex items-center justify-center ring-2 ring-[#0B1E3F]">
+                  <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-[#E53E3E] text-white font-black text-[10px] flex items-center justify-center ring-2 ring-[#0B1E3F]">
                     {notificationCount}
                   </span>
                 )}

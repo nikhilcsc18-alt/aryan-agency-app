@@ -1,29 +1,30 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  ShoppingCart, 
   Plus, 
   Minus, 
-  Flame, 
-  Tag, 
-  Eye, 
-  Edit, 
-  Trash2, 
+  ShoppingCart, 
   Check, 
-  Package,
-  Layers,
+  AlertCircle, 
+  Layers, 
+  Zap, 
+  Tag, 
+  Package, 
+  Eye, 
+  FileText, 
   Sparkles,
-  Zap
+  Edit,
+  Trash2
 } from 'lucide-react';
-import { Product } from '../types';
+import { Product, ProductPackingOption } from '../types';
 import { formatINR } from '../lib/api';
 import { ProductImage } from './ProductImage';
-import { BrandLogo } from './BrandLogos';
+import { getProductPackingOptions } from '../lib/packingUtils';
 
 interface B2BProductCardProps {
   product: Product;
-  onAddToCart?: (product: Product, casesCount: number) => void;
+  onAddToCart?: (product: Product, casesCount: number, packing?: ProductPackingOption) => void;
   onBookNow?: (productId: string) => void;
-  onBuyNow?: (product: Product, casesCount: number) => void;
+  onBuyNow?: (product: Product, casesCount: number, packing?: ProductPackingOption) => void;
   isRetailer?: boolean;
   isSalesman?: boolean;
   onViewBatches?: (product: Product) => void;
@@ -31,7 +32,8 @@ interface B2BProductCardProps {
   onDeleteProduct?: (productId: string) => void;
   isAdmin?: boolean;
   inCartCount?: number;
-  onUpdateCartItem?: (productId: string, cases: number, loosePcs: number) => void;
+  onUpdateCartItem?: (productId: string, cases: number, loosePcs: number, packingId?: string) => void;
+  onOpenPackSelector?: (product: Product) => void;
 }
 
 export const B2BProductCard: React.FC<B2BProductCardProps> = ({
@@ -46,18 +48,30 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
   onDeleteProduct,
   isAdmin = false,
   inCartCount = 0,
-  onUpdateCartItem
+  onUpdateCartItem,
+  onOpenPackSelector
 }) => {
   const [casesCount, setCasesCount] = useState<number>(1);
   const [isAddedFeedback, setIsAddedFeedback] = useState(false);
 
+  // ApnaClub Packing options
+  const packingOptions = useMemo(() => getProductPackingOptions(product), [product]);
+  const [selectedPackingId, setSelectedPackingId] = useState<string>(() => packingOptions[0]?.id || '');
+
+  useEffect(() => {
+    if (!packingOptions.some(p => p.id === selectedPackingId)) {
+      setSelectedPackingId(packingOptions[0]?.id || '');
+    }
+  }, [packingOptions, selectedPackingId]);
+
+  const activePacking = packingOptions.find(p => p.id === selectedPackingId) || packingOptions[0];
+  const maxMargin = Math.max(...packingOptions.map(p => p.marginPercentage));
+  const unitPrice = activePacking?.unitPrice || product.wholesalePricePiece;
+  const unitMrp = activePacking?.unitMrp || product.mrpPiece;
+  const marginPct = activePacking?.marginPercentage || 15;
+
   const isLowStock = product.currentStockCases <= product.reorderLevelCases;
   const isOutOfStock = product.currentStockCases <= 0;
-  
-  // Calculate margin percentage
-  const marginPct = product.mrpPiece > 0 
-    ? Math.round(((product.mrpPiece - product.wholesalePricePiece) / product.mrpPiece) * 100)
-    : 15;
 
   // Determine smart offer / scheme badge
   const getOfferBadge = () => {
@@ -74,14 +88,11 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
       return `🔥 ${product.activeScheme.title}`;
     }
 
-    if (marginPct >= 20) {
-      return '🔥 BEST OFFER';
+    if (maxMargin >= 22) {
+      return `🔥 UP TO ${maxMargin}% MARGIN`;
     }
-    if (marginPct >= 15) {
-      return '10% OFF';
-    }
-    if (product.reorderLevelCases >= 15) {
-      return 'NEW';
+    if (maxMargin >= 18) {
+      return `🔥 ${maxMargin}% MARGIN`;
     }
     return '🔥 HOT DEAL';
   };
@@ -90,7 +101,7 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
 
   const handleIncrement = () => {
     if (inCartCount > 0 && onUpdateCartItem) {
-      onUpdateCartItem(product.id, inCartCount + 1, 0);
+      onUpdateCartItem(product.id, inCartCount + 1, 0, activePacking?.id);
     } else {
       setCasesCount(prev => prev + 1);
     }
@@ -98,7 +109,7 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
 
   const handleDecrement = () => {
     if (inCartCount > 0 && onUpdateCartItem) {
-      onUpdateCartItem(product.id, Math.max(0, inCartCount - 1), 0);
+      onUpdateCartItem(product.id, Math.max(0, inCartCount - 1), 0, activePacking?.id);
     } else {
       setCasesCount(prev => (prev > 1 ? prev - 1 : 1));
     }
@@ -106,7 +117,7 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
 
   const handleAddToCartClick = () => {
     if (onAddToCart) {
-      onAddToCart(product, casesCount);
+      onAddToCart(product, casesCount, activePacking);
       setIsAddedFeedback(true);
       setTimeout(() => setIsAddedFeedback(false), 1400);
     }
@@ -115,132 +126,183 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
   const handleBuyNowClick = () => {
     const qtyToBuy = inCartCount > 0 ? inCartCount : casesCount;
     if (onBuyNow) {
-      onBuyNow(product, qtyToBuy);
+      onBuyNow(product, qtyToBuy, activePacking);
     } else if (onAddToCart) {
-      onAddToCart(product, qtyToBuy);
+      onAddToCart(product, qtyToBuy, activePacking);
     }
   };
 
   const activeDisplayQty = inCartCount > 0 ? inCartCount : casesCount;
-  const totalPcsForDisplay = activeDisplayQty * (product.piecesPerCase || 24);
 
   return (
-    <div 
-      className={`bg-white rounded-xl sm:rounded-2xl border transition-all duration-200 flex flex-col justify-between overflow-hidden relative group hover:shadow-lg ${
-        inCartCount > 0 ? 'border-blue-400 ring-1 ring-blue-300/60 shadow-xs' : 'border-slate-200 shadow-xs hover:border-slate-300'
-      }`}
-    >
-      {/* Top Media & Badges */}
-      <div className="relative w-full aspect-[4/3] bg-slate-100 overflow-hidden border-b border-slate-100">
-        <ProductImage
-          src={product.imageUrl}
-          alt={product.name}
-          brand={product.brand}
-          category={product.category}
-          sku={product.sku || (product as any).product_sku}
-          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-          containerClassName="w-full h-full relative"
-          loading="lazy"
-        />
-
-        {/* Gradient Shadow behind badges */}
-        <div className="absolute inset-x-0 top-0 h-10 sm:h-14 bg-gradient-to-b from-black/40 to-transparent pointer-events-none" />
-
-        {/* Top Left: Offer / Scheme Badge */}
-        <div className="absolute top-1.5 left-1.5 sm:top-2.5 sm:left-2.5 z-10 max-w-[65%]">
-          <span className="inline-flex items-center space-x-0.5 sm:space-x-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[11px] font-black tracking-wide bg-gradient-to-r from-red-600 to-amber-500 text-white shadow-xs sm:shadow-md truncate">
-            <span className="truncate">{offerBadge}</span>
+    <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 overflow-hidden shadow-2xs hover:shadow-md transition-all flex flex-col justify-between group relative">
+      
+      {/* Top Media & Header Section */}
+      <div className="relative">
+        
+        {/* Top Badges Bar */}
+        <div className="absolute top-1.5 left-1.5 right-1.5 z-10 flex items-center justify-between pointer-events-none">
+          {/* Offer / Margin Ribbon */}
+          <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10.5px] font-black tracking-tight bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 shadow-xs uppercase">
+            {offerBadge}
           </span>
-        </div>
 
-        {/* Top Right: Stock Status Pill */}
-        <div className="absolute top-1.5 right-1.5 sm:top-2.5 sm:right-2.5 z-10">
+          {/* Stock Tag */}
           {isOutOfStock ? (
-            <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[8px] sm:text-[10px] font-bold bg-rose-900/90 text-rose-100 backdrop-blur-xs border border-rose-700 shadow-xs">
+            <span className="px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-bold bg-rose-600 text-white">
               Out of Stock
             </span>
           ) : isLowStock ? (
-            <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[8px] sm:text-[10px] font-bold bg-amber-500/90 text-slate-950 backdrop-blur-xs shadow-xs">
-              Low: {product.currentStockCases} cs
+            <span className="px-1.5 py-0.5 rounded-full text-[8px] sm:text-[10px] font-bold bg-amber-500 text-white">
+              Low Stock
             </span>
-          ) : (
-            <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[8px] sm:text-[10px] font-semibold bg-slate-900/75 text-emerald-300 backdrop-blur-xs border border-white/10 shadow-xs">
-              {product.currentStockCases} cs
-            </span>
-          )}
+          ) : null}
         </div>
 
-        {/* Active Scheme Strip if present */}
-        {product.activeScheme && product.activeScheme.isActive && (
-          <div className="absolute bottom-0 inset-x-0 bg-amber-500/95 backdrop-blur-xs text-slate-950 px-1.5 sm:px-2.5 py-0.5 sm:py-1 text-[9px] sm:text-[11px] font-black flex items-center justify-between border-t border-amber-400">
-            <span className="flex items-center space-x-1 truncate">
-              <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 shrink-0" />
-              <span className="truncate">{product.activeScheme.title}</span>
-            </span>
-            <span className="text-[8px] sm:text-[10px] bg-slate-950 text-white px-1 sm:px-1.5 py-0.2 rounded font-bold shrink-0 ml-1">
-              SCHEME
-            </span>
-          </div>
-        )}
+        {/* Product Image Stage */}
+        <div className="h-32 sm:h-40 bg-slate-50 relative flex items-center justify-center p-2 overflow-hidden">
+          <ProductImage
+            src={product.imageUrl}
+            alt={product.name}
+            brand={product.brand}
+            category={product.category}
+            sku={product.sku}
+            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200"
+          />
+
+          {/* Quick Admin Actions Overlay */}
+          {isAdmin && (
+            <div className="absolute bottom-1.5 right-1.5 flex items-center space-x-1 opacity-90 group-hover:opacity-100 transition-opacity">
+              {onEditProduct && (
+                <button
+                  type="button"
+                  onClick={() => onEditProduct(product)}
+                  className="p-1 rounded-md bg-white/90 hover:bg-white text-slate-700 hover:text-blue-600 shadow-2xs cursor-pointer"
+                  title="Edit Product"
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {onDeleteProduct && (
+                <button
+                  type="button"
+                  onClick={() => onDeleteProduct(product.id)}
+                  className="p-1 rounded-md bg-white/90 hover:bg-white text-slate-700 hover:text-rose-600 shadow-2xs cursor-pointer"
+                  title="Delete Product"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Main Body */}
-      <div className="p-2 sm:p-3.5 flex-1 flex flex-col justify-between space-y-1.5 sm:space-y-3">
+      {/* Middle Content Section */}
+      <div className="p-2 sm:p-3 flex-1 flex flex-col justify-between space-y-2">
         
-        {/* Brand & Name & SKU */}
         <div>
-          <div className="flex items-center justify-between gap-1.5 mb-1.5">
-            <span className="inline-flex items-center text-[9px] sm:text-[10px] font-black tracking-wider text-[#2563eb] uppercase bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 shrink-0">
-              <BrandLogo brand={product.brand} size="sm" className="w-3.5 h-3.5 mr-1 shrink-0 rounded-xs" />
-              <span>{product.brand}</span>
+          {/* Brand & Category Row */}
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-blue-600 bg-blue-50 px-1.5 py-0.2 rounded border border-blue-100/60 truncate">
+              {product.brand}
             </span>
-            <div 
-              className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200 text-[9px] sm:text-[10.5px] font-mono font-bold tracking-tight text-slate-800 shrink-0 max-w-[65%] truncate shadow-2xs"
-              title={`SKU Code: ${product.sku || (product as any).product_sku || 'N/A'}`}
-            >
-              <span className="text-[8px] sm:text-[9px] text-slate-500 font-medium">SKU:</span>
-              <span className="text-slate-900 truncate">{product.sku || (product as any).product_sku || 'N/A'}</span>
-            </div>
+            <span className="text-[9px] sm:text-[10px] text-slate-400 truncate max-w-[100px]">
+              {product.category}
+            </span>
           </div>
 
+          {/* Product Title */}
           <h3 
-            className="font-bold text-slate-900 text-xs sm:text-[14px] leading-tight line-clamp-2 min-h-[1.9rem] sm:min-h-[2.4rem]"
+            className="text-xs sm:text-sm font-bold text-slate-900 leading-snug line-clamp-2 mt-1 min-h-[2.2rem]" 
             title={product.name}
           >
             {product.name}
           </h3>
+        </div>
 
-          {/* Pack / Carton Size */}
-          <div className="flex items-center justify-between text-[9px] sm:text-xs text-slate-500 mt-1 font-medium">
-            <span className="inline-flex items-center space-x-1 bg-slate-100 px-1.5 py-0.5 rounded text-[9px] sm:text-[11px] text-slate-700 font-semibold truncate">
-              <Layers className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-slate-500 shrink-0" />
-              <span>{product.piecesPerCase} pcs/cs</span>
+        {/* ApnaClub-Style Packing Options Pills */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-slate-500 font-semibold">
+            <span className="flex items-center space-x-1">
+              <span>Packing:</span>
+              <span className="text-slate-900 font-bold">{activePacking ? activePacking.name : ''}</span>
             </span>
-            <span className="text-[9px] sm:text-[10px] text-slate-400">GST {product.gstRate}%</span>
+            {onOpenPackSelector && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenPackSelector(product);
+                }}
+                className="text-blue-600 hover:text-blue-800 font-bold text-[10px] flex items-center space-x-0.5 cursor-pointer underline decoration-blue-300"
+              >
+                <span>ApnaClub View</span>
+                <span>↗</span>
+              </button>
+            )}
+          </div>
+
+          {/* Unlocked Packing Chips: Pack of 3, 4, 10, 40, etc. */}
+          <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-0.5">
+            {packingOptions.map((opt) => {
+              const isSelected = opt.id === selectedPackingId;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setSelectedPackingId(opt.id)}
+                  className={`px-2 py-1 rounded-lg text-[9.5px] sm:text-[10.5px] font-bold border transition-all whitespace-nowrap cursor-pointer shrink-0 ${
+                    isSelected
+                      ? 'bg-amber-400 text-slate-950 border-amber-500 shadow-2xs'
+                      : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+                  }`}
+                  title={`${opt.name} (${opt.pieces} pcs) @ ₹${opt.unitPrice.toFixed(2)}/pc (${opt.marginPercentage}% margin)`}
+                >
+                  <span>{opt.name}</span>
+                  <span className={`ml-1 text-[8.5px] sm:text-[9.5px] font-black ${
+                    isSelected ? 'text-slate-950' : 'text-emerald-700'
+                  }`}>
+                    +{opt.marginPercentage}%
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Pricing Block (ApnaClub style: Wholesale Rate + MRP + Margin) */}
-        <div className="bg-slate-50/90 rounded-lg sm:rounded-xl p-1.5 sm:p-2.5 border border-slate-200/80 space-y-0.5 sm:space-y-1">
+        {/* Pricing Block (ApnaClub style: Single Unit Rate + MRP + Margin) */}
+        <div className="bg-slate-50/90 rounded-xl p-2 sm:p-2.5 border border-slate-200/80 space-y-1.5">
           <div className="flex items-baseline justify-between gap-1">
-            <div className="flex items-baseline space-x-0.5 sm:space-x-1 min-w-0">
-              <span className="text-sm sm:text-lg font-black text-slate-950 font-mono tracking-tight truncate">
-                ₹{product.wholesalePricePiece.toFixed(2)}
+            <div className="flex items-baseline space-x-1 min-w-0">
+              <span className="text-base sm:text-xl font-black text-slate-950 font-mono tracking-tight">
+                ₹{unitPrice.toFixed(2)}
               </span>
-              <span className="text-[9px] sm:text-[11px] font-semibold text-slate-500">/pc</span>
+              <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500">/pc</span>
+              {activePacking?.unitMrp && activePacking.unitMrp > unitPrice && (
+                <span className="text-[9.5px] text-slate-400 line-through ml-1 font-mono">
+                  ₹{activePacking.unitMrp.toFixed(1)}
+                </span>
+              )}
             </div>
 
-            <span className="px-1.5 py-0.5 rounded-full text-[8px] sm:text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 whitespace-nowrap">
-              +{marginPct}%
+            <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10.5px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 shadow-2xs">
+              +{marginPct}% MARGIN
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-[9px] sm:text-[11px] text-slate-500 pt-0.5 border-t border-slate-200/60 font-mono">
+          {/* Pack Price and Total MRP with Savings */}
+          <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 font-mono">
             <span className="truncate">
-              Cs: <strong className="text-slate-900 font-bold">{formatINR(product.casePrice)}</strong>
+              Pack: <strong className="text-slate-900 font-bold">{formatINR(activePacking?.sellingPrice || product.casePrice)}</strong>
             </span>
-            <span className="line-through text-slate-400 shrink-0 pl-1 text-[8px] sm:text-[10px]">
-              ₹{product.mrpPiece.toFixed(0)}
+            <span className="text-slate-500 shrink-0 text-[9.5px] sm:text-[10.5px]">
+              MRP <span className="line-through text-slate-400">₹{activePacking ? activePacking.mrp : product.mrpPiece}</span>
+              {activePacking && activePacking.mrp > activePacking.sellingPrice && (
+                <span className="text-emerald-700 font-bold ml-1">
+                  (Save ₹{(activePacking.mrp - activePacking.sellingPrice).toFixed(0)})
+                </span>
+              )}
             </span>
           </div>
         </div>
@@ -250,23 +312,23 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
           
           {/* [ - ] Quantity [ + ] Selector */}
           <div className="flex items-center justify-between bg-slate-100 rounded-lg sm:rounded-xl p-0.5 sm:p-1 border border-slate-200">
-            <span className="text-[9px] sm:text-[11px] font-semibold text-slate-600 pl-1.5 truncate">
-              <span className="hidden xs:inline">Qty: </span>
-              <span className="text-slate-900 font-bold">{activeDisplayQty} cs</span>
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-600 pl-1.5 truncate">
+              <span>Qty: </span>
+              <span className="text-slate-900 font-bold">{activeDisplayQty} {activePacking ? 'pack' : 'cs'}</span>
             </span>
 
-            <div className="flex items-center space-x-0.5 sm:space-x-1">
+            <div className="flex items-center space-x-1">
               <button
                 type="button"
                 onClick={handleDecrement}
                 disabled={isOutOfStock}
-                aria-label="Decrease cases"
+                aria-label="Decrease quantity"
                 className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-white hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs sm:text-sm shadow-2xs transition-all active:scale-90 disabled:opacity-40 cursor-pointer"
               >
                 <Minus className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
               </button>
 
-              <span className="w-5 sm:w-7 text-center text-[11px] sm:text-xs font-black font-mono text-slate-900">
+              <span className="w-6 sm:w-7 text-center text-xs font-black font-mono text-slate-900">
                 {activeDisplayQty}
               </span>
 
@@ -274,7 +336,7 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
                 type="button"
                 onClick={handleIncrement}
                 disabled={isOutOfStock}
-                aria-label="Increase cases"
+                aria-label="Increase quantity"
                 className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-white hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs sm:text-sm shadow-2xs transition-all active:scale-90 disabled:opacity-40 cursor-pointer"
               >
                 <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
@@ -282,13 +344,13 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
             </div>
           </div>
 
-          {/* [ ADD TO CART ] Main Action Button */}
+          {/* Action Buttons (Add to Cart / Buy Now) */}
           {inCartCount > 0 ? (
             <div className="flex items-center space-x-1">
               <button
                 type="button"
                 onClick={handleAddToCartClick}
-                className="flex-1 py-1.5 sm:py-2.5 px-1.5 sm:px-3 rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-[10px] sm:text-xs flex items-center justify-center space-x-1 transition-all shadow-xs cursor-pointer active:scale-98 truncate"
+                className="flex-1 py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center space-x-1 transition-all shadow-xs cursor-pointer active:scale-98 truncate"
               >
                 <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
                 <span className="truncate">In Cart ({inCartCount})</span>
@@ -299,11 +361,11 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
                   <button
                     type="button"
                     onClick={handleBuyNowClick}
-                    className="py-1.5 sm:py-2.5 px-2 sm:px-3 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] sm:text-xs transition-all cursor-pointer shrink-0 flex items-center space-x-1 shadow-xs"
+                    className="py-2 sm:py-2.5 px-2.5 sm:px-3.5 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all cursor-pointer shrink-0 flex items-center space-x-1 shadow-xs"
                     title="Buy Now / Place Order"
                   >
-                    <Zap className="w-3 h-3 text-amber-300 fill-amber-300 shrink-0" />
-                    <span>Buy Now</span>
+                    <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300 shrink-0" />
+                    <span>Buy</span>
                   </button>
                 )
               ) : (
@@ -311,7 +373,7 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
                   <button
                     type="button"
                     onClick={() => onBookNow(product.id)}
-                    className="py-1.5 sm:py-2.5 px-2 sm:px-3 rounded-lg sm:rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-[10px] sm:text-xs transition-all cursor-pointer shrink-0"
+                    className="py-2 sm:py-2.5 px-2.5 sm:px-3.5 rounded-lg sm:rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs transition-all cursor-pointer shrink-0"
                     title="Direct Order Book"
                   >
                     Book
@@ -325,23 +387,23 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
                 type="button"
                 onClick={handleAddToCartClick}
                 disabled={isOutOfStock}
-                className={`flex-1 py-1.5 sm:py-2.5 px-1.5 sm:px-3 rounded-lg sm:rounded-xl font-bold text-[10px] sm:text-xs flex items-center justify-center space-x-1 transition-all shadow-xs active:scale-98 cursor-pointer truncate ${
+                className={`flex-1 py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg sm:rounded-xl font-bold text-xs flex items-center justify-center space-x-1.5 transition-all shadow-xs active:scale-98 cursor-pointer truncate ${
                   isAddedFeedback
                     ? 'bg-emerald-600 text-white'
                     : isOutOfStock
                     ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'bg-[#1A365D] hover:bg-[#2A4365] text-white hover:shadow-md'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
               >
                 {isAddedFeedback ? (
                   <>
-                    <Check className="w-3.5 h-3.5 shrink-0" />
-                    <span className="truncate">Added!</span>
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Added!</span>
                   </>
                 ) : (
                   <>
-                    <ShoppingCart className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                    <span className="truncate">ADD TO CART</span>
+                    <ShoppingCart className="w-3.5 h-3.5" />
+                    <span>+ Add to Cart</span>
                   </>
                 )}
               </button>
@@ -352,11 +414,11 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
                     type="button"
                     onClick={handleBuyNowClick}
                     disabled={isOutOfStock}
-                    className="py-1.5 sm:py-2.5 px-2 sm:px-3 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] sm:text-xs transition-all cursor-pointer disabled:opacity-50 shrink-0 flex items-center space-x-1 shadow-xs"
-                    title="Instant Buy Now & Order Placement"
+                    className="py-2 sm:py-2.5 px-2.5 sm:px-3 rounded-lg sm:rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all cursor-pointer shrink-0 flex items-center space-x-1 disabled:opacity-40"
+                    title="Instant Buy Now"
                   >
-                    <Zap className="w-3 h-3 text-amber-300 fill-amber-300 shrink-0" />
-                    <span>Buy Now</span>
+                    <Zap className="w-3.5 h-3.5 text-amber-300 fill-amber-300 shrink-0" />
+                    <span>Buy</span>
                   </button>
                 )
               ) : (
@@ -365,8 +427,8 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
                     type="button"
                     onClick={() => onBookNow(product.id)}
                     disabled={isOutOfStock}
-                    className="py-1.5 sm:py-2.5 px-2 sm:px-3 rounded-lg sm:rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-[10px] sm:text-xs transition-all cursor-pointer disabled:opacity-50 shrink-0"
-                    title="Instant Booking"
+                    className="py-2 sm:py-2.5 px-2.5 sm:px-3 rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-all cursor-pointer shrink-0 disabled:opacity-40"
+                    title="Book Order"
                   >
                     Book
                   </button>
@@ -374,45 +436,6 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
               )}
             </div>
           )}
-
-          {/* Secondary Quick Action Bar (Batches & Admin) */}
-          <div className="flex items-center justify-between pt-0.5 text-[9px] sm:text-[11px] text-slate-500">
-            {onViewBatches && (
-              <button
-                type="button"
-                onClick={() => onViewBatches(product)}
-                className="text-slate-600 hover:text-blue-700 font-medium flex items-center space-x-1 hover:underline cursor-pointer truncate"
-                title="View Full Product Details & SKU Specifications"
-              >
-                <Eye className="w-3 h-3 text-slate-500 shrink-0" />
-                <span className="truncate">Details & Batches</span>
-              </button>
-            )}
-
-            {isAdmin && (
-              <div className="flex items-center space-x-1 ml-auto shrink-0">
-                {onEditProduct && (
-                  <button
-                    type="button"
-                    onClick={() => onEditProduct(product)}
-                    className="text-blue-600 hover:text-blue-800 font-semibold flex items-center space-x-0.5 cursor-pointer text-[9px] sm:text-[11px]"
-                  >
-                    <Edit className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                    <span>Edit</span>
-                  </button>
-                )}
-                {onDeleteProduct && (
-                  <button
-                    type="button"
-                    onClick={() => onDeleteProduct(product.id)}
-                    className="text-rose-500 hover:text-rose-700 font-semibold flex items-center p-0.5 cursor-pointer"
-                  >
-                    <Trash2 className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
 
         </div>
 

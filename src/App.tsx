@@ -20,6 +20,14 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { MobileHomeView } from './components/MobileHomeView';
 import { AccountDetailsModal } from './components/AccountDetailsModal';
 import { AppUpdateChecker } from './components/AppUpdateChecker';
+import { NotificationPanel } from './components/NotificationPanel';
+import { 
+  buildLiveNotifications, 
+  saveReadNotificationId, 
+  markAllNotificationsAsRead, 
+  dismissNotification, 
+  clearAllNotifications 
+} from './lib/notificationService';
 import { api } from './lib/api';
 import { 
   Product, 
@@ -33,8 +41,11 @@ import {
   InventoryMovement, 
   DashboardMetrics,
   OrderStatus,
-  PaymentStatus
+  PaymentStatus,
+  ProductPackingOption,
+  AppNotification
 } from './types';
+import { getProductPackingOptions } from './lib/packingUtils';
 import { AlertCircle, CheckCircle2, Building2, Loader2 } from 'lucide-react';
 
 function MainApp() {
@@ -70,6 +81,17 @@ function MainApp() {
   const [activeInvoiceOrder, setActiveInvoiceOrder] = useState<Order | null>(null);
   const [preselectedRetailerForPayment, setPreselectedRetailerForPayment] = useState<Retailer | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null);
+
+  // Notifications State
+  const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+
+  // Keep live notifications in sync with orders, products, and payments
+  useEffect(() => {
+    setNotifications(buildLiveNotifications(orders, products, retailers, payments as any));
+  }, [orders, products, retailers, payments]);
+
+  const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
 
   const showToast = (text: string, type: 'success' | 'info' | 'error' = 'success') => {
     setToastMessage({ text, type });
@@ -134,9 +156,14 @@ function MainApp() {
   }, [currentRole]);
 
   // Cart Handlers
-  const handleAddToCart = (product: Product, casesCount: number = 1) => {
+  const handleAddToCart = (product: Product, casesCount: number = 1, packing?: ProductPackingOption) => {
     const qty = Math.max(1, casesCount);
-    const existingIndex = cartItems.findIndex(i => i.product.id === product.id);
+    const itemPacking = packing || getProductPackingOptions(product)[0];
+    const existingIndex = cartItems.findIndex(i => 
+      i.product.id === product.id && 
+      ((!i.selectedPacking && !itemPacking) || i.selectedPacking?.id === itemPacking?.id)
+    );
+
     if (existingIndex > -1) {
       const updated = [...cartItems];
       updated[existingIndex] = {
@@ -145,23 +172,34 @@ function MainApp() {
       };
       setCartItems(updated);
     } else {
-      setCartItems([...cartItems, { product, cases: qty, loosePcs: 0 }]);
+      setCartItems([...cartItems, { 
+        product, 
+        cases: qty, 
+        loosePcs: 0,
+        selectedPacking: itemPacking
+      }]);
     }
-    showToast(`Added ${qty} case${qty > 1 ? 's' : ''} of ${product.name} to cart!`, 'success');
+    const packLabel = itemPacking ? ` (${itemPacking.name})` : '';
+    showToast(`Added ${qty} ${itemPacking?.name || 'case(s)'} of ${product.name} to cart!`, 'success');
   };
 
-  const handleUpdateCartItem = (productId: string, cases: number, loosePcs: number) => {
+  const handleUpdateCartItem = (productId: string, cases: number, loosePcs: number, packingId?: string) => {
     if (cases <= 0 && loosePcs <= 0) {
-      handleRemoveFromCart(productId);
+      handleRemoveFromCart(productId, packingId);
       return;
     }
-    setCartItems(cartItems.map(item => 
-      item.product.id === productId ? { ...item, cases, loosePcs } : item
-    ));
+    setCartItems(cartItems.map(item => {
+      const matches = item.product.id === productId && (!packingId || item.selectedPacking?.id === packingId);
+      return matches ? { ...item, cases, loosePcs } : item;
+    }));
   };
 
-  const handleRemoveFromCart = (productId: string) => {
-    setCartItems(cartItems.filter(item => item.product.id !== productId));
+  const handleRemoveFromCart = (productId: string, packingId?: string) => {
+    setCartItems(cartItems.filter(item => {
+      if (item.product.id !== productId) return true;
+      if (packingId && item.selectedPacking?.id !== packingId) return true;
+      return false;
+    }));
     showToast('Product removed from active cart', 'info');
   };
 
@@ -178,7 +216,7 @@ function MainApp() {
     }
     const defaultSalesman = salesmen[0] || { id: 'SAL-01', name: 'Ramesh Kumar (Bengaluru North)' };
 
-    // Build OrderItem array from CartItem array
+    // Build OrderItem array from CartItem array respecting ApnaClub packing tiers
     let grossSubtotal = 0;
     let totalDiscount = 0;
     let totalTaxable = 0;
@@ -186,13 +224,18 @@ function MainApp() {
 
     const orderItems: OrderItem[] = itemsToCheckout.map(item => {
       const p = item.product;
-      const piecesPerCase = p.piecesPerCase || 24;
+      const piecesPerCase = item.selectedPacking?.pieces || p.piecesPerCase || 24;
       const totalPieces = (item.cases * piecesPerCase) + item.loosePcs;
-      const lineGross = totalPieces * p.wholesalePricePiece;
+      const unitRate = item.selectedPacking 
+        ? item.selectedPacking.sellingPrice 
+        : (p.wholesalePricePiece * (p.piecesPerCase || 24));
+      const lineGross = item.selectedPacking
+        ? (item.cases * item.selectedPacking.sellingPrice)
+        : (totalPieces * p.wholesalePricePiece);
       
       let discount = 0;
       let freePcs = 0;
-      let schemeTitle = '';
+      let schemeTitle = item.selectedPacking ? item.selectedPacking.name : '';
 
       if (p.activeScheme && p.activeScheme.isActive) {
         const sch = p.activeScheme;
@@ -225,7 +268,7 @@ function MainApp() {
       return {
         productId: p.id,
         sku: p.sku,
-        productName: p.name,
+        productName: item.selectedPacking ? `${p.name} [${item.selectedPacking.name}]` : p.name,
         brand: p.brand,
         category: p.category,
         hsnCode: p.hsnCode,
@@ -233,7 +276,7 @@ function MainApp() {
         cases: item.cases,
         loosePcs: item.loosePcs,
         totalPieces,
-        unitPrice: p.wholesalePricePiece,
+        unitPrice: item.selectedPacking ? +(item.selectedPacking.sellingPrice / item.selectedPacking.pieces).toFixed(2) : p.wholesalePricePiece,
         grossAmount: lineGross,
         discountAmount: discount,
         taxableAmount: taxable,
@@ -355,6 +398,21 @@ function MainApp() {
       return true;
     } catch (err: any) {
       showToast(err?.message || 'Failed to save product SKU', 'error');
+      throw err;
+    }
+  };
+
+  const handleSaveBatchProducts = async (productsToSave: Partial<Product>[]) => {
+    try {
+      let savedCount = 0;
+      for (const p of productsToSave) {
+        await api.saveProduct(p);
+        savedCount++;
+      }
+      showToast(`Successfully added ${savedCount} products in bulk!`, 'success');
+      await loadData();
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to save batch products', 'error');
       throw err;
     }
   };
@@ -615,6 +673,8 @@ function MainApp() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onToggleMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        notificationCount={unreadNotificationsCount}
+        onOpenNotifications={() => setIsNotificationPanelOpen(true)}
       />
 
       {/* Module Navigation Tabs */}
@@ -713,6 +773,7 @@ function MainApp() {
             <ProductsView
               products={products}
               onSaveProduct={handleSaveProduct}
+              onSaveBatchProducts={handleSaveBatchProducts}
               onDeleteProduct={handleDeleteProduct}
               onAddToCart={handleAddToCart}
               onQuickOrder={openNewOrderWithProduct}
@@ -860,6 +921,33 @@ function MainApp() {
           setIsAccountDetailsModalOpen(false);
         }}
         onLogout={logout}
+      />
+
+      {/* Real-time Notification Panel */}
+      <NotificationPanel
+        isOpen={isNotificationPanelOpen}
+        onClose={() => setIsNotificationPanelOpen(false)}
+        notifications={notifications}
+        onMarkAsRead={(id) => {
+          saveReadNotificationId(id);
+          setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+        }}
+        onMarkAllAsRead={() => {
+          markAllNotificationsAsRead(notifications);
+          setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        }}
+        onDismiss={(id) => {
+          dismissNotification(id);
+          setNotifications(prev => prev.filter(n => n.id !== id));
+        }}
+        onClearAll={() => {
+          clearAllNotifications(notifications);
+          setNotifications([]);
+        }}
+        onNavigateTab={(tab) => {
+          setActiveTab(tab);
+          setIsNotificationPanelOpen(false);
+        }}
       />
 
       {/* Footer Branding */}

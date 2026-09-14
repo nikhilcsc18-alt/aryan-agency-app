@@ -49,10 +49,25 @@ export interface ProductBatch {
   warehouseBin?: string;
 }
 
+export interface ProductPackingOption {
+  id: string;
+  name: string; // e.g. "Pack of 10", "Pack of 40", "Case of 60"
+  pieces: number; // e.g. 10, 40, 60
+  sellingPrice: number; // ₹ wholesale price for this pack (e.g. ₹80, ₹300)
+  mrp: number; // ₹ MRP for this pack (e.g. ₹100, ₹400)
+  unitPrice?: number; // ₹ sellingPrice / pieces (e.g. ₹8.00, ₹7.50)
+  unitMrp?: number; // ₹ mrp / pieces (e.g. ₹10.00)
+  marginPercentage: number; // e.g. 20, 25
+  isDefault?: boolean;
+}
+
 export interface CartItem {
   product: Product;
   cases: number;
   loosePcs: number;
+  selectedPackingId?: string;
+  selectedPacking?: ProductPackingOption;
+  packCount?: number;
 }
 
 export interface TradeScheme {
@@ -86,6 +101,7 @@ export interface Product {
   batches: ProductBatch[];
   activeScheme?: TradeScheme;
   description?: string;
+  packingOptions?: ProductPackingOption[];
 }
 
 export interface Retailer {
@@ -146,6 +162,9 @@ export interface OrderItem {
   totalAmount: number; // ₹
   schemeApplied?: string;
   freePcsAwarded?: number;
+  packingName?: string;
+  packCount?: number;
+  marginPercentage?: number;
 }
 
 export type OrderStatus = 
@@ -284,5 +303,27 @@ export interface PromotionalBanner {
   bgGradient: string;
   accentColor?: string;
   isActive: boolean;
+}
+
+export type NavTab = 
+  | 'home'
+  | 'dashboard' 
+  | 'orders' 
+  | 'products' 
+  | 'inventory' 
+  | 'retailers' 
+  | 'salesmen' 
+  | 'deliveries' 
+  | 'payments';
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  timestamp: string;
+  type: 'order' | 'inventory' | 'scheme' | 'payment' | 'system';
+  isRead: boolean;
+  actionTab?: NavTab;
+  metadata?: Record<string, any>;
 }
 

@@ -34,7 +34,7 @@ import {
   RefreshCw,
   ImagePlus
 } from 'lucide-react';
-import { Product, ProductCategory, TradeScheme, CartItem } from '../types';
+import { Product, ProductCategory, TradeScheme, CartItem, ProductPackingOption } from '../types';
 import { formatINR } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { PromotionalBannerCarousel } from './PromotionalBannerCarousel';
@@ -44,18 +44,22 @@ import { BarcodeScannerModal, PRODUCT_BARCODE_MAP } from './BarcodeScannerModal'
 import { ProductImage } from './ProductImage';
 import { BrandLogo } from './BrandLogos';
 import { FMCG_PRODUCT_PRESETS, FMCGPresetProduct, compressImageFile } from '../lib/fmcgPresets';
+import { BulkProductAddModal } from './BulkProductAddModal';
+import { ApnaClubPackSelectorModal } from './ApnaClubPackSelectorModal';
+import { createPackingOption, calculateMarginPercentage, getProductPackingOptions, createPresetPacking } from '../lib/packingUtils';
 
 interface ProductsViewProps {
   products: Product[];
   onSaveProduct: (product: Partial<Product>) => Promise<void>;
+  onSaveBatchProducts?: (products: Partial<Product>[]) => Promise<void>;
   onDeleteProduct?: (id: string) => Promise<void>;
   onInwardStock?: (productId: string) => void;
   onOpenNewOrderWithProduct?: (productId: string) => void;
   onQuickOrder?: (productId: string) => void;
-  onAddToCart?: (product: Product, casesCount?: number) => void;
+  onAddToCart?: (product: Product, casesCount?: number, packing?: ProductPackingOption) => void;
   cartItems?: CartItem[];
-  onUpdateCartItem?: (productId: string, cases: number, loosePcs: number) => void;
-  onRemoveFromCart?: (productId: string) => void;
+  onUpdateCartItem?: (productId: string, cases: number, loosePcs: number, packingId?: string) => void;
+  onRemoveFromCart?: (productId: string, packingId?: string) => void;
   onOpenCart?: () => void;
 }
 
@@ -73,6 +77,7 @@ const CATEGORIES: ProductCategory[] = [
 export const ProductsView: React.FC<ProductsViewProps> = ({
   products,
   onSaveProduct,
+  onSaveBatchProducts,
   onDeleteProduct,
   onInwardStock,
   onOpenNewOrderWithProduct,
@@ -91,8 +96,10 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   const [quickSort, setQuickSort] = useState<'default' | 'margin_desc' | 'price_asc' | 'price_desc' | 'name_asc'>('default');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
+  const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
   
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
+  const [packSelectorProduct, setPackSelectorProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [viewBatchesProduct, setViewBatchesProduct] = useState<Product | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<string | null>(null);
@@ -158,9 +165,9 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
     }
   };
 
-  const handleBuyNowProduct = (product: Product, cases: number = 1) => {
+  const handleBuyNowProduct = (product: Product, cases: number = 1, packing?: ProductPackingOption) => {
     if (onAddToCart) {
-      onAddToCart(product, cases);
+      onAddToCart(product, cases, packing);
     }
     if (onOpenCart) {
       onOpenCart();
@@ -355,14 +362,26 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
           </div>
 
           {isAdmin && (
-            <button
-              type="button"
-              onClick={handleOpenAdd}
-              className="px-3.5 py-2 text-xs font-bold rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer shrink-0 active:scale-95"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
-              <span>+ Add New SKU</span>
-            </button>
+            <div className="flex items-center space-x-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsBulkAddOpen(true)}
+                className="px-3.5 py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer shrink-0 active:scale-95"
+                title="Add multiple products at once with ApnaClub packings"
+              >
+                <Boxes className="w-4 h-4 stroke-[2.5]" />
+                <span>+ Bulk Add Products (एक साथ जोड़ें)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenAdd}
+                className="px-3.5 py-2 text-xs font-bold rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer shrink-0 active:scale-95"
+              >
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>+ Add Single SKU</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -555,11 +574,11 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                   <B2BProductCard
                     key={product.id}
                     product={product}
-                    onAddToCart={(p, cases) => {
-                      if (onAddToCart) onAddToCart(p, cases);
+                    onAddToCart={(p, cases, packing) => {
+                      if (onAddToCart) onAddToCart(p, cases, packing);
                     }}
                     onBookNow={!isRetailer && (isSalesman || isAdmin) ? handleBookProduct : undefined}
-                    onBuyNow={isRetailer ? handleBuyNowProduct : undefined}
+                    onBuyNow={isRetailer ? (p, cases, packing) => handleBuyNowProduct(p, cases, packing) : undefined}
                     isRetailer={isRetailer}
                     isSalesman={isSalesman}
                     onViewBatches={(p) => setViewBatchesProduct(p)}
@@ -568,6 +587,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     isAdmin={isAdmin}
                     inCartCount={inCartCases}
                     onUpdateCartItem={onUpdateCartItem}
+                    onOpenPackSelector={(p) => setPackSelectorProduct(p)}
                   />
                 );
               })}
@@ -962,6 +982,267 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                   <div className="px-3 py-2 font-mono font-bold text-[#1A365D] bg-slate-100 border border-slate-200 rounded-[4px]">
                     {formatINR((editingProduct.wholesalePricePiece || 0) * (editingProduct.piecesPerCase || 24))}
                   </div>
+                </div>
+              </div>
+
+              {/* ApnaClub-Style Tiered Packing Options (Pack of 3, Pack of 4, Pack of 10, Pack of 40) */}
+              <div className="border border-amber-300 bg-amber-50/60 rounded-2xl p-3.5 sm:p-4 space-y-3 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/80 pb-3">
+                  <div>
+                    <label className="block text-amber-950 font-black text-sm flex items-center space-x-1.5">
+                      <Package className="w-4 h-4 text-amber-700" />
+                      <span>ApnaClub-Style Packing Options &amp; Retailer Margins</span>
+                    </label>
+                    <span className="text-[11px] text-amber-900/80 mt-0.5 block">
+                      Add Pack of 3, Pack of 4, Pack of 10, Pack of 40 or custom options. Retailer sees per-unit price, MRP &amp; margin percentage.
+                    </span>
+                  </div>
+
+                  {/* Preset Action Buttons */}
+                  <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const baseWp = editingProduct.wholesalePricePiece || 16;
+                        const baseMrp = editingProduct.mrpPiece || 20;
+                        const defaultPacks = [
+                          createPresetPacking(3, baseWp, baseMrp, 'Pack of 3', 0),
+                          createPresetPacking(4, baseWp, baseMrp, 'Pack of 4', 1),
+                          createPresetPacking(10, baseWp, baseMrp, 'Pack of 10', 3),
+                          createPresetPacking(40, baseWp, baseMrp, 'Pack of 40', 6)
+                        ];
+                        setEditingProduct({
+                          ...editingProduct,
+                          packingOptions: defaultPacks
+                        });
+                      }}
+                      className="px-2.5 py-1 text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-2xs cursor-pointer flex items-center space-x-1"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      <span>Auto-Generate (3, 4, 10, 40)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Add Buttons: Pack of 3, Pack of 4, Pack of 10, Pack of 40 */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span className="text-[11px] font-bold text-amber-950 mr-1">Quick Add:</span>
+                  {[
+                    { name: 'Pack of 3', pieces: 3, discount: 0 },
+                    { name: 'Pack of 4', pieces: 4, discount: 1 },
+                    { name: 'Pack of 10', pieces: 10, discount: 3 },
+                    { name: 'Pack of 40', pieces: 40, discount: 6 }
+                  ].map((preset) => (
+                    <button
+                      key={preset.name}
+                      type="button"
+                      onClick={() => {
+                        const baseWp = editingProduct.wholesalePricePiece || 16;
+                        const baseMrp = editingProduct.mrpPiece || 20;
+                        const newPack = createPresetPacking(
+                          preset.pieces,
+                          baseWp,
+                          baseMrp,
+                          preset.name,
+                          preset.discount
+                        );
+                        const existing = editingProduct.packingOptions || [];
+                        setEditingProduct({
+                          ...editingProduct,
+                          packingOptions: [...existing, newPack]
+                        });
+                      }}
+                      className="px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-amber-100/80 text-amber-900 border border-amber-300 rounded-lg shadow-2xs transition-colors cursor-pointer flex items-center space-x-1"
+                    >
+                      <Plus className="w-3 h-3 text-amber-600 stroke-[3]" />
+                      <span>{preset.name}</span>
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const baseWp = editingProduct.wholesalePricePiece || 16;
+                      const baseMrp = editingProduct.mrpPiece || 20;
+                      const newPack = createPresetPacking(6, baseWp, baseMrp, 'Pack of 6', 2);
+                      const existing = editingProduct.packingOptions || [];
+                      setEditingProduct({
+                        ...editingProduct,
+                        packingOptions: [...existing, newPack]
+                      });
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-bold bg-white hover:bg-amber-100/80 text-amber-900 border border-amber-300 rounded-lg shadow-2xs transition-colors cursor-pointer flex items-center space-x-1"
+                  >
+                    <Plus className="w-3 h-3 text-amber-600 stroke-[3]" />
+                    <span>+ Custom Pack</span>
+                  </button>
+                </div>
+
+                {/* Interactive Editable Packing Options List */}
+                <div className="space-y-3 pt-1">
+                  {((editingProduct.packingOptions && editingProduct.packingOptions.length > 0)
+                    ? editingProduct.packingOptions 
+                    : getProductPackingOptions(editingProduct as Product)
+                  ).map((pack, idx) => {
+                    const pcs = pack.pieces || 1;
+                    const selling = pack.sellingPrice || 0;
+                    const mrp = pack.mrp || 0;
+                    const unitPrice = Math.round((selling / pcs) * 100) / 100;
+                    const unitMrp = Math.round((mrp / pcs) * 100) / 100;
+                    const margin = calculateMarginPercentage(mrp, selling);
+                    const savings = Math.max(0, mrp - selling);
+
+                    const updatePack = (field: keyof ProductPackingOption, val: any) => {
+                      const currentPacks = [
+                        ...((editingProduct.packingOptions && editingProduct.packingOptions.length > 0)
+                          ? editingProduct.packingOptions 
+                          : getProductPackingOptions(editingProduct as Product))
+                      ];
+                      const target = { ...currentPacks[idx], [field]: val };
+                      
+                      // recalculate unit metrics & margin
+                      const updatedPcs = Math.max(1, target.pieces || 1);
+                      const updatedSell = Math.max(0, target.sellingPrice || 0);
+                      const updatedMrp = Math.max(0, target.mrp || 0);
+                      target.unitPrice = Math.round((updatedSell / updatedPcs) * 100) / 100;
+                      target.unitMrp = Math.round((updatedMrp / updatedPcs) * 100) / 100;
+                      target.marginPercentage = calculateMarginPercentage(updatedMrp, updatedSell);
+
+                      currentPacks[idx] = target;
+                      setEditingProduct({
+                        ...editingProduct,
+                        packingOptions: currentPacks
+                      });
+                    };
+
+                    return (
+                      <div 
+                        key={pack.id || idx} 
+                        className="bg-white p-3 sm:p-3.5 rounded-xl border border-amber-200 shadow-2xs space-y-2.5"
+                      >
+                        {/* Header Row of pack item */}
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 font-black text-[10px] flex items-center justify-center font-mono">
+                              #{idx + 1}
+                            </span>
+                            <span className="font-black text-slate-900 text-xs">
+                              {pack.name} ({pcs} pcs)
+                            </span>
+                            <span className="px-2 py-0.5 rounded-full font-black text-[10px] bg-emerald-100 text-emerald-800 border border-emerald-200 font-mono">
+                              +{margin}% MARGIN
+                            </span>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            {savings > 0 && (
+                              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                                Retailer Saves: ₹{savings.toFixed(0)}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const currentPacks = (editingProduct.packingOptions && editingProduct.packingOptions.length > 0)
+                                  ? editingProduct.packingOptions 
+                                  : getProductPackingOptions(editingProduct as Product);
+                                if (currentPacks.length <= 1) {
+                                  alert('At least 1 packing option is required.');
+                                  return;
+                                }
+                                setEditingProduct({
+                                  ...editingProduct,
+                                  packingOptions: currentPacks.filter((_, i) => i !== idx)
+                                });
+                              }}
+                              className="text-slate-400 hover:text-rose-600 p-1 rounded-md hover:bg-rose-50 transition-colors cursor-pointer"
+                              title="Delete this packing option"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Editable Form Inputs (4 columns) */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                          {/* 1. Pack Label */}
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                              Pack Label
+                            </label>
+                            <input
+                              type="text"
+                              value={pack.name}
+                              onChange={(e) => updatePack('name', e.target.value)}
+                              placeholder="e.g. Pack of 3"
+                              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-bold text-slate-900 text-xs focus:bg-white focus:border-amber-500 outline-hidden"
+                            />
+                          </div>
+
+                          {/* 2. Pieces count */}
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                              Pieces (Pcs)
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={pack.pieces}
+                              onChange={(e) => updatePack('pieces', parseInt(e.target.value) || 1)}
+                              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900 text-xs focus:bg-white focus:border-amber-500 outline-hidden"
+                            />
+                          </div>
+
+                          {/* 3. Selling Price (₹) */}
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                              Selling Price (₹)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              value={pack.sellingPrice}
+                              onChange={(e) => updatePack('sellingPrice', parseFloat(e.target.value) || 0)}
+                              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900 text-xs focus:bg-white focus:border-amber-500 outline-hidden"
+                            />
+                            <span className="text-[10px] text-slate-500 font-mono mt-0.5 block">
+                              Rate: ₹{unitPrice.toFixed(2)}/pc
+                            </span>
+                          </div>
+
+                          {/* 4. Pack MRP (₹) */}
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                              Pack MRP (₹)
+                            </label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              value={pack.mrp}
+                              onChange={(e) => updatePack('mrp', parseFloat(e.target.value) || 0)}
+                              className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-900 text-xs focus:bg-white focus:border-amber-500 outline-hidden"
+                            />
+                            <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">
+                              MRP: ₹{unitMrp.toFixed(2)}/pc
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Summary bar for this pack */}
+                        <div className="bg-slate-50 rounded-lg p-2 flex items-center justify-between text-[11px] text-slate-600 font-mono">
+                          <span>
+                            Retailer Price: <strong className="text-slate-900 font-bold">₹{unitPrice.toFixed(2)}/pc</strong> (Total ₹{selling.toFixed(2)})
+                          </span>
+                          <span className="text-emerald-700 font-bold">
+                            Margin: +{margin}% (Profit: ₹{savings.toFixed(2)})
+                          </span>
+                        </div>
+
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1487,6 +1768,46 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
             setSelectedBrand('all');
             setSelectedCategory('all');
             setSearchQuery(foundProduct.sku);
+          }}
+        />
+      )}
+
+      {/* Bulk Product Add Modal */}
+      {isBulkAddOpen && (
+        <BulkProductAddModal
+          isOpen={isBulkAddOpen}
+          onClose={() => setIsBulkAddOpen(false)}
+          existingBrands={brands.filter(b => b !== 'all')}
+          categories={CATEGORIES}
+          onSaveBatch={async (batch) => {
+            if (onSaveBatchProducts) {
+              await onSaveBatchProducts(batch);
+            } else {
+              for (const p of batch) {
+                await onSaveProduct(p);
+              }
+            }
+          }}
+        />
+      )}
+
+      {/* ApnaClub-Style Pack Selector Modal */}
+      {packSelectorProduct && (
+        <ApnaClubPackSelectorModal
+          isOpen={!!packSelectorProduct}
+          onClose={() => setPackSelectorProduct(null)}
+          product={packSelectorProduct}
+          onAddToCartSingle={(prod, qty, pack) => {
+            if (onAddToCart) {
+              onAddToCart(prod, qty, pack);
+            }
+          }}
+          onAddToCartBatch={(items) => {
+            if (onAddToCart) {
+              items.forEach(item => {
+                onAddToCart(item.product, item.quantity, item.packing);
+              });
+            }
           }}
         />
       )}
