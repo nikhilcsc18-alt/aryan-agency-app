@@ -120,7 +120,8 @@ export interface Retailer {
   creditDaysAllowed: number;
   lat?: number;
   lng?: number;
-  status: 'active' | 'overdue' | 'blocked';
+  status: 'active' | 'overdue' | 'blocked' | 'inactive';
+  isActive?: boolean;
   createdAt: string;
   creditEnabled?: boolean; // Admin-controlled toggle for Credit/Udhar access
 }
@@ -198,6 +199,8 @@ export interface Order {
   totalCgst: number; // ₹
   totalSgst: number; // ₹
   totalTax: number; // ₹
+  deliveryCharge?: number; // ₹ Delivery charges (or 0 if free)
+  mdrCharge?: number; // ₹ Govt MDR charges (e.g. 0.04% for digital payment)
   roundOff: number;
   grandTotal: number; // ₹
   amountPaid: number; // ₹

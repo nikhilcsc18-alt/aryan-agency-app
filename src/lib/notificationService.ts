@@ -74,14 +74,14 @@ export function buildLiveNotifications(
   const dismissedIds = getDismissedNotificationIds();
   const notifications: AppNotification[] = [];
 
-  // 1. Feature Notification: ApnaClub Packing Options Live
+  // 1. Feature Notification: Aryan Agency Packing Options Live
   notifications.push({
-    id: 'notif_feature_apnaclub_packings',
-    title: 'ApnaClub Packing Options Active',
-    message: 'Ab aap Pack of 3, Pack of 4, Pack of 10, aur Pack of 40 jaisi custom packings bina kisi restriction ke select kar sakte hain. Margin % aur per-unit price har pack par clearly dikh rahe hain!',
+    id: 'notif_feature_aryan_packings',
+    title: 'Aryan Agency Packing Options Active',
+    message: 'Ab aap Pack of 1, Pack of 2, Pack of 4, aur Pack of 10 jaisi custom packings bina kisi restriction ke select kar sakte hain. Margin % aur per-unit price har pack par clearly dikh rahe hain!',
     timestamp: 'Just now',
     type: 'scheme',
-    isRead: readIds.has('notif_feature_apnaclub_packings'),
+    isRead: readIds.has('notif_feature_aryan_packings'),
     actionTab: 'products'
   });
 
@@ -182,7 +182,7 @@ export function buildLiveNotifications(
   notifications.push({
     id: 'notif_sys_update_v130',
     title: 'Aryan Agency App v1.3.0 Ready',
-    message: 'Naya version available hai: ApnaClub multi-packing support, dynamic margin calculator aur 1-click in-app update ke sath.',
+    message: 'Naya version available hai: Aryan Agency multi-packing support, dynamic margin calculator aur 1-click in-app update ke sath.',
     timestamp: 'Yesterday',
     type: 'system',
     isRead: readIds.has('notif_sys_update_v130'),

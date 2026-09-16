@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Order } from '../types';
 import { formatINR, formatINRDecimals } from '../lib/api';
+import { useDistributorSettings } from '../lib/settings';
 
 interface InvoiceModalProps {
   order: Order | null;
@@ -18,6 +19,7 @@ interface InvoiceModalProps {
 }
 
 export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) => {
+  const { settings } = useDistributorSettings();
   if (!order) return null;
 
   const totalCases = order.items.reduce((s, i) => s + i.cases, 0);
@@ -180,10 +182,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
             <div className="space-y-3 text-[11px] text-slate-600">
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
                 <span className="font-bold text-slate-800 block text-xs">Bank Transfer & UPI QR:</span>
-                <div><b>A/C Name:</b> ARYAN AGENCY</div>
+                <div><b>A/C Name:</b> {settings.upiPayeeName || 'ARYAN AGENCY'}</div>
                 <div><b>Bank:</b> HDFC Bank, Yeshwanthpur Branch</div>
                 <div><b>A/C No:</b> 50200012345678 (Current) • <b>IFSC:</b> HDFC0001234</div>
-                <div><b>UPI ID:</b> aryanagency@hdfcbank</div>
+                <div><b>UPI ID:</b> {settings.upiVpa || 'aryanagency@upi'}</div>
               </div>
 
               <div className="text-[10px] text-slate-500 leading-tight space-y-0.5">
@@ -217,6 +219,18 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
                 <span className="font-sans">CGST + SGST (Central & State):</span>
                 <span>{formatINRDecimals(order.totalTax)}</span>
               </div>
+              {order.deliveryCharge !== undefined && (
+                <div className="flex justify-between text-slate-700">
+                  <span className="font-sans">Delivery Charges:</span>
+                  <span className="font-bold">{order.deliveryCharge > 0 ? formatINR(order.deliveryCharge) : 'FREE'}</span>
+                </div>
+              )}
+              {order.mdrCharge !== undefined && order.mdrCharge > 0 && (
+                <div className="flex justify-between text-slate-700">
+                  <span className="font-sans">Govt MDR Charges:</span>
+                  <span className="font-bold">{formatINR(order.mdrCharge)}</span>
+                </div>
+              )}
 
               <div className="border-t border-slate-400 pt-2 flex justify-between items-baseline font-bold text-slate-900">
                 <span className="font-sans text-sm">Invoice Grand Total:</span>

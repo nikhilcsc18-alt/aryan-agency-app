@@ -5,13 +5,25 @@ export interface DistributorSettings {
   mandatoryOnlinePayment: boolean;
   upiVpa: string;
   upiPayeeName: string;
+  // Delivery charges settings
+  enableDeliveryCharges: boolean;
+  deliveryCharge: number; // e.g. ₹50 standard fee
+  freeDeliveryAbove: number; // e.g. ₹2000 (Orders above this amount get free delivery)
+  // Govt MDR charges settings
+  enableMdr: boolean;
+  mdrPercentage: number; // e.g. 0.04 (%)
 }
 
 const DEFAULT_SETTINGS: DistributorSettings = {
   allowCOD: true,
   mandatoryOnlinePayment: false,
-  upiVpa: 'aryanagency@icici',
-  upiPayeeName: 'Aryan Agency FMCG Distribution'
+  upiVpa: 'aryanagency@upi',
+  upiPayeeName: 'Aryan Agency',
+  enableDeliveryCharges: true,
+  deliveryCharge: 50,
+  freeDeliveryAbove: 2000,
+  enableMdr: true,
+  mdrPercentage: 0.04
 };
 
 const SETTINGS_STORAGE_KEY = 'aryan_distributor_settings';
@@ -21,7 +33,12 @@ export const getDistributorSettings = (): DistributorSettings => {
   try {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!raw) return DEFAULT_SETTINGS;
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    // Replace old placeholder that resolved to Dharmesh D Patel on ICICI bank
+    if (parsed.upiVpa === 'aryanagency@icici') {
+      parsed.upiVpa = 'aryanagency@upi';
+    }
+    return { ...DEFAULT_SETTINGS, ...parsed };
   } catch (e) {
     console.warn('Error reading distributor settings:', e);
     return DEFAULT_SETTINGS;

@@ -246,6 +246,11 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
       currentStockLoosePcs: 0,
       reorderLevelCases: 10,
       imageUrl: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500',
+      packingOptions: [
+        createPresetPacking(1, 16.5, 20, 'Pack of 1', 0),
+        createPresetPacking(2, 16.5, 20, 'Pack of 2', 1),
+        createPresetPacking(10, 16.5, 20, 'Pack of 10', 3)
+      ],
       batches: [
         {
           batchNumber: `BAT-${Date.now().toString().slice(-4)}`,
@@ -261,8 +266,13 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   };
 
   const handleOpenEdit = (product: Product) => {
+    const packs = (product.packingOptions && product.packingOptions.length > 0)
+      ? JSON.parse(JSON.stringify(product.packingOptions))
+      : getProductPackingOptions(product);
+
     setEditingProduct({
       ...product,
+      packingOptions: packs,
       sku: product.sku || (product as any).product_sku || (product as any).productSku || ''
     });
     setIsModalOpen(true);
@@ -274,8 +284,13 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
     try {
       setIsSubmitting(true);
       const cleanSku = (editingProduct.sku || (editingProduct as any).product_sku || '').trim();
+      const currentPacks = (editingProduct.packingOptions && editingProduct.packingOptions.length > 0)
+        ? editingProduct.packingOptions
+        : getProductPackingOptions(editingProduct as Product);
+
       const finalProduct = {
         ...editingProduct,
+        packingOptions: currentPacks,
         sku: cleanSku,
         product_sku: cleanSku
       };
@@ -367,7 +382,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 type="button"
                 onClick={() => setIsBulkAddOpen(true)}
                 className="px-3.5 py-2 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer shrink-0 active:scale-95"
-                title="Add multiple products at once with ApnaClub packings"
+                title="Add multiple products at once with Aryan Agency packings"
               >
                 <Boxes className="w-4 h-4 stroke-[2.5]" />
                 <span>+ Bulk Add Products (एक साथ जोड़ें)</span>
@@ -386,7 +401,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
         </div>
       </div>
 
-      {/* 3. APNACLUB-STYLE QUICK CATEGORY CHIPS */}
+      {/* 3. ARYAN AGENCY QUICK CATEGORY CHIPS */}
       <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
         <div className="flex items-center justify-between pb-1 border-b border-slate-100 text-xs">
           <span className="font-bold text-slate-800 flex items-center space-x-1.5">
@@ -985,16 +1000,16 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 </div>
               </div>
 
-              {/* ApnaClub-Style Tiered Packing Options (Pack of 3, Pack of 4, Pack of 10, Pack of 40) */}
+              {/* Aryan Agency Tiered Packing Options (Pack of 1, Pack of 2, Pack of 4, Pack of 10, etc.) */}
               <div className="border border-amber-300 bg-amber-50/60 rounded-2xl p-3.5 sm:p-4 space-y-3 shadow-xs">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-200/80 pb-3">
                   <div>
                     <label className="block text-amber-950 font-black text-sm flex items-center space-x-1.5">
                       <Package className="w-4 h-4 text-amber-700" />
-                      <span>ApnaClub-Style Packing Options &amp; Retailer Margins</span>
+                      <span>Aryan Agency Packing Options &amp; Retailer Margins</span>
                     </label>
                     <span className="text-[11px] text-amber-900/80 mt-0.5 block">
-                      Add Pack of 3, Pack of 4, Pack of 10, Pack of 40 or custom options. Retailer sees per-unit price, MRP &amp; margin percentage.
+                      Edit or add Pack of 1, Pack of 2, Pack of 3, Pack of 10, etc. Admin can change quantity, price, and margins.
                     </span>
                   </div>
 
@@ -1006,8 +1021,9 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                         const baseWp = editingProduct.wholesalePricePiece || 16;
                         const baseMrp = editingProduct.mrpPiece || 20;
                         const defaultPacks = [
-                          createPresetPacking(3, baseWp, baseMrp, 'Pack of 3', 0),
-                          createPresetPacking(4, baseWp, baseMrp, 'Pack of 4', 1),
+                          createPresetPacking(1, baseWp, baseMrp, 'Pack of 1', 0),
+                          createPresetPacking(2, baseWp, baseMrp, 'Pack of 2', 1),
+                          createPresetPacking(4, baseWp, baseMrp, 'Pack of 4', 2),
                           createPresetPacking(10, baseWp, baseMrp, 'Pack of 10', 3),
                           createPresetPacking(40, baseWp, baseMrp, 'Pack of 40', 6)
                         ];
@@ -1019,17 +1035,19 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                       className="px-2.5 py-1 text-[11px] font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-2xs cursor-pointer flex items-center space-x-1"
                     >
                       <Sparkles className="w-3 h-3" />
-                      <span>Auto-Generate (3, 4, 10, 40)</span>
+                      <span>Reset Standard Packs (1, 2, 4, 10, 40)</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Quick Add Buttons: Pack of 3, Pack of 4, Pack of 10, Pack of 40 */}
+                {/* Quick Add Buttons: Pack of 1, Pack of 2, Pack of 3, Pack of 4, Pack of 10, Pack of 40 */}
                 <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                   <span className="text-[11px] font-bold text-amber-950 mr-1">Quick Add:</span>
                   {[
-                    { name: 'Pack of 3', pieces: 3, discount: 0 },
-                    { name: 'Pack of 4', pieces: 4, discount: 1 },
+                    { name: 'Pack of 1', pieces: 1, discount: 0 },
+                    { name: 'Pack of 2', pieces: 2, discount: 1 },
+                    { name: 'Pack of 3', pieces: 3, discount: 1 },
+                    { name: 'Pack of 4', pieces: 4, discount: 2 },
                     { name: 'Pack of 10', pieces: 10, discount: 3 },
                     { name: 'Pack of 40', pieces: 40, discount: 6 }
                   ].map((preset) => (
@@ -1102,8 +1120,24 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                       
                       // recalculate unit metrics & margin
                       const updatedPcs = Math.max(1, target.pieces || 1);
-                      const updatedSell = Math.max(0, target.sellingPrice || 0);
-                      const updatedMrp = Math.max(0, target.mrp || 0);
+                      let updatedSell = Math.max(0, target.sellingPrice || 0);
+                      let updatedMrp = Math.max(0, target.mrp || 0);
+
+                      // If pieces was changed, update selling price and mrp proportionally if not manually changed
+                      if (field === 'pieces') {
+                        const baseWp = editingProduct.wholesalePricePiece || 16;
+                        const baseMrp = editingProduct.mrpPiece || 20;
+                        const discount = target.discountPercentage || 0;
+                        const unitRate = baseWp * (1 - discount / 100);
+                        updatedSell = Math.round(unitRate * updatedPcs * 100) / 100;
+                        updatedMrp = Math.round(baseMrp * updatedPcs * 100) / 100;
+                        target.sellingPrice = updatedSell;
+                        target.mrp = updatedMrp;
+                        if (!target.name || target.name.startsWith('Pack of')) {
+                          target.name = `Pack of ${updatedPcs}`;
+                        }
+                      }
+
                       target.unitPrice = Math.round((updatedSell / updatedPcs) * 100) / 100;
                       target.unitMrp = Math.round((updatedMrp / updatedPcs) * 100) / 100;
                       target.marginPercentage = calculateMarginPercentage(updatedMrp, updatedSell);

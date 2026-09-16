@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { 
   Product, 
+  ProductPackingOption,
   Retailer, 
   Salesman, 
   Order, 
@@ -224,6 +225,23 @@ function mapDbBrand(row: any): Brand {
 
 function mapDbProduct(row: any): Product {
   const sku = row.sku || row.product_sku || row.productSku || row.code || row.item_code || row.sku_code || '';
+  let packingOptions: ProductPackingOption[] | undefined = undefined;
+  if (Array.isArray(row.packing_options) && row.packing_options.length > 0) {
+    packingOptions = row.packing_options;
+  } else if (Array.isArray(row.packingOptions) && row.packingOptions.length > 0) {
+    packingOptions = row.packingOptions;
+  } else if (row.id && typeof window !== 'undefined') {
+    try {
+      const cached = localStorage.getItem(`aryan_packing_${row.id}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          packingOptions = parsed;
+        }
+      }
+    } catch {}
+  }
+
   return {
     id: row.id,
     sku,
@@ -243,7 +261,8 @@ function mapDbProduct(row: any): Product {
     imageUrl: row.image_url || row.imageUrl || '',
     description: row.description || '',
     batches: Array.isArray(row.batches) ? row.batches : [],
-    activeScheme: row.active_scheme || row.activeScheme || undefined
+    activeScheme: row.active_scheme || row.activeScheme || undefined,
+    packingOptions
   };
 }
 
@@ -297,6 +316,9 @@ function productToDb(p: Partial<Product> | any): any {
 
   const scheme = p.activeScheme || p.active_scheme;
   out.active_scheme = (scheme && scheme.isActive) ? scheme : null;
+  if (p.packingOptions || p.packing_options) {
+    out.packing_options = p.packingOptions || p.packing_options;
+  }
   out.updated_at = new Date().toISOString();
 
   return out;
@@ -320,6 +342,7 @@ function mapDbRetailer(row: any): Retailer {
     lat: row.lat ? Number(row.lat) : undefined,
     lng: row.lng ? Number(row.lng) : undefined,
     status: row.status || 'active',
+    isActive: row.is_active !== undefined ? Boolean(row.is_active) : (row.status !== 'inactive'),
     createdAt: row.created_at || new Date().toISOString(),
     creditEnabled: row.credit_enabled !== undefined ? Boolean(row.credit_enabled) : undefined
   };
@@ -349,6 +372,7 @@ function retailerToDb(r: Partial<Retailer>): any {
   if (r.creditDaysAllowed !== undefined) out.credit_days_allowed = r.creditDaysAllowed;
   if (r.creditEnabled !== undefined) out.credit_enabled = Boolean(r.creditEnabled);
   if (r.status !== undefined) out.status = r.status;
+  if ((r as any).isActive !== undefined) out.is_active = Boolean((r as any).isActive);
   return out;
 }
 
@@ -414,6 +438,8 @@ function mapDbOrder(row: any): Order {
     totalCgst: Number(row.total_cgst || 0),
     totalSgst: Number(row.total_sgst || 0),
     totalTax: Number(row.total_tax || 0),
+    deliveryCharge: Number(row.delivery_charge ?? row.deliveryCharge ?? 0),
+    mdrCharge: Number(row.mdr_charge ?? row.mdrCharge ?? 0),
     roundOff: Number(row.round_off || 0),
     grandTotal: Number(row.grand_total || 0),
     amountPaid: Number(row.amount_paid || 0),
@@ -511,6 +537,8 @@ function orderToDb(o: any): any {
   out.total_taxable = Number(rawTaxable || 0);
   const totalTaxNum = Number(rawTax || 0);
   out.total_tax = totalTaxNum;
+  out.delivery_charge = Number(o.deliveryCharge ?? o.delivery_charge ?? 0);
+  out.mdr_charge = Number(o.mdrCharge ?? o.mdr_charge ?? 0);
   out.total_cgst = Number(o.totalCgst ?? o.total_cgst ?? o.cgstTotal ?? +(totalTaxNum / 2).toFixed(2));
   out.total_sgst = Number(o.totalSgst ?? o.total_sgst ?? o.sgstTotal ?? +(totalTaxNum / 2).toFixed(2));
   out.round_off = Number(o.roundOff ?? o.round_off ?? 0);
@@ -991,7 +1019,17 @@ export const supabaseService = {
       throw new Error(error.message || 'Failed to save product in database.');
     }
 
-    return mapDbProduct(data);
+    if (product.id && product.packingOptions && Array.isArray(product.packingOptions) && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`aryan_packing_${product.id}`, JSON.stringify(product.packingOptions));
+      } catch (e) {}
+    }
+
+    const result = mapDbProduct(data);
+    if (product.packingOptions && (!result.packingOptions || result.packingOptions.length === 0)) {
+      result.packingOptions = product.packingOptions;
+    }
+    return result;
   },
 
   async deleteProduct(id: string): Promise<boolean | null> {
@@ -1143,8 +1181,20 @@ export const supabaseService = {
 
   async deleteRetailer(id: string): Promise<boolean | null> {
     if (!supabase) return null;
-    const { error } = await supabase.from('retailers').delete().eq('id', id);
-    if (error) throw error;
+    // Do NOT delete the retailer from database to preserve orders & ledger integrity!
+    // Instead, update status to 'inactive' and is_active to false
+    let { error } = await supabase
+      .from('retailers')
+      .update({ status: 'inactive', is_active: false })
+      .eq('id', id);
+    if (error) {
+      // If is_active column doesn't exist in Supabase schema, retry with status only
+      const retry = await supabase
+        .from('retailers')
+        .update({ status: 'inactive' })
+        .eq('id', id);
+      if (retry.error) throw retry.error;
+    }
     return true;
   },
 

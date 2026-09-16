@@ -45,7 +45,7 @@ export const AutoUpdateModal: React.FC<AutoUpdateModalProps> = ({
   if (!isOpen) return null;
 
   const targetVersion = updateInfo?.version || '1.3.0';
-  const releaseNotes = updateInfo?.releaseNotes || 'ApnaClub Packing Options (Pack of 10 & 40), 2-Step Cart Fix, Multi-Product Bulk Add & Auto-Update system.';
+  const releaseNotes = updateInfo?.releaseNotes || 'Aryan Agency Multi-Packing Options (Pack of 1, 2, 4, 10), Add to Cart detail selector & Auto-Update system.';
   const isMandatory = updateInfo?.isMandatory || false;
 
   const handleStartUpdate = async () => {
@@ -140,7 +140,7 @@ export const AutoUpdateModal: React.FC<AutoUpdateModalProps> = ({
             <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/80 text-[11.5px] space-y-1.5 text-slate-600">
               <div className="flex items-start space-x-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                <span><strong>ApnaClub-Style Pricing &amp; Margin:</strong> Pack of 10 व Pack of 40 पैकिंग ऑप्शन्स और स्पष्ट मार्जिन %।</span>
+                <span><strong>Aryan Agency Pricing &amp; Margin:</strong> Pack of 1, 2, 4 व Pack of 10 पैकिंग ऑप्शन्स और स्पष्ट मार्जिन %।</span>
               </div>
               <div className="flex items-start space-x-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />

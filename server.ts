@@ -22,7 +22,8 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Initialize Supabase Server Client for token validation
 const rawSupabaseUrl = 
@@ -459,7 +460,10 @@ app.put('/api/retailers/:id', requireRoles(['admin', 'salesman', 'accounts']), (
 app.delete('/api/retailers/:id', requireRoles(['admin']), (req, res) => {
   const id = req.params.id;
   const success = db.deleteRetailer(id);
-  res.json({ success });
+  if (!success) {
+    return res.status(404).json({ error: 'Retailer not found' });
+  }
+  res.json({ success: true, message: 'Retailer successfully marked inactive in Active Master List' });
 });
 
 app.get('/api/retailers/:id/ledger', (req, res) => {

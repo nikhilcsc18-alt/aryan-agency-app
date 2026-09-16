@@ -26,7 +26,8 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
-  Percent
+  Percent,
+  Truck
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { CartItem, Retailer, Product } from '../types';
@@ -42,6 +43,9 @@ export interface CheckoutPaymentDetails {
   paymentMode: 'cod' | 'upi' | 'qr' | 'credit';
   upiRefNumber?: string;
   isPaidNow?: boolean;
+  deliveryCharge?: number;
+  mdrCharge?: number;
+  grandTotal?: number;
 }
 
 interface CartDrawerProps {
@@ -108,8 +112,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   }, [isCreditAllowed, selectedPaymentMode, settings.allowCOD]);
 
-  if (!isOpen) return null;
-
   // Calculate cart totals supporting both ApnaClub packings and FMCG cases
   let subtotal = 0;
   let totalDiscount = 0;
@@ -173,25 +175,45 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     };
   });
 
-  const grandTotal = Math.round(subtotal - totalDiscount);
+  const itemsNetTotal = Math.max(0, subtotal - totalDiscount);
+
+  // Delivery Charges calculation
+  const isDeliveryEnabled = settings.enableDeliveryCharges ?? true;
+  const freeDeliveryThreshold = settings.freeDeliveryAbove ?? 2000;
+  const standardDeliveryCharge = settings.deliveryCharge ?? 50;
+  const isFreeDelivery = !isDeliveryEnabled || itemsNetTotal >= freeDeliveryThreshold;
+  const deliveryCharge = isFreeDelivery ? 0 : standardDeliveryCharge;
+
+  // Govt. MDR charges (0.04% by default on online UPI/QR)
+  const isMdrEnabled = (settings.enableMdr ?? true) && (selectedPaymentMode === 'qr' || selectedPaymentMode === 'upi');
+  const mdrRate = settings.mdrPercentage ?? 0.04;
+  const mdrCharge = isMdrEnabled
+    ? Math.round(((itemsNetTotal + deliveryCharge) * (mdrRate / 100)) * 100) / 100
+    : 0;
+
+  const grandTotal = Math.round(itemsNetTotal + deliveryCharge + mdrCharge);
   const isCreditOverdue = selectedRetailer && (selectedRetailer.currentOutstanding + grandTotal > selectedRetailer.creditLimit);
 
-  // Generate dynamic UPI QR Code whenever grandTotal or QR mode changes
-  const upiUri = `upi://pay?pa=${settings.upiVpa}&pn=${encodeURIComponent(settings.upiPayeeName)}&am=${grandTotal}&cu=INR&tn=${encodeURIComponent('AryanAgency-Order')}`;
+  // Generate dynamic UPI QR Code URI whenever grandTotal, UPI ID or payee name changes
+  const upiVpa = settings.upiVpa || 'aryanagency@upi';
+  const upiPayee = settings.upiPayeeName || 'Aryan Agency';
+  const upiUri = `upi://pay?pa=${upiVpa}&pn=${encodeURIComponent(upiPayee)}&am=${grandTotal}&cu=INR&tn=${encodeURIComponent('AryanAgency-Order')}`;
 
-  // Generate QR Code data URL when QR mode is active
-  if (selectedPaymentMode === 'qr' && !qrCodeDataUrl) {
-    QRCode.toDataURL(upiUri, {
-      width: 180,
-      margin: 1,
-      color: { dark: '#0F172A', light: '#FFFFFF' }
-    })
-      .then(url => setQrCodeDataUrl(url))
-      .catch(err => console.error('Error generating UPI QR:', err));
-  }
+  // Automatically regenerate QR Code data URL when QR mode, amount or VPA changes
+  useEffect(() => {
+    if (isOpen && selectedPaymentMode === 'qr' && grandTotal > 0) {
+      QRCode.toDataURL(upiUri, {
+        width: 180,
+        margin: 1,
+        color: { dark: '#0F172A', light: '#FFFFFF' }
+      })
+        .then(url => setQrCodeDataUrl(url))
+        .catch(err => console.error('Error generating UPI QR:', err));
+    }
+  }, [isOpen, selectedPaymentMode, grandTotal, upiUri]);
 
   const handleCopyUPI = () => {
-    navigator.clipboard.writeText(settings.upiVpa);
+    navigator.clipboard.writeText(upiVpa);
     setCopiedUpi(true);
     setTimeout(() => setCopiedUpi(false), 2000);
   };
@@ -200,9 +222,14 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     onCheckout(selectedRetailer?.id || '', cartItems, {
       paymentMode: selectedPaymentMode,
       upiRefNumber: upiRefNumber.trim() || undefined,
-      isPaidNow: selectedPaymentMode === 'qr' || selectedPaymentMode === 'upi'
+      isPaidNow: selectedPaymentMode === 'qr' || selectedPaymentMode === 'upi',
+      deliveryCharge,
+      mdrCharge,
+      grandTotal
     });
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
@@ -505,6 +532,29 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               {/* Step 1 Fixed Bottom Summary & Next Button */}
               {cartItems.length > 0 && (
                 <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 shrink-0 space-y-2.5">
+                  {/* Delivery threshold banner */}
+                  {isDeliveryEnabled && (
+                    <div className={`p-2 rounded-xl border text-[11px] flex items-center justify-between ${
+                      isFreeDelivery
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : 'bg-amber-50 border-amber-200 text-amber-900'
+                    }`}>
+                      <div className="flex items-center space-x-1.5 truncate">
+                        <Truck className="w-3.5 h-3.5 shrink-0 text-amber-700" />
+                        {isFreeDelivery ? (
+                          <span className="font-semibold truncate">🎉 FREE Delivery Unlocked! (Order above ₹{freeDeliveryThreshold})</span>
+                        ) : (
+                          <span className="truncate">
+                            Add <strong>₹{Math.max(0, freeDeliveryThreshold - itemsNetTotal).toFixed(0)}</strong> more for <strong>FREE Delivery</strong>
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-bold shrink-0 ml-2">
+                        {isFreeDelivery ? 'FREE' : `+₹${deliveryCharge}`}
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between text-xs">
                     <div>
                       <span className="text-slate-500">Gross: </span>
@@ -596,6 +646,56 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   )}
                 </div>
 
+                {/* Itemized Transparent Bill Breakdown Card */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1.5">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Items Subtotal (Gross):</span>
+                    <span className="font-mono font-bold text-slate-800">{formatINR(subtotal)}</span>
+                  </div>
+                  {totalDiscount > 0 && (
+                    <div className="flex justify-between text-emerald-600">
+                      <span>Trade Scheme Discounts:</span>
+                      <span className="font-mono font-bold">-{formatINR(totalDiscount)}</span>
+                    </div>
+                  )}
+                  {isDeliveryEnabled && (
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span className="flex items-center space-x-1">
+                        <Truck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <span>Delivery Fee:</span>
+                        {isFreeDelivery && (
+                          <span className="text-[10px] text-emerald-700 font-semibold">(Orders ≥ ₹{freeDeliveryThreshold})</span>
+                        )}
+                      </span>
+                      {isFreeDelivery ? (
+                        <span className="text-emerald-700 font-bold flex items-center space-x-1 font-mono">
+                          <span className="line-through text-slate-400 font-normal mr-1">₹{standardDeliveryCharge}</span>
+                          FREE
+                        </span>
+                      ) : (
+                        <span className="font-bold text-amber-800 font-mono">₹{deliveryCharge}</span>
+                      )}
+                    </div>
+                  )}
+                  {settings.enableMdr && (
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span className="flex items-center space-x-1">
+                        <Percent className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span>Govt. MDR ({mdrRate}%):</span>
+                      </span>
+                      {isMdrEnabled ? (
+                        <span className="font-bold text-blue-700 font-mono">+{formatINR(mdrCharge)}</span>
+                      ) : (
+                        <span className="text-slate-400 text-[10px]">₹0 (Waived on COD/Credit)</span>
+                      )}
+                    </div>
+                  )}
+                  <div className="border-t border-slate-200 pt-1.5 flex justify-between items-baseline font-black text-slate-900 text-sm">
+                    <span>Final Bill Amount:</span>
+                    <span className="text-blue-700 text-base font-mono">{formatINR(grandTotal)}</span>
+                  </div>
+                </div>
+
                 {/* Select Payment Mode Section Header */}
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
@@ -609,7 +709,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center space-x-1 cursor-pointer"
                     >
                       <SlidersHorizontal className="w-3 h-3" />
-                      <span>Settings</span>
+                      <span>Admin Settings</span>
                     </button>
                   )}
                 </div>
@@ -654,7 +754,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <div className="flex items-center justify-between">
                       <QrCode className={`w-4 h-4 ${selectedPaymentMode === 'qr' ? 'text-blue-600' : 'text-slate-500'}`} />
                       <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800">
-                        Zero Fee
+                        {settings.enableMdr ? `${mdrRate}% MDR` : 'Instant'}
                       </span>
                     </div>
                     <p className="text-xs font-bold text-slate-900 mt-1.5">Scan UPI QR</p>
@@ -739,33 +839,51 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       <span className="text-xs font-mono font-black text-blue-700">{formatINR(grandTotal)}</span>
                     </div>
 
-                    <div className="flex items-center justify-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <div className="flex flex-col items-center justify-center p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1.5">
                       {qrCodeDataUrl ? (
                         <img 
                           src={qrCodeDataUrl} 
-                          alt="Distributor UPI QR" 
-                          className="w-40 h-40 rounded-lg shadow-2xs"
+                          alt="Aryan Agency UPI QR" 
+                          className="w-44 h-44 rounded-lg shadow-2xs bg-white p-1.5 border border-slate-200"
                         />
                       ) : (
-                        <div className="w-40 h-40 flex items-center justify-center text-slate-400 text-xs">
+                        <div className="w-44 h-44 flex items-center justify-center text-slate-400 text-xs">
                           Generating QR...
                         </div>
                       )}
+                      <div className="text-center">
+                        <p className="text-xs font-black text-slate-900">{upiPayee}</p>
+                        <p className="text-[10.5px] text-emerald-700 font-semibold flex items-center justify-center space-x-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>Official Aryan Agency Settlement QR</span>
+                        </p>
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-200 text-xs">
                       <div>
-                        <p className="text-[10px] text-slate-500">Official Distributor UPI ID</p>
-                        <p className="font-mono font-bold text-slate-900">{settings.upiVpa}</p>
+                        <p className="text-[10px] text-slate-500">Official Company UPI ID</p>
+                        <p className="font-mono font-bold text-slate-900">{upiVpa}</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleCopyUPI}
-                        className="px-2.5 py-1 text-[11px] font-semibold bg-white border border-slate-300 rounded hover:bg-slate-100 text-slate-700 flex items-center space-x-1 cursor-pointer"
-                      >
-                        {copiedUpi ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedUpi ? 'Copied' : 'Copy'}</span>
-                      </button>
+                      <div className="flex items-center space-x-1.5">
+                        <button
+                          type="button"
+                          onClick={handleCopyUPI}
+                          className="px-2.5 py-1 text-[11px] font-semibold bg-white border border-slate-300 rounded hover:bg-slate-100 text-slate-700 flex items-center space-x-1 cursor-pointer"
+                        >
+                          {copiedUpi ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                          <span>{copiedUpi ? 'Copied' : 'Copy'}</span>
+                        </button>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => setIsSettingsModalOpen(true)}
+                            className="px-2 py-1 text-[11px] font-semibold text-blue-600 hover:bg-blue-50 border border-blue-200 rounded cursor-pointer"
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     <div>

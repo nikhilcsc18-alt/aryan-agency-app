@@ -233,10 +233,10 @@ export const ApnaClubPackSelectorModal: React.FC<ApnaClubPackSelectorModalProps>
                       </div>
                     </div>
 
-                    {/* Column 2: Aryan price/unit (AK price/unit) */}
+                    {/* Column 2: Aryan price/unit */}
                     <div className="text-center border-x border-slate-100 px-1">
                       <div className="text-[11px] sm:text-xs font-semibold text-slate-500 tracking-tight truncate">
-                        AK price/unit
+                        Aryan price/unit
                       </div>
                       <div className="text-base sm:text-lg font-black text-slate-900 mt-0.5 font-mono">
                         ₹{opt.unitPrice.toFixed(2)}

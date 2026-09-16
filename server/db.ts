@@ -706,9 +706,11 @@ class Database {
   }
 
   public deleteRetailer(id: string): boolean {
-    const initLen = this.data.retailers.length;
-    this.data.retailers = this.data.retailers.filter(r => r.id !== id);
-    if (this.data.retailers.length !== initLen) {
+    const retailer = this.data.retailers.find(r => r.id === id);
+    if (retailer) {
+      retailer.status = 'inactive';
+      (retailer as any).isActive = false;
+      (retailer as any).is_active = false;
       this.saveData(this.data);
       return true;
     }

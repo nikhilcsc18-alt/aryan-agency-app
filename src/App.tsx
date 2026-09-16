@@ -289,7 +289,11 @@ function MainApp() {
       };
     });
 
-    const finalBillAmount = Math.round(grossSubtotal - totalDiscount);
+    const deliveryCharge = Number(paymentDetails?.deliveryCharge || 0);
+    const mdrCharge = Number(paymentDetails?.mdrCharge || 0);
+    const finalBillAmount = paymentDetails?.grandTotal !== undefined
+      ? paymentDetails.grandTotal
+      : Math.round(grossSubtotal - totalDiscount + deliveryCharge + mdrCharge);
 
     // Map payment modes & statuses
     const mode = paymentDetails?.paymentMode || 'cod';
@@ -341,6 +345,13 @@ function MainApp() {
       orderRemarks = 'Payment Mode: Wholesale Ledger Credit (15 Days)';
     }
 
+    if (deliveryCharge > 0) {
+      orderRemarks += ` [Delivery: ₹${deliveryCharge}]`;
+    }
+    if (mdrCharge > 0) {
+      orderRemarks += ` [Govt MDR: ₹${mdrCharge}]`;
+    }
+
     const orderPayload = {
       retailerId: targetRetailer.id,
       retailerName: targetRetailer.storeName,
@@ -365,6 +376,8 @@ function MainApp() {
       igstTotal: 0,
       totalTax,
       totalGst: totalTax,
+      deliveryCharge,
+      mdrCharge,
       roundOff: 0,
       grandTotal: finalBillAmount,
       totalAmount: finalBillAmount,
@@ -393,6 +406,13 @@ function MainApp() {
   const handleSaveProduct = async (productData: Partial<Product>) => {
     try {
       const saved = await api.saveProduct(productData);
+      setProducts(prev => {
+        const exists = prev.some(p => p.id === saved.id);
+        if (exists) {
+          return prev.map(p => p.id === saved.id ? saved : p);
+        }
+        return [saved, ...prev];
+      });
       showToast(`SKU ${saved.sku || saved.name} saved successfully!`, 'success');
       await loadData();
       return true;

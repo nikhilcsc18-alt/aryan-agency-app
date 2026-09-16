@@ -54,7 +54,7 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
   const [casesCount, setCasesCount] = useState<number>(1);
   const [isAddedFeedback, setIsAddedFeedback] = useState(false);
 
-  // ApnaClub Packing options
+  // Packing options for Aryan Agency Wholesale
   const packingOptions = useMemo(() => getProductPackingOptions(product), [product]);
   const [selectedPackingId, setSelectedPackingId] = useState<string>(() => packingOptions[0]?.id || '');
 
@@ -65,15 +65,13 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
   }, [packingOptions, selectedPackingId]);
 
   const activePacking = packingOptions.find(p => p.id === selectedPackingId) || packingOptions[0];
-  const maxMargin = Math.max(...packingOptions.map(p => p.marginPercentage));
-  const unitPrice = activePacking?.unitPrice || product.wholesalePricePiece;
-  const unitMrp = activePacking?.unitMrp || product.mrpPiece;
-  const marginPct = activePacking?.marginPercentage || 15;
+  const unitPrice = product.wholesalePricePiece || activePacking?.unitPrice || 0;
+  const unitMrp = product.mrpPiece || activePacking?.unitMrp || 0;
 
   const isLowStock = product.currentStockCases <= product.reorderLevelCases;
   const isOutOfStock = product.currentStockCases <= 0;
 
-  // Determine smart offer / scheme badge
+  // Determine smart offer / scheme badge (Margin percentage removed per instruction)
   const getOfferBadge = () => {
     if (product.activeScheme && product.activeScheme.isActive) {
       if (product.activeScheme.freeQtyPcs && product.activeScheme.minQtyCases) {
@@ -88,13 +86,10 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
       return `🔥 ${product.activeScheme.title}`;
     }
 
-    if (maxMargin >= 22) {
-      return `🔥 UP TO ${maxMargin}% MARGIN`;
+    if (product.currentStockCases > 20) {
+      return '⭐ POPULAR';
     }
-    if (maxMargin >= 18) {
-      return `🔥 ${maxMargin}% MARGIN`;
-    }
-    return '🔥 HOT DEAL';
+    return '📦 WHOLESALE';
   };
 
   const offerBadge = getOfferBadge();
@@ -115,7 +110,12 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
     }
   };
 
+  // Clicking Add to Cart opens the Aryan Agency detail pack selector
   const handleAddToCartClick = () => {
+    if (onOpenPackSelector) {
+      onOpenPackSelector(product);
+      return;
+    }
     if (onAddToCart) {
       onAddToCart(product, casesCount, activePacking);
       setIsAddedFeedback(true);
@@ -124,6 +124,10 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
   };
 
   const handleBuyNowClick = () => {
+    if (onOpenPackSelector) {
+      onOpenPackSelector(product);
+      return;
+    }
     const qtyToBuy = inCartCount > 0 ? inCartCount : casesCount;
     if (onBuyNow) {
       onBuyNow(product, qtyToBuy, activePacking);
@@ -221,57 +225,7 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
           </h3>
         </div>
 
-        {/* ApnaClub-Style Packing Options Pills */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-slate-500 font-semibold">
-            <span className="flex items-center space-x-1">
-              <span>Packing:</span>
-              <span className="text-slate-900 font-bold">{activePacking ? activePacking.name : ''}</span>
-            </span>
-            {onOpenPackSelector && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenPackSelector(product);
-                }}
-                className="text-blue-600 hover:text-blue-800 font-bold text-[10px] flex items-center space-x-0.5 cursor-pointer underline decoration-blue-300"
-              >
-                <span>ApnaClub View</span>
-                <span>↗</span>
-              </button>
-            )}
-          </div>
-
-          {/* Unlocked Packing Chips: Pack of 3, 4, 10, 40, etc. */}
-          <div className="flex items-center space-x-1.5 overflow-x-auto no-scrollbar py-0.5">
-            {packingOptions.map((opt) => {
-              const isSelected = opt.id === selectedPackingId;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setSelectedPackingId(opt.id)}
-                  className={`px-2 py-1 rounded-lg text-[9.5px] sm:text-[10.5px] font-bold border transition-all whitespace-nowrap cursor-pointer shrink-0 ${
-                    isSelected
-                      ? 'bg-amber-400 text-slate-950 border-amber-500 shadow-2xs'
-                      : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
-                  }`}
-                  title={`${opt.name} (${opt.pieces} pcs) @ ₹${opt.unitPrice.toFixed(2)}/pc (${opt.marginPercentage}% margin)`}
-                >
-                  <span>{opt.name}</span>
-                  <span className={`ml-1 text-[8.5px] sm:text-[9.5px] font-black ${
-                    isSelected ? 'text-slate-950' : 'text-emerald-700'
-                  }`}>
-                    +{opt.marginPercentage}%
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Pricing Block (ApnaClub style: Single Unit Rate + MRP + Margin) */}
+        {/* Pricing Block - Clean Wholesale Rate & MRP (Pack of 1, Pack of 2 & Margin % removed per instructions) */}
         <div className="bg-slate-50/90 rounded-xl p-2 sm:p-2.5 border border-slate-200/80 space-y-1.5">
           <div className="flex items-baseline justify-between gap-1">
             <div className="flex items-baseline space-x-1 min-w-0">
@@ -279,78 +233,38 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
                 ₹{unitPrice.toFixed(2)}
               </span>
               <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500">/pc</span>
-              {activePacking?.unitMrp && activePacking.unitMrp > unitPrice && (
+              {unitMrp > unitPrice && (
                 <span className="text-[9.5px] text-slate-400 line-through ml-1 font-mono">
-                  ₹{activePacking.unitMrp.toFixed(1)}
+                  ₹{unitMrp.toFixed(1)}
                 </span>
               )}
             </div>
 
-            <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10.5px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0 shadow-2xs">
-              +{marginPct}% MARGIN
+            <span className="text-[10px] sm:text-[11px] font-bold text-slate-600 font-mono">
+              MRP ₹{unitMrp.toFixed(1)}
             </span>
           </div>
 
-          {/* Pack Price and Total MRP with Savings */}
+          {/* Case Price and Pieces info */}
           <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 font-mono">
             <span className="truncate">
-              Pack: <strong className="text-slate-900 font-bold">{formatINR(activePacking?.sellingPrice || product.casePrice)}</strong>
+              Case: <strong className="text-slate-900 font-bold">{formatINR(product.casePrice || (unitPrice * (product.piecesPerCase || 24)))}</strong>
             </span>
             <span className="text-slate-500 shrink-0 text-[9.5px] sm:text-[10.5px]">
-              MRP <span className="line-through text-slate-400">₹{activePacking ? activePacking.mrp : product.mrpPiece}</span>
-              {activePacking && activePacking.mrp > activePacking.sellingPrice && (
-                <span className="text-emerald-700 font-bold ml-1">
-                  (Save ₹{(activePacking.mrp - activePacking.sellingPrice).toFixed(0)})
-                </span>
-              )}
+              {product.piecesPerCase || 24} pcs/cs
             </span>
           </div>
         </div>
 
-        {/* Quantity Controls & Add to Cart */}
-        <div className="space-y-1.5 sm:space-y-2 pt-0.5">
-          
-          {/* [ - ] Quantity [ + ] Selector */}
-          <div className="flex items-center justify-between bg-slate-100 rounded-lg sm:rounded-xl p-0.5 sm:p-1 border border-slate-200">
-            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-600 pl-1.5 truncate">
-              <span>Qty: </span>
-              <span className="text-slate-900 font-bold">{activeDisplayQty} {activePacking ? 'pack' : 'cs'}</span>
-            </span>
-
-            <div className="flex items-center space-x-1">
-              <button
-                type="button"
-                onClick={handleDecrement}
-                disabled={isOutOfStock}
-                aria-label="Decrease quantity"
-                className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-white hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs sm:text-sm shadow-2xs transition-all active:scale-90 disabled:opacity-40 cursor-pointer"
-              >
-                <Minus className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
-              </button>
-
-              <span className="w-6 sm:w-7 text-center text-xs font-black font-mono text-slate-900">
-                {activeDisplayQty}
-              </span>
-
-              <button
-                type="button"
-                onClick={handleIncrement}
-                disabled={isOutOfStock}
-                aria-label="Increase quantity"
-                className="w-6 h-6 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-white hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs sm:text-sm shadow-2xs transition-all active:scale-90 disabled:opacity-40 cursor-pointer"
-              >
-                <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
-              </button>
-            </div>
-          </div>
-
-          {/* Action Buttons (Add to Cart / Buy Now) */}
+        {/* Action Buttons (Clicking Add to Cart opens the Aryan Agency Pack Selector Detail View) */}
+        <div className="space-y-1.5 pt-0.5">
           {inCartCount > 0 ? (
             <div className="flex items-center space-x-1">
               <button
                 type="button"
                 onClick={handleAddToCartClick}
                 className="flex-1 py-2 sm:py-2.5 px-2 sm:px-3 rounded-lg sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center space-x-1 transition-all shadow-xs cursor-pointer active:scale-98 truncate"
+                title="View & Edit Selected Packs"
               >
                 <Check className="w-3.5 h-3.5 shrink-0 text-emerald-400" />
                 <span className="truncate">In Cart ({inCartCount})</span>
@@ -436,7 +350,6 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
               )}
             </div>
           )}
-
         </div>
 
       </div>

@@ -321,11 +321,11 @@ export const BulkProductAddModal: React.FC<BulkProductAddModalProps> = ({
                   Multiple Product Add (एक साथ कई Products जोड़ें)
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                  ApnaClub Pricing & Margin
+                  Aryan Agency Pricing & Margin
                 </span>
               </div>
               <p className="text-[10px] sm:text-xs text-slate-300">
-                Add multiple SKUs with tiered packing options (Pack of 10 &amp; 40) in a single fast session.
+                Add multiple SKUs with tiered packing options (Pack of 1, 2, 10 &amp; 40) in a single fast session.
               </p>
             </div>
           </div>

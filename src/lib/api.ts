@@ -278,10 +278,22 @@ export const api = {
     if (!list || list.length === 0) {
       list = await safeJsonFetch<Product[]>('/api/products', {}, []);
     }
-    return (list || []).map((p: any) => ({
-      ...p,
-      sku: p.sku || p.product_sku || p.productSku || p.code || p.item_code || ''
-    }));
+    return (list || []).map((p: any) => {
+      let packingOptions = p.packingOptions || p.packing_options;
+      if ((!packingOptions || packingOptions.length === 0) && p.id && typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem(`aryan_packing_${p.id}`);
+          if (cached) {
+            packingOptions = JSON.parse(cached);
+          }
+        } catch {}
+      }
+      return {
+        ...p,
+        packingOptions,
+        sku: p.sku || p.product_sku || p.productSku || p.code || p.item_code || ''
+      };
+    });
   },
 
   async saveProduct(product: Partial<Product>): Promise<Product> {
@@ -293,6 +305,12 @@ export const api = {
       sku: normalizedSku,
       product_sku: normalizedSku
     };
+
+    if (productId && product.packingOptions && Array.isArray(product.packingOptions) && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`aryan_packing_${productId}`, JSON.stringify(product.packingOptions));
+      } catch {}
+    }
 
     let savedResult: Product | null = null;
 
@@ -432,14 +450,18 @@ export const api = {
   },
 
   async deleteRetailer(id: string): Promise<{ success: boolean }> {
+    let supabaseSuccess = false;
     if (isSupabaseConfigured) {
       try {
-        await supabaseService.deleteRetailer(id);
-      } catch (e) {
-        console.warn('Supabase deleteRetailer fallback:', e);
+        const res = await supabaseService.deleteRetailer(id);
+        if (res !== null) supabaseSuccess = true;
+      } catch (e: any) {
+        console.error('Supabase deleteRetailer error:', e?.message || e);
+        throw new Error(e?.message || 'Failed to remove retailer from database');
       }
     }
-    return safeMutationFetch<{ success: boolean }>(`/api/retailers/${id}`, { method: 'DELETE' }, { success: true });
+    const localRes = await safeMutationFetch<{ success: boolean }>(`/api/retailers/${id}`, { method: 'DELETE' }, { success: true });
+    return { success: supabaseSuccess || localRes.success };
   },
 
   // Salesmen
