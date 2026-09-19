@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   build-apk:
@@ -52,7 +53,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platforms;android-34 build-tools;34.0.0 platform-tools'
+          packages: 'platforms;android-36 platforms;android-35 platforms;android-34 build-tools;36.0.0 build-tools;35.0.0 build-tools;34.0.0 platform-tools'
 
       - name: Accept Android SDK Licenses
         run: |
@@ -69,13 +70,14 @@ jobs:
 
       - name: Build APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: aryan-agency-app-v${{ steps.version.outputs.version }}
           path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
 
       - name: Prepare APK Release File
         run: |
@@ -83,6 +85,8 @@ jobs:
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: v${{ steps.version.outputs.version }}
           name: Aryan Agency App v${{ steps.version.outputs.version }}
@@ -108,6 +112,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes in version.json"
           else
-            git commit -m "chore(distribution): update version.json to v${{ steps.version.outputs.version }} [skip ci]"
+            git commit -m "chore(distribution): update version.json to v${{ steps.version.outputs.version }} [skip ci]" || true
+            git pull --rebase origin main || true
             git push origin HEAD:main || true
           fi
