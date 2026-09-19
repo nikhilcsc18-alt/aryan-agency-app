@@ -366,14 +366,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       >
                         {/* Top: Image, Brand, SKU & Product Title */}
                         <div className="flex items-start space-x-2.5">
-                          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-slate-50 border border-slate-100 shrink-0 overflow-hidden flex items-center justify-center p-1">
+                          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-lg bg-white border border-slate-200 shrink-0 overflow-hidden flex items-center justify-center p-1">
                             <ProductImage
                               src={p.imageUrl}
                               alt={p.name}
                               brand={p.brand}
                               category={p.category}
                               sku={p.sku}
+                              objectFit="contain"
                               className="w-full h-full object-contain"
+                              containerClassName="w-full h-full relative flex items-center justify-center bg-white"
                             />
                           </div>
 

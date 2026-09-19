@@ -10,6 +10,25 @@ export interface User {
   salesmanId?: string;
   retailerId?: string;
   deliveryId?: string;
+  // Business Profile & Location fields
+  businessName?: string; // Company / Agency / Shop name
+  businessLogoUrl?: string; // Shop or Company Logo
+  address?: string; // Full physical address / warehouse / shop address
+  city?: string;
+  state?: string;
+  pincode?: string;
+  gstin?: string;
+  panNumber?: string;
+  locationCoordinates?: {
+    lat?: number;
+    lng?: number;
+    addressText?: string;
+  };
+  // Retailer Verification (kyc / onboarding)
+  verificationStatus?: 'pending' | 'verified' | 'rejected';
+  verificationRemarks?: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
 }
 
 export interface Category {
@@ -124,6 +143,13 @@ export interface Retailer {
   isActive?: boolean;
   createdAt: string;
   creditEnabled?: boolean; // Admin-controlled toggle for Credit/Udhar access
+  // Profile, Logo and KYC verification fields
+  logoUrl?: string; // Store front or retailer logo
+  photoUrl?: string; // Owner photo
+  verificationStatus?: 'pending' | 'verified' | 'rejected';
+  verificationRemarks?: string;
+  verifiedAt?: string;
+  verifiedBy?: string;
 }
 
 export interface Salesman {
@@ -302,10 +328,15 @@ export interface PromotionalBanner {
   badgeText: string; // e.g. "🔥 5 + 2 FREE", "10% OFF", "NEW", "BEST OFFER"
   ctaText?: string;
   targetCategory?: string;
+  targetBrand?: string; // Brand to filter when banner or Buy Now is clicked
   imageUrl: string;
   bgGradient: string;
   accentColor?: string;
   isActive: boolean;
+  hideTextOverlay?: boolean; // When true, hides title, subtitle, badges so only the pure graphic banner shows
+  posterFit?: 'cover' | 'fill' | 'contain'; // Display style for poster: 'cover' fills entire space, 'fill' stretches 100%
+  showBuyNow?: boolean; // Whether to show Buy Now button on the banner
+  buyNowText?: string; // Custom label for Buy Now button, e.g. "अभी खरीदें (Buy Now)"
 }
 
 export type NavTab = 
@@ -317,7 +348,8 @@ export type NavTab =
   | 'retailers' 
   | 'salesmen' 
   | 'deliveries' 
-  | 'payments';
+  | 'payments'
+  | 'banners';
 
 export interface AppNotification {
   id: string;

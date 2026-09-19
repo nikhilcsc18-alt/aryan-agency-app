@@ -25,6 +25,18 @@ const PORT = 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Enable CORS for mobile devices, Capacitor Android apps, and external browser origins
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-Id, X-User-Role, Accept, Cache-Control');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Initialize Supabase Server Client for token validation
 const rawSupabaseUrl = 
   process.env.VITE_SUPABASE_URL || 
@@ -291,6 +303,158 @@ const handleUpdateUserRole = (req: any, res: any) => {
 app.put('/api/auth/users/:id/role', requireRoles(['admin']), handleUpdateUserRole);
 app.put('/api/users/:id/role', requireRoles(['admin']), handleUpdateUserRole);
 
+// Profile Update Endpoint (Used by Admin, Retailer, Salesman to update their profile, logo, business details, location)
+app.put('/api/auth/profile', (req, res) => {
+  const headerUserId = req.headers['x-user-id'] as string;
+  const headerUserRole = req.headers['x-user-role'] as string;
+  const currentUserId = req.user?.id || headerUserId || currentActiveUserId;
+  const users = db.getUsers();
+  
+  const {
+    id: bodyId,
+    name,
+    email,
+    phone,
+    avatarUrl,
+    businessName,
+    businessLogoUrl,
+    address,
+    city,
+    state,
+    pincode,
+    gstin,
+    panNumber,
+    locationCoordinates,
+    role
+  } = req.body;
+
+  // Search by ID, or email, or phone
+  let user = users.find(u => 
+    u.id === currentUserId || 
+    (bodyId && u.id === bodyId) ||
+    (email && u.email && u.email.toLowerCase() === email.trim().toLowerCase()) ||
+    (phone && u.phone && u.phone.trim() === phone.trim())
+  );
+
+  // If user still not found, create a new persistent user record so retailer profile updates never fail!
+  if (!user) {
+    const assignedId = currentUserId || bodyId || `usr_${Date.now()}`;
+    const userRole = (role || headerUserRole || req.userRole || 'retailer') as any;
+    user = {
+      id: assignedId,
+      name: (name || 'Retailer Partner').trim(),
+      email: (email || `${assignedId}@retailer.aryanagency.in`).trim().toLowerCase(),
+      phone: (phone || '+91 98000 00000').trim(),
+      role: userRole,
+      avatarUrl: avatarUrl || undefined,
+      businessName: businessName || undefined,
+      businessLogoUrl: businessLogoUrl || undefined,
+      address: address || undefined,
+      city: city || 'Bengaluru',
+      state: state || 'Karnataka',
+      pincode: pincode || '560022',
+      gstin: gstin ? gstin.trim().toUpperCase() : undefined,
+      panNumber: panNumber ? panNumber.trim().toUpperCase() : undefined,
+      locationCoordinates: locationCoordinates || undefined,
+      verificationStatus: 'pending'
+    };
+  } else {
+    if (name !== undefined) user.name = name.trim();
+    if (email !== undefined) user.email = email.trim().toLowerCase();
+    if (phone !== undefined) user.phone = phone.trim();
+    if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
+    if (businessName !== undefined) user.businessName = businessName;
+    if (businessLogoUrl !== undefined) user.businessLogoUrl = businessLogoUrl;
+    if (address !== undefined) user.address = address;
+    if (city !== undefined) user.city = city;
+    if (state !== undefined) user.state = state;
+    if (pincode !== undefined) user.pincode = pincode;
+    if (gstin !== undefined) user.gstin = gstin.trim().toUpperCase();
+    if (panNumber !== undefined) user.panNumber = panNumber.trim().toUpperCase();
+    if (locationCoordinates !== undefined) user.locationCoordinates = locationCoordinates;
+  }
+
+  // If this user is a retailer and has a linked retailer record, sync changes
+  if (user.retailerId || user.role === 'retailer') {
+    const retailerId = user.retailerId || user.id;
+    const existingRetailer = db.getRetailerById(retailerId) || db.getRetailers().find(r => 
+      (user.phone && r.phone === user.phone) || 
+      (user.email && r.email === user.email) ||
+      (bodyId && r.id === bodyId)
+    );
+    if (existingRetailer) {
+      if (businessName) existingRetailer.storeName = businessName;
+      if (name) existingRetailer.ownerName = name;
+      if (phone) existingRetailer.phone = phone;
+      if (email) existingRetailer.email = email;
+      if (address) existingRetailer.address = address;
+      if (gstin) existingRetailer.gstin = gstin;
+      if (panNumber) existingRetailer.panNumber = panNumber;
+      if (businessLogoUrl) existingRetailer.logoUrl = businessLogoUrl;
+      if (avatarUrl) existingRetailer.photoUrl = avatarUrl;
+      if (locationCoordinates?.lat && locationCoordinates?.lng) {
+        existingRetailer.lat = locationCoordinates.lat;
+        existingRetailer.lng = locationCoordinates.lng;
+      }
+      db.saveRetailer(existingRetailer);
+    }
+  }
+
+  db.saveUser(user);
+
+  // Sync to Supabase users table if connected
+  if (supabaseServer) {
+    Promise.resolve(
+      supabaseServer
+        .from('users')
+        .update({
+          name: user.name,
+          phone: user.phone,
+          avatar_url: user.avatarUrl,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+    ).catch(e => console.warn('[Supabase Profile Sync Warning]:', e));
+  }
+
+  res.json({ success: true, user });
+});
+
+// Admin-Only Verification Endpoint for Retailer Onboarding / KYC Verification
+app.put('/api/retailers/:id/verify', requireRoles(['admin']), (req, res) => {
+  const retailerId = req.params.id;
+  const { status, remarks } = req.body;
+
+  if (!['pending', 'verified', 'rejected'].includes(status)) {
+    return res.status(400).json({ error: "Invalid verification status. Must be 'pending', 'verified', or 'rejected'." });
+  }
+
+  const retailer = db.getRetailerById(retailerId);
+  if (!retailer) {
+    return res.status(404).json({ error: 'Retailer not found' });
+  }
+
+  retailer.verificationStatus = status;
+  retailer.verificationRemarks = remarks || '';
+  retailer.verifiedAt = status === 'verified' ? new Date().toISOString() : undefined;
+  retailer.verifiedBy = status === 'verified' ? (req.user?.name || 'Admin') : undefined;
+
+  db.saveRetailer(retailer);
+
+  // Also sync user verification if user account is linked
+  const users = db.getUsers();
+  const linkedUser = users.find(u => u.retailerId === retailer.id || u.phone === retailer.phone || (retailer.email && u.email === retailer.email));
+  if (linkedUser) {
+    linkedUser.verificationStatus = status;
+    linkedUser.verificationRemarks = remarks || '';
+    linkedUser.verifiedAt = retailer.verifiedAt;
+    linkedUser.verifiedBy = retailer.verifiedBy;
+    db.saveUser(linkedUser);
+  }
+
+  res.json({ success: true, retailer, message: `Retailer verification status updated to ${status.toUpperCase()}` });
+});
+
 // Products
 app.get('/api/products', (req, res) => {
   const products = db.getProducts().map(p => ({
@@ -316,16 +480,39 @@ app.post('/api/products', requireRoles(['admin']), (req, res) => {
 app.put('/api/products/:id', requireRoles(['admin']), (req, res) => {
   const id = req.params.id;
   const existing = db.getProductById(id);
-  if (!existing) {
-    return res.status(404).json({ error: 'Product not found' });
-  }
-  const updated = { ...existing, ...req.body, id };
-  updated.sku = req.body.sku || req.body.product_sku || req.body.productSku || existing.sku || '';
+  const updated = existing 
+    ? { ...existing, ...req.body, id } 
+    : {
+        id,
+        name: req.body.name || 'Unnamed Product',
+        brand: req.body.brand || 'General FMCG',
+        category: req.body.category || 'General',
+        sku: req.body.sku || req.body.product_sku || req.body.productSku || '',
+        product_sku: req.body.sku || req.body.product_sku || req.body.productSku || '',
+        hsnCode: req.body.hsnCode || '1905',
+        piecesPerCase: Number(req.body.piecesPerCase) || 24,
+        wholesalePricePiece: Number(req.body.wholesalePricePiece) || 0,
+        casePrice: Number(req.body.casePrice) || (Number(req.body.wholesalePricePiece || 0) * (Number(req.body.piecesPerCase) || 24)),
+        mrpPiece: Number(req.body.mrpPiece) || 0,
+        gstRate: Number(req.body.gstRate) || 18,
+        currentStockCases: Number(req.body.currentStockCases) || 0,
+        currentStockLoosePcs: Number(req.body.currentStockLoosePcs) || 0,
+        reorderLevelCases: Number(req.body.reorderLevelCases) || 10,
+        primaryWarehouseBin: req.body.primaryWarehouseBin || 'BAY-A1',
+        imageUrl: req.body.imageUrl || '',
+        activeScheme: req.body.activeScheme || null,
+        batches: req.body.batches || [],
+        packingOptions: req.body.packingOptions || [],
+        ...req.body
+      };
+
+  updated.sku = req.body.sku || req.body.product_sku || req.body.productSku || (existing ? existing.sku : '') || updated.sku || '';
+  updated.product_sku = updated.sku;
   if (updated.wholesalePricePiece && updated.piecesPerCase) {
     updated.casePrice = Number(updated.wholesalePricePiece) * Number(updated.piecesPerCase);
   }
-  db.saveProduct(updated);
-  res.json(updated);
+  const saved = db.saveProduct(updated);
+  res.json(saved || updated);
 });
 
 app.delete('/api/products/:id', requireRoles(['admin']), (req, res) => {
@@ -1030,6 +1217,69 @@ app.get('/api/analytics', (req, res) => {
   });
 });
 
+// Promotional Banners Management Endpoints
+app.get('/api/banners', (req, res) => {
+  const banners = db.getBanners();
+  res.json(banners);
+});
+
+app.post('/api/banners', requireRoles(['admin', 'salesman']), (req, res) => {
+  const raw = req.body;
+  const newBanner = {
+    id: raw.id || `banner_${Date.now()}`,
+    title: raw.title || 'Special Wholesale Offer',
+    subtitle: raw.subtitle || '',
+    badgeText: raw.badgeText || 'विशेष ऑफर',
+    ctaText: raw.ctaText || '',
+    targetCategory: raw.targetCategory || '',
+    targetBrand: raw.targetBrand || '',
+    imageUrl: raw.imageUrl || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&auto=format&fit=crop&q=80',
+    bgGradient: raw.bgGradient || 'from-[#F6BD27] via-[#F4B218] to-[#E89E0B]',
+    accentColor: raw.accentColor || '',
+    isActive: raw.isActive !== undefined ? Boolean(raw.isActive) : true,
+    hideTextOverlay: raw.hideTextOverlay !== undefined ? Boolean(raw.hideTextOverlay) : false,
+    posterFit: raw.posterFit || 'cover',
+    showBuyNow: raw.showBuyNow !== undefined ? Boolean(raw.showBuyNow) : true,
+    buyNowText: raw.buyNowText || 'अभी खरीदें (Buy Now)'
+  };
+  const saved = db.saveBanner(newBanner);
+  res.json(saved);
+});
+
+app.put('/api/banners/:id', requireRoles(['admin', 'salesman']), (req, res) => {
+  const id = req.params.id;
+  const banners = db.getBanners();
+  const existing = banners.find(b => b.id === id);
+  const updated = existing 
+    ? { ...existing, ...req.body, id }
+    : {
+        id,
+        title: req.body.title || 'Special Promotion',
+        subtitle: req.body.subtitle || '',
+        badgeText: req.body.badgeText || 'HOT DEAL',
+        bgGradient: req.body.bgGradient || 'from-blue-900 via-indigo-900 to-slate-950',
+        imageUrl: req.body.imageUrl || '',
+        targetCategory: req.body.targetCategory || 'Biscuits & Bakery',
+        ctaText: req.body.ctaText || 'Shop Now',
+        isActive: req.body.isActive !== false,
+        priority: Number(req.body.priority) || 5,
+        hideTextOverlay: !!req.body.hideTextOverlay,
+        posterFit: req.body.posterFit || 'cover',
+        targetBrand: req.body.targetBrand || '',
+        showBuyNow: req.body.showBuyNow !== false,
+        buyNowText: req.body.buyNowText || 'अभी खरीदें (Buy Now)',
+        ...req.body
+      };
+  const saved = db.saveBanner(updated);
+  res.json(saved || updated);
+});
+
+app.delete('/api/banners/:id', requireRoles(['admin', 'salesman']), (req, res) => {
+  const id = req.params.id;
+  const success = db.deleteBanner(id);
+  res.json({ success });
+});
+
 // AI Copilot Endpoints
 app.post('/api/ai/parse-order', async (req, res) => {
   const { text } = req.body;
@@ -1079,17 +1329,20 @@ app.get('/download/aryan-agency-app.apk', (req, res) => {
   return res.redirect(302, GITHUB_LATEST_APK_URL);
 });
 
-app.get('/download/version.json', (req, res) => {
-  const possiblePaths = [
-    path.join(process.cwd(), 'public', 'download', 'version.json'),
-    path.join(process.cwd(), 'dist', 'download', 'version.json'),
-  ];
-  const versionPath = possiblePaths.find(p => fs.existsSync(p));
-  if (!versionPath) {
-    return res.status(404).json({ error: 'version.json not found on server' });
-  }
+// App Version & APK Distribution Configuration Endpoints (Live update sync for mobile apps)
+app.get(['/download/version.json', '/api/app/version'], (req, res) => {
   res.setHeader('Content-Type', 'application/json');
-  res.sendFile(versionPath);
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  const versionConfig = db.getAppVersionConfig();
+  res.json(versionConfig);
+});
+
+app.post('/api/app/version', requireRoles(['admin']), (req, res) => {
+  const updated = db.saveAppVersionConfig(req.body);
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.json({ success: true, versionConfig: updated, message: 'App version updated on server. All mobile devices will now see this update.' });
 });
 
 // Explicit 404 handler for unmatched /api/* requests so Vite SPA never returns index.html for API calls
@@ -1116,6 +1369,9 @@ async function startServer() {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

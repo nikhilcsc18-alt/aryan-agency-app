@@ -164,31 +164,47 @@ export const ApnaClubPackSelectorModal: React.FC<ApnaClubPackSelectorModalProps>
         {/* Top Product Header Row (Exact match to uploaded screenshot) */}
         <div className="p-4 sm:p-5 border-b border-slate-100 bg-white shrink-0">
           <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-wider text-blue-600 mb-1">
-                <span className="bg-blue-50 px-2 py-0.5 rounded border border-blue-100">{product.brand}</span>
-                <span className="text-slate-400">•</span>
-                <span className="text-slate-500">{product.category}</span>
-              </div>
-              <h2 className="text-base sm:text-lg font-black text-slate-900 leading-snug line-clamp-2">
-                {product.name}
-              </h2>
+            <div className="flex items-start space-x-3 min-w-0 flex-1">
+              {product.imageUrl && (
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl border border-slate-200 bg-white p-1 shrink-0 flex items-center justify-center overflow-hidden">
+                  <ProductImage
+                    src={product.imageUrl}
+                    alt={product.name}
+                    brand={product.brand}
+                    category={product.category}
+                    sku={product.sku}
+                    objectFit="contain"
+                    className="w-full h-full object-contain"
+                    containerClassName="w-full h-full relative flex items-center justify-center bg-white"
+                  />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-wider text-blue-600 mb-1">
+                  <span className="bg-blue-50 px-2 py-0.5 rounded border border-blue-100">{product.brand}</span>
+                  <span className="text-slate-400">•</span>
+                  <span className="text-slate-500">{product.category}</span>
+                </div>
+                <h2 className="text-base sm:text-lg font-black text-slate-900 leading-snug line-clamp-2">
+                  {product.name}
+                </h2>
 
-              {/* MRP & WhatsApp Share Row */}
-              <div className="flex items-center space-x-3 mt-1.5">
-                <span className="text-xs sm:text-sm font-bold text-slate-700 font-mono">
-                  <span className="font-black text-slate-900">₹{(product.mrpPiece || 0).toFixed(1)}</span>
-                  <span className="text-slate-500 font-normal ml-1">MRP per unit</span>
-                </span>
+                {/* MRP & WhatsApp Share Row */}
+                <div className="flex items-center space-x-3 mt-1.5">
+                  <span className="text-xs sm:text-sm font-bold text-slate-700 font-mono">
+                    <span className="font-black text-slate-900">₹{(product.mrpPiece || 0).toFixed(1)}</span>
+                    <span className="text-slate-500 font-normal ml-1">MRP per unit</span>
+                  </span>
 
-                <button
-                  type="button"
-                  onClick={handleShareOnWhatsApp}
-                  title="Share pack details on WhatsApp"
-                  className="w-7 h-7 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-600 flex items-center justify-center transition-colors cursor-pointer"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={handleShareOnWhatsApp}
+                    title="Share pack details on WhatsApp"
+                    className="w-7 h-7 rounded-full bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-600 flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
 

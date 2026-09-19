@@ -16,7 +16,13 @@ import {
   Building,
   Trash2,
   AlertCircle,
-  Loader2
+  Loader2,
+  ShieldCheck,
+  ShieldAlert,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Camera
 } from 'lucide-react';
 import { Retailer } from '../types';
 import { formatINR, formatINRDecimals, api } from '../lib/api';
@@ -43,7 +49,9 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   const [selectedBeat, setSelectedBeat] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [creditAccessFilter, setCreditAccessFilter] = useState<string>('all');
+  const [verificationFilter, setVerificationFilter] = useState<string>('all');
   const [togglingCreditId, setTogglingCreditId] = useState<string | null>(null);
+  const [verifyingRetailerId, setVerifyingRetailerId] = useState<string | null>(null);
 
   // Edit / Add Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -88,9 +96,30 @@ const filteredRetailers = visibleRetailers.filter(r => {
     (creditAccessFilter === 'enabled' && isCreditOn) ||
     (creditAccessFilter === 'disabled' && !isCreditOn);
 
-  return matchesSearch && matchesBeat && matchesStatus && matchesCreditAccess;
+  const vStatus = r.verificationStatus || 'pending';
+  const matchesVerification = 
+    verificationFilter === 'all' ||
+    r.verificationStatus === verificationFilter ||
+    (verificationFilter === 'pending' && !r.verificationStatus);
+
+  return matchesSearch && matchesBeat && matchesStatus && matchesCreditAccess && matchesVerification;
 
 });
+
+  const handleVerifyRetailer = async (retailerId: string, status: 'verified' | 'rejected', remarks?: string) => {
+    if (!isAdmin) return;
+    try {
+      setVerifyingRetailerId(retailerId);
+      const res = await api.verifyRetailer(retailerId, status, remarks);
+      if (res && res.retailer) {
+        await onSaveRetailer(res.retailer);
+      }
+    } catch (err: any) {
+      console.error('[RetailersView Verify Retailer Error]:', err);
+    } finally {
+      setVerifyingRetailerId(null);
+    }
+  };
 
   const handleToggleCredit = async (retailer: Retailer, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -269,7 +298,7 @@ const filteredRetailers = visibleRetailers.filter(r => {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
@@ -320,6 +349,19 @@ const filteredRetailers = visibleRetailers.filter(r => {
             </select>
           </div>
 
+          <div>
+            <select
+              value={verificationFilter}
+              onChange={(e) => setVerificationFilter(e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+            >
+              <option value="all">All KYC Statuses</option>
+              <option value="verified">✓ KYC Verified Only</option>
+              <option value="pending">⏳ Pending Review Only</option>
+              <option value="rejected">✕ Rejected Only</option>
+            </select>
+          </div>
+
         </div>
       </div>
 
@@ -338,24 +380,61 @@ const filteredRetailers = visibleRetailers.filter(r => {
                 {/* Store Header */}
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563eb] border border-blue-100 flex items-center justify-center shrink-0 mt-0.5">
-                      <Store className="w-4 h-4" />
-                    </div>
+                    {retailer.logoUrl ? (
+                      <img 
+                        src={retailer.logoUrl} 
+                        alt={retailer.storeName}
+                        className="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0 mt-0.5"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563eb] border border-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                        <Store className="w-4 h-4" />
+                      </div>
+                    )}
                     <div>
                       <h3 className="font-bold text-slate-900 text-sm leading-tight">{retailer.storeName}</h3>
                       <p className="text-[11px] text-slate-600 font-medium mt-0.5">Prop: {retailer.ownerName}</p>
                     </div>
                   </div>
 
-                  <span className={`status-pill ${
-                    retailer.status === 'blocked'
-                      ? 'status-danger'
-                      : isOverdue
-                      ? 'status-warning'
-                      : 'status-success'
-                  }`}>
-                    {retailer.status}
-                  </span>
+                  <div className="flex flex-col items-end space-y-1">
+                    <span className={`status-pill ${
+                      retailer.status === 'blocked'
+                        ? 'status-danger'
+                        : isOverdue
+                        ? 'status-warning'
+                        : 'status-success'
+                    }`}>
+                      {retailer.status}
+                    </span>
+
+                    {/* Verification Status Pill */}
+                    <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full flex items-center space-x-1 border ${
+                      retailer.verificationStatus === 'verified'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        : retailer.verificationStatus === 'rejected'
+                        ? 'bg-rose-50 text-rose-700 border-rose-200'
+                        : 'bg-amber-50 text-amber-800 border-amber-200'
+                    }`}>
+                      {retailer.verificationStatus === 'verified' ? (
+                        <>
+                          <CheckCircle2 className="w-2.5 h-2.5 mr-0.5 text-emerald-600" />
+                          <span>KYC Verified</span>
+                        </>
+                      ) : retailer.verificationStatus === 'rejected' ? (
+                        <>
+                          <XCircle className="w-2.5 h-2.5 mr-0.5 text-rose-600" />
+                          <span>Rejected</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-2.5 h-2.5 mr-0.5 text-amber-600" />
+                          <span>Pending KYC</span>
+                        </>
+                      )}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Beat & Contact Info */}
@@ -457,6 +536,18 @@ const filteredRetailers = visibleRetailers.filter(r => {
                 </button>
 
                 <div className="flex items-center space-x-1.5">
+                  {isAdmin && retailer.verificationStatus !== 'verified' && (
+                    <button
+                      disabled={verifyingRetailerId === retailer.id}
+                      onClick={() => handleVerifyRetailer(retailer.id, 'verified')}
+                      className="px-2 py-1 text-[11px] font-bold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer flex items-center space-x-1 shadow-xs"
+                      title="Approve & Verify Retailer KYC Profile"
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>{verifyingRetailerId === retailer.id ? '...' : 'Verify'}</span>
+                    </button>
+                  )}
+
                   {!isRetailer && (
                     <button
                       onClick={() => onRecordPaymentForRetailer(retailer)}
@@ -616,6 +707,50 @@ const filteredRetailers = visibleRetailers.filter(r => {
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">City</label>
+                  <input
+                    type="text"
+                    value={editingRetailer.city || ''}
+                    onChange={(e) => setEditingRetailer({ ...editingRetailer, city: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+                    placeholder="Bangalore"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">State</label>
+                  <input
+                    type="text"
+                    value={editingRetailer.state || ''}
+                    onChange={(e) => setEditingRetailer({ ...editingRetailer, state: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+                    placeholder="Karnataka"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">PIN Code</label>
+                  <input
+                    type="text"
+                    value={editingRetailer.pincode || ''}
+                    onChange={(e) => setEditingRetailer({ ...editingRetailer, pincode: e.target.value })}
+                    className="w-full px-3 py-2 font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+                    placeholder="560038"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1">Store Logo / Board Photo (URL)</label>
+                <input
+                  type="url"
+                  value={editingRetailer.logoUrl || ''}
+                  onChange={(e) => setEditingRetailer({ ...editingRetailer, logoUrl: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+                  placeholder="https://images.unsplash.com/... or image link"
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">GSTIN Number</label>
@@ -638,6 +773,60 @@ const filteredRetailers = visibleRetailers.filter(r => {
                   />
                 </div>
               </div>
+
+              {/* Admin KYC Verification Box */}
+              {isAdmin && (
+                <div className="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        editingRetailer.verificationStatus === 'verified' 
+                          ? 'bg-emerald-600 text-white' 
+                          : editingRetailer.verificationStatus === 'rejected' 
+                          ? 'bg-rose-600 text-white' 
+                          : 'bg-amber-500 text-white'
+                      }`}>
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900">
+                          KYC Profile Verification & Approval
+                        </h4>
+                        <p className="text-[10px] text-slate-500">
+                          Verify retailer identity documents (GST, PAN, Shop board photo)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1 text-xs">Verification Status</label>
+                      <select
+                        value={editingRetailer.verificationStatus || 'pending'}
+                        onChange={(e) => setEditingRetailer({ ...editingRetailer, verificationStatus: e.target.value as any })}
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs font-semibold"
+                      >
+                        <option value="pending">⏳ Pending Review</option>
+                        <option value="verified">✓ Verified & Approved</option>
+                        <option value="rejected">✕ Rejected</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-700 font-semibold mb-1 text-xs">Verification Remarks / Notes</label>
+                      <input
+                        type="text"
+                        value={editingRetailer.verificationRemarks || ''}
+                        onChange={(e) => setEditingRetailer({ ...editingRetailer, verificationRemarks: e.target.value })}
+                        placeholder="e.g. GSTIN and physical shop verified"
+                        className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs"
+                      >
+                      </input>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Admin Credit Control & Limits Box */}
               <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/40 space-y-3">

@@ -311,6 +311,10 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
       <section aria-label="Promotional Banners">
         <PromotionalBannerCarousel 
           onSelectCategory={(cat) => setSelectedCategory(cat)}
+          onSelectBrand={(brand) => {
+            setSelectedBrand(brand);
+            setSelectedCategory('All');
+          }}
           isAdmin={isAdmin}
         />
       </section>
@@ -636,14 +640,16 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     <tr key={product.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0 bg-slate-100">
+                          <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-200 shrink-0 bg-white p-0.5 flex items-center justify-center">
                             <ProductImage
                               src={product.imageUrl}
                               alt={product.name}
                               brand={product.brand}
                               category={product.category}
                               sku={product.sku || (product as any).product_sku}
-                              className="w-full h-full object-cover"
+                              objectFit="contain"
+                              className="w-full h-full object-contain"
+                              containerClassName="w-full h-full relative flex items-center justify-center bg-white"
                             />
                           </div>
                           <div>
@@ -1558,14 +1564,16 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
             {/* Modal Header */}
             <div className="flex items-start justify-between border-b border-slate-100 pb-3 gap-3">
               <div className="flex items-center space-x-3 min-w-0">
-                <div className="w-12 h-12 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-slate-100">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden border border-slate-200 shrink-0 bg-white p-1 flex items-center justify-center">
                   <ProductImage
                     src={viewBatchesProduct.imageUrl}
                     alt={viewBatchesProduct.name}
                     brand={viewBatchesProduct.brand}
                     category={viewBatchesProduct.category}
                     sku={viewBatchesProduct.sku}
-                    className="w-full h-full object-cover"
+                    objectFit="contain"
+                    className="w-full h-full object-contain"
+                    containerClassName="w-full h-full relative flex items-center justify-center bg-white"
                   />
                 </div>
                 <div className="min-w-0">

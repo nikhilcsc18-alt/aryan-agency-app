@@ -84,6 +84,12 @@ function isNewerVersion(remoteVersion: string, currentVersion: string): boolean 
   return rPatch > cPatch;
 }
 
+export function triggerManualUpdateCheck() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('aryan_check_app_update', { detail: { manual: true } }));
+  }
+}
+
 export const AppUpdateChecker: React.FC = () => {
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState<boolean>(false);
   const [latestVersion, setLatestVersion] = useState<string>('');
@@ -93,89 +99,125 @@ export const AppUpdateChecker: React.FC = () => {
   const [updateProgress, setUpdateProgress] = useState<number>(0);
   const [updateStatusText, setUpdateStatusText] = useState<string>('Ready');
   const [autoUpdateChecked, setAutoUpdateChecked] = useState<boolean>(isAutoUpdateEnabled());
+  const [isCheckingManual, setIsCheckingManual] = useState<boolean>(false);
+  const [upToDateNotice, setUpToDateNotice] = useState<{ show: boolean; version: string } | null>(null);
   const hasCheckedRef = useRef<boolean>(false);
 
-  useEffect(() => {
-    // Check only once when the app starts
-    if (hasCheckedRef.current) return;
-    hasCheckedRef.current = true;
-
-    // Do not repeatedly show the popup if user dismissed it in the current session
-    try {
-      if (sessionStorage.getItem(SESSION_STORAGE_DISMISS_KEY) === 'true') {
-        return;
-      }
-    } catch {
-      // Ignore sessionStorage errors (e.g. strict security mode or iframe restrictions)
+  const checkForUpdates = async (isManual = false) => {
+    if (isManual) {
+      setIsCheckingManual(true);
+      setUpToDateNotice(null);
     }
 
-    const checkForUpdates = async () => {
-      // Multiple fallback endpoints so Android phone APK, Web preview, and Render always find the latest version
-      const endpoints = [
-        `/download/version.json?t=${Date.now()}`,
-        `${APP_BASE_URL}/download/version.json`,
-        'https://aryan-agency-app.onrender.com/download/version.json',
-        'https://raw.githubusercontent.com/nikhilcsc18-alt/aryan-agency-app/main/public/download/version.json',
-        'https://api.github.com/repos/nikhilcsc18-alt/aryan-agency-app/releases/latest',
-      ];
+    // Multiple fallback endpoints so Android phone APK, Web preview, and Render always find the latest version
+    const endpoints = [
+      `/api/app/version?t=${Date.now()}`,
+      `/download/version.json?t=${Date.now()}`,
+      `${APP_BASE_URL}/api/app/version?t=${Date.now()}`,
+      `${APP_BASE_URL}/download/version.json?t=${Date.now()}`,
+      'https://aryan-agency-app.onrender.com/download/version.json',
+      'https://raw.githubusercontent.com/nikhilcsc18-alt/aryan-agency-app/main/public/download/version.json',
+      'https://api.github.com/repos/nikhilcsc18-alt/aryan-agency-app/releases/latest',
+    ];
 
-      for (const endpoint of endpoints) {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 4000);
+    let foundUpdate = false;
+    let checkedRemoteVersion = '';
 
-          const response = await fetch(endpoint, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Cache-Control': 'no-cache',
-            },
-            signal: controller.signal,
-          });
+    for (const endpoint of endpoints) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
 
-          clearTimeout(timeoutId);
-          if (!response.ok) continue;
+        const response = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+          },
+          signal: controller.signal,
+        });
 
-          const data: any = await response.json();
-          // Support both version.json format and GitHub releases API format
-          let remoteVersion = (data?.version || data?.tag_name || '').trim().replace(/^v/i, '');
-          if (!remoteVersion) continue;
+        clearTimeout(timeoutId);
+        if (!response.ok) continue;
 
-          let rawDownload = (data?.downloadUrl || '').trim();
-          if (!rawDownload && Array.isArray(data?.assets)) {
-            const apkAsset = data.assets.find((a: any) => a.name?.endsWith('.apk'));
-            if (apkAsset?.browser_download_url) {
-              rawDownload = apkAsset.browser_download_url;
-            }
+        const data: any = await response.json();
+        // Support both version.json format and GitHub releases API format
+        let remoteVersion = (data?.version || data?.tag_name || '').trim().replace(/^v/i, '');
+        if (!remoteVersion) continue;
+
+        checkedRemoteVersion = remoteVersion;
+
+        let rawDownload = (data?.apkUrl || data?.downloadUrl || '').trim();
+        if (!rawDownload && Array.isArray(data?.assets)) {
+          const apkAsset = data.assets.find((a: any) => a.name?.endsWith('.apk'));
+          if (apkAsset?.browser_download_url) {
+            rawDownload = apkAsset.browser_download_url;
           }
-
-          if (isNewerVersion(remoteVersion, CURRENT_APP_VERSION)) {
-            setLatestVersion(`v${remoteVersion}`);
-            const resolvedDownload = rawDownload
-              ? (rawDownload.startsWith('http') ? rawDownload : `${APP_BASE_URL}${rawDownload.startsWith('/') ? '' : '/'}${rawDownload}`)
-              : DEFAULT_APK_DOWNLOAD_URL;
-            setDownloadUrl(resolvedDownload);
-
-            const notes = data.releaseNotes || data.body || '';
-            if (notes && notes.trim()) {
-              setReleaseNotes(notes.trim());
-            }
-
-            // If user has background auto-update enabled, update seamlessly on next visit
-            if (isAutoUpdateEnabled() && !sessionStorage.getItem('auto_updated_performed')) {
-              sessionStorage.setItem('auto_updated_performed', 'true');
-            }
-
-            setIsUpdateModalOpen(true);
-            return; // Successfully found update and opened modal
-          }
-        } catch {
-          // Try next endpoint
         }
+
+        if (isNewerVersion(remoteVersion, CURRENT_APP_VERSION)) {
+          setLatestVersion(`v${remoteVersion}`);
+          const resolvedDownload = rawDownload
+            ? (rawDownload.startsWith('http') ? rawDownload : `${APP_BASE_URL}${rawDownload.startsWith('/') ? '' : '/'}${rawDownload}`)
+            : DEFAULT_APK_DOWNLOAD_URL;
+          setDownloadUrl(resolvedDownload);
+
+          const notes = data.releaseNotes || data.notes || data.body || '';
+          if (notes && notes.trim()) {
+            setReleaseNotes(notes.trim());
+          }
+
+          // If user has background auto-update enabled, update seamlessly on next visit
+          if (isAutoUpdateEnabled() && !sessionStorage.getItem('auto_updated_performed')) {
+            sessionStorage.setItem('auto_updated_performed', 'true');
+          }
+
+          setIsUpdateModalOpen(true);
+          foundUpdate = true;
+          break; // Successfully found update and opened modal
+        }
+      } catch {
+        // Try next endpoint
       }
+    }
+
+    if (isManual) {
+      setIsCheckingManual(false);
+      if (!foundUpdate) {
+        setUpToDateNotice({
+          show: true,
+          version: checkedRemoteVersion || CURRENT_APP_VERSION
+        });
+        setTimeout(() => {
+          setUpToDateNotice(null);
+        }, 5000);
+      }
+    }
+  };
+
+  useEffect(() => {
+    // 1. Listen for manual update trigger event from mobile view or header
+    const handleManualCheck = () => {
+      checkForUpdates(true);
     };
 
-    checkForUpdates();
+    window.addEventListener('aryan_check_app_update', handleManualCheck);
+
+    // 2. Automatic check only once when app loads
+    if (!hasCheckedRef.current) {
+      hasCheckedRef.current = true;
+      try {
+        if (sessionStorage.getItem(SESSION_STORAGE_DISMISS_KEY) !== 'true') {
+          checkForUpdates(false);
+        }
+      } catch {
+        checkForUpdates(false);
+      }
+    }
+
+    return () => {
+      window.removeEventListener('aryan_check_app_update', handleManualCheck);
+    };
   }, []);
 
   const handleDismiss = () => {
@@ -222,20 +264,62 @@ export const AppUpdateChecker: React.FC = () => {
     handleDismiss();
   };
 
-  if (!isUpdateModalOpen) return null;
-
   const displayCurrentVersion = CURRENT_APP_VERSION.startsWith('v') 
     ? CURRENT_APP_VERSION 
     : `v${CURRENT_APP_VERSION}`;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/65 backdrop-blur-xs animate-in fade-in duration-200"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="update-modal-title"
-    >
-      <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+    <>
+      {/* Toast Notice when user manually checks for updates and is already on latest version */}
+      {isCheckingManual && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-3 duration-200">
+          <div className="bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center space-x-3 text-xs font-semibold">
+            <RefreshCw className="w-4 h-4 text-amber-400 animate-spin" />
+            <span>नवीनतम वर्शन चेक किया जा रहा है... (Checking updates)</span>
+          </div>
+        </div>
+      )}
+
+      {upToDateNotice && !isCheckingManual && (
+        <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-3 duration-200 max-w-sm">
+          <div className="bg-emerald-950 text-emerald-100 p-3.5 rounded-2xl shadow-2xl border border-emerald-700/80 flex flex-col space-y-2 text-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span className="font-bold text-white">App Up-to-Date (v{upToDateNotice.version.replace(/^v/i, '')})</span>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setUpToDateNotice(null)}
+                className="text-emerald-300 hover:text-white p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <p className="text-[11px] text-emerald-200">
+              आपके फ़ोन पर नवीनतम वर्शन सक्रिय है। अगर नया बदलाव नहीं दिख रहा, तो डेटा रीलोड करें।
+            </p>
+            <button
+              type="button"
+              onClick={handleInAppAutoUpdate}
+              className="mt-1 w-full py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] flex items-center justify-center space-x-1 shadow-xs cursor-pointer"
+            >
+              <RefreshCw className="w-3 h-3 mr-1" />
+              <span>Force Reload Latest Assets (डेटा रीलोड करें)</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Main Update Modal */}
+      {isUpdateModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/65 backdrop-blur-xs animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="update-modal-title"
+        >
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
         
         {/* Aryan Agency Brand Header */}
         <div className="relative bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-900 text-white p-4 sm:p-5 overflow-hidden">
@@ -405,6 +489,8 @@ export const AppUpdateChecker: React.FC = () => {
 
       </div>
     </div>
+    )}
+  </>
   );
 };
 

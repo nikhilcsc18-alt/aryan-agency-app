@@ -260,8 +260,18 @@ export const Header: React.FC<HeaderProps> = ({
         {/* DESKTOP TOP BAR (screens >= 768px)                                        */}
         {/* ========================================================================= */}
         <div className="hidden md:flex items-center justify-between h-16">
-          {/* Brand Logo & Name */}
-          <div className="flex items-center space-x-3.5">
+          {/* Brand Logo & Menu Toggle */}
+          <div className="flex items-center space-x-3">
+            {onToggleMenu && (
+              <button
+                id="desktop-header-menu-btn"
+                onClick={onToggleMenu}
+                className="w-9 h-9 rounded-lg bg-[#13284c] border border-blue-800/80 flex items-center justify-center text-white hover:bg-blue-800/60 active:scale-95 transition-all cursor-pointer"
+                title="Toggle Admin Sidebar Menu"
+              >
+                <Menu className="w-5 h-5 text-white" />
+              </button>
+            )}
             <AryanAgencyLogo 
               variant="fmcg-basket" 
               size="md" 

@@ -27,22 +27,36 @@ import {
   ShieldCheck,
   BadgePercent,
   CheckCircle,
-  Navigation as NavIcon
+  ShoppingBag,
+  Navigation as NavIcon,
+  Smartphone,
+  RefreshCw,
+  Download
 } from 'lucide-react';
-import { Product, Order, ProductCategory, CartItem } from '../types';
+import { Product, Order, ProductCategory, CartItem, ProductPackingOption, PromotionalBanner } from '../types';
 import { formatINR } from '../lib/api';
 import { ProductImage } from './ProductImage';
 import { AryanAgencyFMCGLogo } from './AryanAgencyLogo';
+import { B2BProductCard } from './B2BProductCard';
+import { ApnaClubPackSelectorModal } from './ApnaClubPackSelectorModal';
+import { useAuth } from '../context/AuthContext';
+import { triggerManualUpdateCheck } from './AppUpdateChecker';
+import { triggerApkDownload, useAppDownloadConfig } from '../lib/appDownloadConfig';
 
 interface MobileHomeViewProps {
   products: Product[];
   orders?: Order[];
-  onAddToCart: (product: Product, quantity?: number) => void;
+  banners?: PromotionalBanner[];
+  onAddToCart: (product: Product, quantity?: number, packing?: ProductPackingOption) => void;
   onNavigateTab: (tab: any) => void;
   onOpenCart: () => void;
   onOpenAccountModal?: () => void;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
+  cartItems?: CartItem[];
+  onUpdateCartItem?: (productId: string, cases: number, loosePcs: number, packingId?: string) => void;
+  onRemoveFromCart?: (productId: string, packingId?: string) => void;
+  onQuickOrder?: (productId: string) => void;
 }
 
 // Visual FMCG Categories with Real High-Res Imagery
@@ -59,13 +73,21 @@ interface CategoryItem {
 export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
   products,
   orders = [],
+  banners = [],
   onAddToCart,
   onNavigateTab,
   onOpenCart,
   onOpenAccountModal,
   searchQuery = '',
-  onSearchChange
+  onSearchChange,
+  cartItems = [],
+  onUpdateCartItem,
+  onRemoveFromCart,
+  onQuickOrder
 }) => {
+  const { isAdmin, isSalesman, isRetailer } = useAuth();
+  const { config: appConfig } = useAppDownloadConfig();
+
   // Category filter state
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
@@ -81,11 +103,8 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
 
-  // Local product quantities for stepper before adding to cart
-  const [productQuantities, setProductQuantities] = useState<Record<string, number>>({});
-  
-  // Quick added visual feedback per product
-  const [justAdded, setJustAdded] = useState<Record<string, boolean>>({});
+  // Pack selector modal state for ApnaClub style pack detail
+  const [packSelectorProduct, setPackSelectorProduct] = useState<Product | null>(null);
 
   // 8 Curated FMCG Wholesale Categories with real product image URLs
   const categories: CategoryItem[] = [
@@ -245,44 +264,88 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
   };
 
   // Multiple Promotional Banners for Auto-Slide Carousel (Focused on Retailers / Dukandars)
-  const bannerSlides = [
-    {
-      id: 'banner_main',
-      bgGradient: 'from-[#F6BD27] via-[#F4B218] to-[#E89E0B]',
-      title: 'दुकानदारों के लिए सीधे डिपो थोक भाव',
-      tagline: 'Best Wholesale Rates • Maximum Retailer Margins',
-      badge: 'केवल दुकानदारों के लिए (B2B)',
-      offer: 'हर पेटी / कार्टन पर ₹20 से ₹60 तक का सीधा दुकानदार मुनाफा',
-      brands: "Lay's • Kurkure • Parle-G • Amul • Sunfeast"
-    },
-    {
-      id: 'banner_offers',
-      bgGradient: 'from-[#F59E0B] via-[#D97706] to-[#B45309]',
-      title: 'Aryan B2B Retailer Trade Schemes',
-      tagline: 'Parle • Britannia • Sunfeast • PepsiCo • Amul',
-      badge: 'थोक व्यापार डिस्काउंट',
-      offer: 'कार्टन / पेटी बुकिंग पर अतिरिक्त 5% थोक स्कीम मार्जिन',
-      brands: 'Special Wholesale Trade Margin on Bulk Booking'
-    },
-    {
-      id: 'banner_fast',
-      bgGradient: 'from-[#0284C7] via-[#0369A1] to-[#075985]',
-      title: 'Direct Depot Supply to Your Shop',
-      tagline: 'Same-Day / 24-Hour Dispatch directly to your Kirana Counter',
-      badge: 'दुकान तक सीधी डिलीवरी',
-      offer: '100% Genuine Direct Supply Chain Guarantee with GST Bill',
-      brands: 'City Beat Fleet • Indiranagar • Yeshwanthpur • Whitefield'
-    },
-    {
-      id: 'banner_baby_care',
-      bgGradient: 'from-[#0D9488] via-[#0F766E] to-[#115E59]',
-      title: 'Baby Care & Personal Hygiene Wholesale',
-      tagline: 'Honey Bunny • Dettol • Colgate • Stayfree',
-      badge: 'सुपर-स्टॉकिस्ट डिपो',
-      offer: 'Buy 5 Cases, Get 1 Case Free on Honey Bunny Diapers',
-      brands: 'Super-Stockist Authentic Direct Supply for Retailers'
+  // Uses live banners configured from Admin Panel if available, otherwise falls back to defaults
+  const bannerSlides = useMemo(() => {
+    const activeBanners = (banners || []).filter(b => b.isActive);
+    if (activeBanners.length > 0) {
+      return activeBanners.map(b => ({
+        id: b.id,
+        bgGradient: b.bgGradient || 'from-[#F6BD27] via-[#F4B218] to-[#E89E0B]',
+        title: b.title,
+        tagline: b.subtitle || 'Best Wholesale Rates • Maximum Retailer Margins',
+        badge: b.badgeText || 'केवल दुकानदारों के लिए (B2B)',
+        offer: b.ctaText || 'हर पेटी / कार्टन पर सीधा थोक मुनाफा',
+        brands: b.accentColor || "Parle • Britannia • Sunfeast • Amul",
+        imageUrl: b.imageUrl,
+        hideTextOverlay: Boolean(b.hideTextOverlay),
+        showBuyNow: b.showBuyNow !== undefined ? Boolean(b.showBuyNow) : true,
+        buyNowText: b.buyNowText || 'अभी खरीदें (Buy Now)',
+        targetBrand: b.targetBrand || '',
+        targetCategory: b.targetCategory || '',
+        posterFit: b.posterFit || 'cover'
+      }));
     }
-  ];
+
+    return [
+      {
+        id: 'banner_main',
+        bgGradient: 'from-[#F6BD27] via-[#F4B218] to-[#E89E0B]',
+        title: 'दुकानदारों के लिए सीधे डिपो थोक भाव',
+        tagline: 'Best Wholesale Rates • Maximum Retailer Margins',
+        badge: 'केवल दुकानदारों के लिए (B2B)',
+        offer: 'हर पेटी / कार्टन पर ₹20 से ₹60 तक का सीधा दुकानदार मुनाफा',
+        brands: "Lay's • Kurkure • Parle-G • Amul • Sunfeast",
+        hideTextOverlay: false,
+        showBuyNow: true,
+        buyNowText: 'अभी खरीदें (Buy Now)',
+        targetBrand: 'Parle',
+        targetCategory: 'Biscuits & Bakery',
+        posterFit: 'cover'
+      },
+      {
+        id: 'banner_offers',
+        bgGradient: 'from-[#F59E0B] via-[#D97706] to-[#B45309]',
+        title: 'Aryan B2B Retailer Trade Schemes',
+        tagline: 'Parle • Britannia • Sunfeast • PepsiCo • Amul',
+        badge: 'थोक व्यापार डिस्काउंट',
+        offer: 'कार्टन / पेटी बुकिंग पर अतिरिक्त 5% थोक स्कीम मार्जिन',
+        brands: 'Special Wholesale Trade Margin on Bulk Booking',
+        hideTextOverlay: false,
+        showBuyNow: true,
+        buyNowText: 'ऑर्डर करें (Order Now)',
+        targetBrand: "Lay's",
+        targetCategory: 'Snacks & Namkeen'
+      },
+      {
+        id: 'banner_fast',
+        bgGradient: 'from-[#0284C7] via-[#0369A1] to-[#075985]',
+        title: 'Direct Depot Supply to Your Shop',
+        tagline: 'Same-Day / 24-Hour Dispatch directly to your Kirana Counter',
+        badge: 'दुकान तक सीधी डिलीवरी',
+        offer: '100% Genuine Direct Supply Chain Guarantee with GST Bill',
+        brands: 'City Beat Fleet • Indiranagar • Yeshwanthpur • Whitefield',
+        hideTextOverlay: false,
+        showBuyNow: true,
+        buyNowText: 'थोक कैटलॉग देखें',
+        targetBrand: '',
+        targetCategory: ''
+      },
+      {
+        id: 'banner_baby_care',
+        bgGradient: 'from-[#0D9488] via-[#0F766E] to-[#115E59]',
+        title: 'Baby Care & Personal Hygiene Wholesale',
+        tagline: 'Honey Bunny • Dettol • Colgate • Stayfree',
+        badge: 'सुपर-स्टॉकिस्ट डिपो',
+        offer: 'Buy 5 Cases, Get 1 Case Free on Honey Bunny Diapers',
+        brands: 'Super-Stockist Authentic Direct Supply for Retailers',
+        hideTextOverlay: false,
+        showBuyNow: true,
+        buyNowText: 'डायपर ऑर्डर करें',
+        targetBrand: 'Honey Bunny',
+        targetCategory: 'Personal Care'
+      }
+    ];
+  }, [banners]);
 
   // Auto-slide Timer Effect
   useEffect(() => {
@@ -320,28 +383,38 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
     touchEndX.current = null;
   };
 
-  // Helper to extract pack size string
-  const getPackSize = (product: Product): string => {
-    const match = product.name.match(/\(([^)]+)\)/);
-    if (match && match[1]) return match[1];
-    const weightMatch = product.name.match(/(\d+\s*(?:g|kg|l|ml|pcs|s1|tin|pouch))/i);
-    if (weightMatch) return weightMatch[0];
-    return `${product.piecesPerCase} pcs/cs`;
-  };
+  // Handle clicking on banner slide or its Buy Now button
+  const handleBannerAction = (slide: typeof bannerSlides[0]) => {
+    if (slide.targetBrand) {
+      setSelectedBrand(slide.targetBrand);
+      setSelectedCategory(null);
+      setActiveBrowseMode('brands');
+      const el = document.getElementById('b2b-products-section');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
 
-  // Helper to calculate discount amount or text
-  const getDiscountBadge = (product: Product): string => {
-    if (product.activeScheme?.discountFlatRs) {
-      return `₹${product.activeScheme.discountFlatRs} OFF`;
+    if (slide.targetCategory) {
+      const cat = categories.find(c => 
+        c.label.toLowerCase() === slide.targetCategory.toLowerCase() ||
+        c.categoryMatch.some(m => m.toLowerCase() === slide.targetCategory.toLowerCase()) ||
+        slide.targetCategory.toLowerCase().includes(c.id.toLowerCase())
+      );
+      if (cat) {
+        setSelectedCategory(cat.id);
+      } else {
+        setSelectedCategory(slide.targetCategory);
+      }
+      setSelectedBrand(null);
+      setActiveBrowseMode('categories');
+      const el = document.getElementById('b2b-products-section');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      return;
     }
-    if (product.mrpPiece && product.wholesalePricePiece && product.mrpPiece > product.wholesalePricePiece) {
-      const diff = Math.round(product.mrpPiece - product.wholesalePricePiece);
-      if (diff > 0) return `₹${diff} OFF`;
-    }
-    if (product.activeScheme?.discountPercentage) {
-      return `${product.activeScheme.discountPercentage}% OFF`;
-    }
-    return 'BEST PRICE';
+
+    // Default: scroll to products section
+    const el = document.getElementById('b2b-products-section');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
   // Identify the latest active order for continuous, non-blinking prominent tracking
@@ -392,23 +465,30 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
     return list;
   }, [products, searchQuery, selectedCategory, selectedBrand]);
 
-  // Quantity stepper handlers
-  const handleQuantityChange = (productId: string, delta: number) => {
-    const current = productQuantities[productId] || 1;
-    const next = Math.max(1, current + delta);
-    setProductQuantities(prev => ({ ...prev, [productId]: next }));
+  // Retailer / Salesman action handlers matching ProductsView
+  const handleBuyNowProduct = (product: Product, cases: number = 1, packing?: ProductPackingOption) => {
+    if (onAddToCart) {
+      onAddToCart(product, cases, packing);
+    }
+    if (onOpenCart) {
+      onOpenCart();
+    }
   };
 
-  const handleAddToCartClick = (product: Product) => {
-    const qty = productQuantities[product.id] || 1;
-    onAddToCart(product, qty);
-    
-    // Animate button state
-    setJustAdded(prev => ({ ...prev, [product.id]: true }));
-    setTimeout(() => {
-      setJustAdded(prev => ({ ...prev, [product.id]: false }));
-    }, 1800);
+  const handleBookProduct = (productId: string) => {
+    if (onQuickOrder) {
+      onQuickOrder(productId);
+    } else {
+      onNavigateTab('orders');
+    }
   };
+
+  // Cart summary calculations
+  const totalCartCount = cartItems.reduce((s, i) => s + i.cases, 0);
+  const totalCartAmount = cartItems.reduce((s, i) => {
+    const itemPrice = i.selectedPacking ? i.selectedPacking.sellingPrice : (i.product.casePrice || 0);
+    return s + (i.cases * itemPrice);
+  }, 0);
 
   // Helper for order status progress steps
   const getTrackingStepIndex = (status: string) => {
@@ -458,6 +538,38 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
       </div>
 
       {/* ========================================================================= */}
+      {/* MOBILE APP LIVE UPDATE & VERSION BAR                                      */}
+      {/* ========================================================================= */}
+      <div className="w-full bg-gradient-to-r from-blue-900/90 via-slate-900 to-indigo-950 text-white rounded-2xl p-2.5 px-3.5 border border-blue-700/60 shadow-md flex items-center justify-between">
+        <div className="flex items-center space-x-2.5">
+          <div className="w-8 h-8 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-amber-400 shrink-0">
+            <Smartphone className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="font-bold text-xs text-white">Aryan Agency App</span>
+              <span className="font-mono text-[10px] font-black bg-blue-500/30 text-blue-200 px-2 py-0.5 rounded-full border border-blue-400/30">
+                {appConfig.version || 'v1.3.0'}
+              </span>
+            </div>
+            <p className="text-[10px] text-blue-200">
+              Live Cloud Sync • कोई भी अपडेट यहाँ तुरंत मिलता है
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => triggerManualUpdateCheck()}
+          className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-[11px] flex items-center space-x-1 shadow-sm active:scale-95 transition-all cursor-pointer shrink-0"
+          title="चेक करें कि नया वर्शन उपलब्ध है या नहीं"
+        >
+          <RefreshCw className="w-3 h-3 text-slate-950" />
+          <span>अपडेट चेक करें</span>
+        </button>
+      </div>
+
+      {/* ========================================================================= */}
       {/* 1. AUTO-SLIDING PROMOTIONAL BANNER CAROUSEL                               */}
       {/* ========================================================================= */}
       <section 
@@ -469,84 +581,182 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
         onTouchEnd={handleTouchEnd}
       >
         <div 
-          className={`relative w-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg bg-gradient-to-r ${bannerSlides[currentBanner].bgGradient} p-4 sm:p-6 text-white transition-all duration-700 min-h-[195px] sm:min-h-[225px] flex items-center`}
+          onClick={() => handleBannerAction(bannerSlides[currentBanner])}
+          className={`relative w-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg border border-slate-200/40 dark:border-slate-800/40 ${
+            bannerSlides[currentBanner].imageUrl ? 'bg-slate-950' : `bg-gradient-to-r ${bannerSlides[currentBanner].bgGradient}`
+          } ${
+            bannerSlides[currentBanner].hideTextOverlay ? 'p-3 sm:p-5' : 'p-4 sm:p-6'
+          } text-white transition-all duration-700 aspect-[2/1] sm:aspect-[2.4/1] md:aspect-[2.8/1] lg:aspect-[3.2/1] min-h-[185px] sm:min-h-[220px] md:min-h-[250px] max-h-[380px] flex flex-col justify-between cursor-pointer group`}
         >
-          {/* Subtle background decorative shapes */}
-          <div className="absolute -top-10 -right-10 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-          <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-amber-400/20 rounded-full blur-xl pointer-events-none" />
+          {/* Subtle background decorative shapes when no custom image */}
+          {!bannerSlides[currentBanner].imageUrl && (
+            <>
+              <div className="absolute -top-10 -right-10 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-amber-400/20 rounded-full blur-xl pointer-events-none" />
+            </>
+          )}
           
-          <div className="relative z-10 w-full flex flex-col md:flex-row items-center justify-between gap-3">
-            
-            {/* Left Content */}
-            <div className="w-full md:w-3/5 space-y-2 text-left">
-              {/* Aryan Agency Mini Branding */}
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-lg bg-white/90 p-1 flex items-center justify-center shadow-xs">
-                  <AryanAgencyFMCGLogo size="sm" theme="light" showSubline={false} />
+          {/* Full-width banner image covering the entire container (Pure space edge-to-edge) */}
+          {bannerSlides[currentBanner].imageUrl && (
+            <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+              <img 
+                src={bannerSlides[currentBanner].imageUrl} 
+                alt={bannerSlides[currentBanner].title} 
+                className={`w-full h-full ${
+                  bannerSlides[currentBanner].posterFit === 'fill'
+                    ? 'object-fill'
+                    : 'object-cover object-center'
+                } scale-100 transition-transform duration-700 group-hover:scale-[1.02]`}
+                referrerPolicy="no-referrer"
+              />
+
+              {/* If text overlay is NOT hidden, show gradient scrim so text is readable */}
+              {!bannerSlides[currentBanner].hideTextOverlay && (
+                <div className="absolute inset-0 z-[2] pointer-events-none">
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-black/15" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
                 </div>
-                <div>
-                  <h3 className="text-xs font-black tracking-wider text-[#0f294d] uppercase leading-none">
-                    ARYAN AGENCY
-                  </h3>
-                  <span className="text-[9px] font-bold text-[#1e3a8a] tracking-tight uppercase">
-                    B2B FMCG Distribution
+              )}
+            </div>
+          )}
+          
+          {/* MAIN CONTENT AREA: DISPLAY TEXT ONLY IF NOT hideTextOverlay */}
+          {!bannerSlides[currentBanner].hideTextOverlay ? (
+            <div className="relative z-10 w-full flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+              
+              {/* Left Content */}
+              <div className="w-full md:w-3/5 space-y-2 text-left">
+                {/* Aryan Agency Mini Branding */}
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-lg bg-white/95 p-1 flex items-center justify-center shadow-xs">
+                    <AryanAgencyFMCGLogo size="sm" theme="light" showSubline={false} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black tracking-wider text-amber-400 uppercase leading-none drop-shadow-xs">
+                      ARYAN AGENCY
+                    </h3>
+                    <span className="text-[9px] font-bold text-white/90 tracking-tight uppercase">
+                      B2B FMCG Distribution
+                    </span>
+                  </div>
+                  <span className="ml-2 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[9px] font-black uppercase tracking-wider shadow-xs">
+                    {bannerSlides[currentBanner].badge}
                   </span>
                 </div>
-              </div>
 
-              {/* Banner Title - Bold Clear Typography */}
-              <h2 className="text-lg sm:text-2xl font-black text-[#0A1E3F] tracking-tight leading-tight">
-                {bannerSlides[currentBanner].title}
-              </h2>
+                {/* Banner Title - Bold Clear Typography */}
+                <h2 className="text-lg sm:text-2xl font-black text-white tracking-tight leading-tight drop-shadow-md">
+                  {bannerSlides[currentBanner].title}
+                </h2>
 
-              {/* Tagline Pill */}
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-[#0A1E3F] text-white text-[10px] sm:text-xs font-bold tracking-tight shadow-sm">
-                <span>{bannerSlides[currentBanner].tagline}</span>
-              </div>
-
-              {/* Offer Text */}
-              <p className="text-[11px] sm:text-xs font-bold text-[#0A1E3F]/90">
-                {bannerSlides[currentBanner].offer}
-              </p>
-            </div>
-
-            {/* Right Visual Products Badge */}
-            <div className="w-full md:w-2/5 flex items-center justify-between sm:justify-end space-x-3">
-              <div className="flex flex-col space-y-0.5 text-left sm:text-right text-[10px] sm:text-[11px] font-bold text-[#0A1E3F]">
-                <span>✓ {bannerSlides[currentBanner].brands}</span>
-                <span className="text-[9px] text-[#0A1E3F]/80">ISO 9001:2015 GST Verified</span>
-              </div>
-
-              {/* Circular Badge: Wholesale Retailer Verified */}
-              <div className="relative shrink-0 w-22 h-22 sm:w-28 sm:h-28 rounded-full bg-[#0A1E3F] text-white p-2 flex flex-col items-center justify-center text-center shadow-xl border-2 border-white/20 transform hover:scale-105 transition-transform">
-                <span className="text-[9px] sm:text-xs font-black tracking-wider uppercase text-amber-400">
-                  B2B
-                </span>
-                <span className="text-[11px] sm:text-sm font-black tracking-tight text-white uppercase">
-                  RETAILER
-                </span>
-                <span className="text-[9px] sm:text-xs font-black tracking-wider uppercase text-emerald-400">
-                  WHOLESALE
-                </span>
-                <div className="mt-0.5 text-[8px] opacity-80 font-semibold text-blue-200">
-                  दुकानदार पोर्टल
+                {/* Tagline Pill */}
+                <div className="inline-flex items-center px-3 py-1 rounded-full bg-black/40 backdrop-blur-xs border border-white/20 text-white text-[10px] sm:text-xs font-bold tracking-tight shadow-sm">
+                  <span>{bannerSlides[currentBanner].tagline}</span>
                 </div>
-              </div>
-            </div>
 
-          </div>
+                {/* Offer Text */}
+                <p className="text-[11px] sm:text-xs font-bold text-amber-300 drop-shadow-xs">
+                  {bannerSlides[currentBanner].offer}
+                </p>
+
+                {/* Buy Now Button if enabled */}
+                {bannerSlides[currentBanner].showBuyNow !== false && (
+                  <div className="pt-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleBannerAction(bannerSlides[currentBanner]);
+                      }}
+                      className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-md active:scale-95 transition-all cursor-pointer border border-amber-300"
+                    >
+                      <ShoppingBag className="w-4 h-4 stroke-[2.5]" />
+                      <span>{bannerSlides[currentBanner].buyNowText || 'अभी खरीदें (Buy Now)'}</span>
+                      <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Visual Products Info */}
+              <div className="w-full md:w-2/5 flex items-center justify-between sm:justify-end space-x-3">
+                <div className="flex flex-col space-y-1 text-left sm:text-right text-[10px] sm:text-[11px] font-bold text-white/90">
+                  <span className="bg-black/40 backdrop-blur-xs px-2.5 py-1 rounded-lg border border-white/15 drop-shadow-xs">
+                    ✓ {bannerSlides[currentBanner].brands}
+                  </span>
+                  <span className="text-[9px] text-amber-200 drop-shadow-xs">
+                    ISO 9001:2015 GST Verified Wholesale
+                  </span>
+                </div>
+
+                {/* Verified seal on non-image banners */}
+                {!bannerSlides[currentBanner].imageUrl && (
+                  <div className="relative shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#0A1E3F] text-white p-2 flex flex-col items-center justify-center text-center shadow-xl border-2 border-white/20 transform hover:scale-105 transition-transform">
+                    <span className="text-[9px] sm:text-xs font-black tracking-wider uppercase text-amber-400">
+                      B2B
+                    </span>
+                    <span className="text-[11px] sm:text-sm font-black tracking-tight text-white uppercase">
+                      RETAILER
+                    </span>
+                    <span className="text-[9px] sm:text-xs font-black tracking-wider uppercase text-emerald-400">
+                      WHOLESALE
+                    </span>
+                  </div>
+                )}
+              </div>
+
+            </div>
+          ) : (
+            /* PURE PHOTO / POSTER MODE: NO TEXT OVERLAY */
+            <div className="relative z-10 w-full flex flex-col justify-between h-full">
+              {/* Subtle top indicator if brand/category is targeted */}
+              <div className="flex items-center justify-between">
+                {bannerSlides[currentBanner].targetBrand || bannerSlides[currentBanner].targetCategory ? (
+                  <span className="inline-flex items-center space-x-1 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-amber-300 text-[11px] sm:text-xs font-black border border-white/20 shadow-md">
+                    <span>🏷️ {bannerSlides[currentBanner].targetBrand ? `Brand: ${bannerSlides[currentBanner].targetBrand}` : `Category: ${bannerSlides[currentBanner].targetCategory}`}</span>
+                  </span>
+                ) : <div />}
+              </div>
+
+              {/* Bottom Buy Now Action Button */}
+              {bannerSlides[currentBanner].showBuyNow !== false && (
+                <div className="mt-auto pt-4 flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleBannerAction(bannerSlides[currentBanner]);
+                    }}
+                    className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-2xl active:scale-95 transition-all cursor-pointer border-2 border-amber-300"
+                  >
+                    <ShoppingBag className="w-4 h-4 stroke-[2.5]" />
+                    <span>{bannerSlides[currentBanner].buyNowText || 'अभी खरीदें (Buy Now)'}</span>
+                    <ArrowRight className="w-4 h-4 stroke-[3]" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Left / Right Arrow Controls */}
           <button 
-            onClick={() => setCurrentBanner(prev => (prev - 1 + bannerSlides.length) % bannerSlides.length)}
-            className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/25 hover:bg-black/40 text-white flex items-center justify-center backdrop-blur-xs transition-opacity"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCurrentBanner(prev => (prev - 1 + bannerSlides.length) % bannerSlides.length);
+            }}
+            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/35 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-xs transition-opacity z-20 cursor-pointer shadow-md"
             aria-label="Previous Slide"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
           <button 
-            onClick={() => setCurrentBanner(prev => (prev + 1) % bannerSlides.length)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/25 hover:bg-black/40 text-white flex items-center justify-center backdrop-blur-xs transition-opacity"
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCurrentBanner(prev => (prev + 1) % bannerSlides.length);
+            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/35 hover:bg-black/60 text-white flex items-center justify-center backdrop-blur-xs transition-opacity z-20 cursor-pointer shadow-md"
             aria-label="Next Slide"
           >
             <ChevronRight className="w-4 h-4" />
@@ -934,7 +1144,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
       {/* ========================================================================= */}
       {/* 4. PRODUCT CATALOG GRID: FILTERED OR TOP PRODUCTS                         */}
       {/* ========================================================================= */}
-      <section className="w-full">
+      <section id="b2b-products-section" className="w-full">
         {/* Section Header */}
         <div className="flex items-center justify-between mb-3 px-1">
           <div className="flex items-center space-x-2">
@@ -960,7 +1170,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
           </button>
         </div>
 
-        {/* Product Cards Row / Multi-Card Display */}
+        {/* Product Cards Grid with B2BProductCard */}
         {filteredProducts.length === 0 ? (
           <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500">
             <Package className="w-8 h-8 text-slate-400 mx-auto mb-2" />
@@ -977,144 +1187,114 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-            {filteredProducts.slice(0, 12).map((product) => {
-              const qty = productQuantities[product.id] || 1;
-              const isAdded = justAdded[product.id];
-              const discountText = getDiscountBadge(product);
-              const packSize = getPackSize(product);
-              const wholesalePrice = product.wholesalePricePiece || Math.round(product.casePrice / product.piecesPerCase);
-              const mrp = product.mrpPiece || Math.round(wholesalePrice * 1.25);
-              const marginPerPiece = Math.max(0, mrp - wholesalePrice);
-              const marginPercent = mrp > 0 ? Math.round((marginPerPiece / mrp) * 100) : 0;
-              const piecesPerCase = product.piecesPerCase || 24;
-              const casePrice = product.casePrice || Math.round(wholesalePrice * piecesPerCase);
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-2 sm:gap-3.5 lg:gap-4">
+            {filteredProducts.map((product) => {
+              const inCartItem = cartItems.find(i => i.product.id === product.id);
+              const inCartCases = inCartItem?.cases || 0;
 
               return (
-                <div
+                <B2BProductCard
                   key={product.id}
-                  id={`product-card-${product.id}`}
-                  className="bg-white rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-shadow p-2.5 sm:p-3 flex flex-col justify-between relative group"
-                >
-                  {/* Top Left Wholesale / Trade Scheme Pill Badge */}
-                  <div className="absolute top-2.5 left-2.5 z-10 max-w-[80%]">
-                    <span className="px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-md bg-[#E53E3E] text-white shadow-xs truncate block">
-                      {product.schemeDescription ? product.schemeDescription : discountText ? discountText : 'थोक स्कीम'}
-                    </span>
-                  </div>
-
-                  {/* Product Image Container */}
-                  <div className="w-full h-32 sm:h-36 rounded-xl overflow-hidden bg-slate-50 flex items-center justify-center p-2 mt-2">
-                    <ProductImage
-                      src={product.imageUrl}
-                      alt={product.name}
-                      brand={product.brand}
-                      category={product.category}
-                      sku={product.sku}
-                      objectFit="contain"
-                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-                    />
-                  </div>
-
-                  {/* Product Details */}
-                  <div className="mt-2.5 space-y-1">
-                    <h3 
-                      className="text-xs sm:text-sm font-bold text-slate-900 leading-snug line-clamp-2 min-h-[34px]"
-                      title={product.name}
-                    >
-                      {product.name}
-                    </h3>
-                    
-                    <p className="text-[11px] font-semibold text-slate-500 truncate">
-                      {packSize} • <span className="text-slate-700 font-bold">{product.brand}</span>
-                    </p>
-
-                    {/* Wholesale Pricing vs MRP */}
-                    <div className="pt-0.5 space-y-1">
-                      <div className="flex items-baseline justify-between flex-wrap gap-1">
-                        <div className="flex items-baseline space-x-1">
-                          <span className="text-base sm:text-lg font-black text-[#0A1E3F]">
-                            {formatINR(wholesalePrice)}
-                          </span>
-                          <span className="text-[10px] font-bold text-slate-500">
-                            /pc थोक
-                          </span>
-                        </div>
-                        {mrp > wholesalePrice && (
-                          <span className="text-xs font-semibold text-slate-400 line-through">
-                            MRP {formatINR(mrp)}
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Dukandar Margin / Profit Highlight */}
-                      <div className="bg-emerald-50 border border-emerald-200/80 rounded-lg px-2 py-0.5 flex items-center justify-between text-[10px] sm:text-[11px] font-bold text-emerald-800">
-                        <span>मुनाफा:</span>
-                        <span className="font-black text-emerald-700">
-                          +{formatINR(marginPerPiece)} ({marginPercent}%)
-                        </span>
-                      </div>
-
-                      {/* Case / Peti Rate */}
-                      <div className="text-[10px] text-slate-500 font-medium flex items-center justify-between px-0.5">
-                        <span>1 पेटी ({piecesPerCase} pcs):</span>
-                        <span className="font-bold text-slate-800">{formatINR(casePrice)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions: Quantity Stepper + Case Add to Cart Button */}
-                  <div className="mt-3 space-y-2">
-                    {/* Quantity Stepper in Cases */}
-                    <div className="flex items-center justify-between bg-slate-100 rounded-lg p-1">
-                      <button
-                        onClick={() => handleQuantityChange(product.id, -1)}
-                        className="w-6 h-6 rounded bg-white text-slate-700 font-bold flex items-center justify-center shadow-2xs hover:bg-slate-200 active:scale-95 transition-transform cursor-pointer"
-                        title="कम करें (Decrease cases)"
-                      >
-                        <Minus className="w-3 h-3" />
-                      </button>
-                      <span className="text-xs font-bold text-slate-800">
-                        {qty} {qty > 1 ? 'पेटियां (Cases)' : 'पेटी (Case)'}
-                      </span>
-                      <button
-                        onClick={() => handleQuantityChange(product.id, 1)}
-                        className="w-6 h-6 rounded bg-white text-slate-700 font-bold flex items-center justify-center shadow-2xs hover:bg-slate-200 active:scale-95 transition-transform cursor-pointer"
-                        title="बढ़ाएं (Increase cases)"
-                      >
-                        <Plus className="w-3 h-3" />
-                      </button>
-                    </div>
-
-                    {/* Add Case to Cart Button - Bright Yellow */}
-                    <button
-                      onClick={() => handleAddToCartClick(product)}
-                      className={`w-full py-2 px-2.5 rounded-xl font-black text-xs flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 transition-all cursor-pointer ${
-                        isAdded
-                          ? 'bg-emerald-500 text-white shadow-emerald-500/30'
-                          : 'bg-[#FFC107] hover:bg-[#FFB300] text-slate-950 shadow-amber-500/20'
-                      }`}
-                    >
-                      {isAdded ? (
-                        <>
-                          <CheckCircle2 className="w-4 h-4 shrink-0" />
-                          <span className="truncate">पेटी कार्ट में जोड़ी गई!</span>
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingCart className="w-3.5 h-3.5 shrink-0" />
-                          <span className="truncate">Add Case (पेटी जोड़ें)</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                </div>
+                  product={product}
+                  onAddToCart={(p, cases, packing) => {
+                    if (onAddToCart) onAddToCart(p, cases, packing);
+                  }}
+                  onBookNow={!isRetailer && (isSalesman || isAdmin) ? handleBookProduct : undefined}
+                  onBuyNow={isRetailer ? (p, cases, packing) => handleBuyNowProduct(p, cases, packing) : undefined}
+                  isRetailer={isRetailer}
+                  isSalesman={isSalesman}
+                  isAdmin={isAdmin}
+                  inCartCount={inCartCases}
+                  onUpdateCartItem={onUpdateCartItem}
+                  onOpenPackSelector={(p) => setPackSelectorProduct(p)}
+                />
               );
             })}
           </div>
         )}
       </section>
+
+      {/* Floating Mobile Cart Bar (When Cart has items) */}
+      {totalCartCount > 0 && onOpenCart && (
+        <aside 
+          aria-label="Active wholesale order summary"
+          className="md:hidden fixed bottom-18 inset-x-3 z-40 animate-in slide-in-from-bottom-3 duration-200"
+        >
+          <div className="bg-slate-950 text-white p-3 rounded-2xl shadow-xl border border-slate-800 flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-orange-500 flex items-center justify-center text-slate-950 font-black">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-black">
+                  {totalCartCount} Case{totalCartCount > 1 ? 's' : ''} in Cart
+                </div>
+                <div className="text-[11px] text-slate-300 font-mono">
+                  Est. Total: <strong>{formatINR(totalCartAmount)}</strong>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onOpenCart}
+              className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs flex items-center space-x-1 cursor-pointer shadow-md active:scale-95"
+            >
+              <span>View Cart</span>
+              <span>→</span>
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* ApnaClub-Style Pack Selector Modal */}
+      {packSelectorProduct && (
+        <ApnaClubPackSelectorModal
+          isOpen={!!packSelectorProduct}
+          onClose={() => setPackSelectorProduct(null)}
+          product={packSelectorProduct}
+          onAddToCartSingle={(prod, qty, pack) => {
+            if (onAddToCart) {
+              onAddToCart(prod, qty, pack);
+            }
+          }}
+          onAddToCartBatch={(items) => {
+            if (onAddToCart) {
+              items.forEach(item => {
+                onAddToCart(item.product, item.quantity, item.packing);
+              });
+            }
+          }}
+        />
+      )}
+
+      {/* ========================================================================= */}
+      {/* MOBILE FOOTER & APP UPDATE STATUS CARD                                     */}
+      {/* ========================================================================= */}
+      <div className="w-full text-center pt-5 pb-3 space-y-2 border-t border-slate-200 dark:border-slate-800 text-slate-500">
+        <div className="flex flex-wrap items-center justify-center gap-3 text-xs">
+          <button
+            type="button"
+            onClick={() => triggerManualUpdateCheck()}
+            className="text-blue-600 dark:text-blue-400 hover:underline font-bold flex items-center space-x-1 cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Check App Updates (नया वर्शन चेक करें)</span>
+          </button>
+          <span className="text-slate-300">•</span>
+          <button
+            type="button"
+            onClick={() => triggerApkDownload()}
+            className="text-emerald-600 dark:text-emerald-400 hover:underline font-bold flex items-center space-x-1 cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Download APK ({appConfig.version || 'v1.3.0'})</span>
+          </button>
+        </div>
+        <p className="text-[11px] text-slate-400">
+          Aryan Agency FMCG Distribution Suite • Android App {appConfig.version || 'v1.3.0'}
+        </p>
+      </div>
 
     </div>
   );

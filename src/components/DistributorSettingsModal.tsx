@@ -310,10 +310,20 @@ export const DistributorSettingsModal: React.FC<DistributorSettingsModalProps> =
                       <input
                         type="number"
                         min="0"
-                        max="5"
+                        max="10"
                         step="0.01"
                         value={mdrPercentage}
-                        onChange={(e) => setMdrPercentage(Number(e.target.value))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === '') {
+                            setMdrPercentage(0);
+                          } else {
+                            const parsed = parseFloat(val);
+                            if (!isNaN(parsed)) {
+                              setMdrPercentage(parsed);
+                            }
+                          }
+                        }}
                         className="w-full pr-7 pl-3 py-1.5 text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                       />
                       <span className="absolute right-2.5 top-2 text-xs font-bold text-slate-400">%</span>
@@ -322,6 +332,25 @@ export const DistributorSettingsModal: React.FC<DistributorSettingsModalProps> =
                   <div className="flex-1 text-[11px] text-slate-600 pt-3">
                     सरकारी नियमों के अनुसार डिजिटल / UPI पेमेंट पर <strong>{mdrPercentage}%</strong> MDR चार्ज चेकआउट बिल में जोड़ा जाएगा।
                   </div>
+                </div>
+
+                {/* Quick select presets */}
+                <div className="flex items-center space-x-2 pt-1">
+                  <span className="text-[10px] font-semibold text-slate-500">त्वरित दर चुनें (Presets):</span>
+                  {[0.04, 0.4, 0.5, 1.0, 1.5].map(rate => (
+                    <button
+                      key={rate}
+                      type="button"
+                      onClick={() => setMdrPercentage(rate)}
+                      className={`px-2 py-0.5 text-[10.5px] font-mono rounded cursor-pointer transition-colors ${
+                        mdrPercentage === rate 
+                          ? 'bg-emerald-600 text-white font-bold' 
+                          : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
+                      }`}
+                    >
+                      {rate}%
+                    </button>
+                  ))}
                 </div>
 
                 <div className="p-2 bg-emerald-100/70 border border-emerald-200 rounded-lg text-[10.5px] text-emerald-900">

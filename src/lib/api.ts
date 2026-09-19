@@ -9,7 +9,8 @@ import {
   User,
   UserRole,
   Category,
-  Brand
+  Brand,
+  PromotionalBanner
 } from '../types';
 import { supabaseService, isSupabaseConfigured, supabaseUrl } from './supabase';
 import { applyCreditControlsToRetailers, setRetailerCreditControl } from './retailerCredit';
@@ -31,6 +32,28 @@ export function setApiAuthContext(
   activeRetailerId = retailerId;
 }
 
+/**
+ * Resolves the appropriate backend server URL.
+ * When running inside an Android APK (Capacitor/WebView), requests must point
+ * to the remote server rather than localhost.
+ */
+export function getServerBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    const customUrl = localStorage.getItem('aryan_custom_server_url');
+    if (customUrl && customUrl.trim()) {
+      return customUrl.trim().replace(/\/+$/, '');
+    }
+    const origin = window.location.origin;
+    if (origin && !origin.includes('localhost') && !origin.startsWith('capacitor') && !origin.startsWith('file:')) {
+      return origin.replace(/\/+$/, '');
+    }
+  }
+  const envUrl = ((import.meta as any)?.env?.VITE_APP_URL || (import.meta as any)?.env?.APP_URL || '').trim();
+  if (envUrl) {
+    return envUrl.replace(/\/+$/, '');
+  }
+  return '';
+}
 
 async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const headers = new Headers(options.headers || {});
@@ -50,7 +73,15 @@ async function authFetch(url: string, options: RequestInit = {}): Promise<Respon
     headers.set('X-User-Role', activeUserRole);
   }
 
-  const res = await fetch(url, { ...options, headers });
+  let targetUrl = url;
+  if (url.startsWith('/api') || url.startsWith('/download')) {
+    const base = getServerBaseUrl();
+    if (base && !url.startsWith('http')) {
+      targetUrl = `${base}${url}`;
+    }
+  }
+
+  const res = await fetch(targetUrl, { ...options, headers });
   return res;
 }
 
@@ -223,6 +254,22 @@ export const api = {
     });
   },
 
+  async updateProfile(profileData: Partial<User>): Promise<{ success: boolean; user: User }> {
+    return safeMutationFetch<{ success: boolean; user: User }>('/api/auth/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profileData)
+    });
+  },
+
+  async verifyRetailer(retailerId: string, status: 'pending' | 'verified' | 'rejected', remarks?: string): Promise<{ success: boolean; retailer: Retailer; message: string }> {
+    return safeMutationFetch<{ success: boolean; retailer: Retailer; message: string }>(`/api/retailers/${retailerId}/verify`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, remarks })
+    });
+  },
+
   // Categories & Brands
   async getCategories(): Promise<Category[]> {
     if (isSupabaseConfigured) {
@@ -329,12 +376,26 @@ export const api = {
       const isEdit = !!product.id;
       const url = isEdit ? `/api/products/${product.id}` : '/api/products';
       const method = isEdit ? 'PUT' : 'POST';
-      const localResult = await safeMutationFetch<Product>(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(savedResult || payload)
-      });
-      if (!savedResult) {
+      let localResult: Product | null = null;
+      try {
+        localResult = await safeMutationFetch<Product>(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(savedResult || payload)
+        });
+      } catch (putErr: any) {
+        if (isEdit && (putErr?.message?.includes('404') || putErr?.message?.toLowerCase().includes('not found'))) {
+          // Fallback to POST if server PUT couldn't find the product
+          localResult = await safeMutationFetch<Product>('/api/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(savedResult || payload)
+          });
+        } else {
+          throw putErr;
+        }
+      }
+      if (!savedResult && localResult) {
         savedResult = localResult;
       }
     } catch (localErr) {
@@ -794,9 +855,118 @@ export const api = {
     return safeJsonFetch<any[]>('/api/ai/insights', {}, []);
   },
 
+  // Promotional Banners
+  async getBanners(): Promise<PromotionalBanner[]> {
+    const banners = await safeJsonFetch<PromotionalBanner[]>('/api/banners', {}, []);
+    if (Array.isArray(banners) && banners.length > 0) {
+      try {
+        localStorage.setItem('aa_promotional_banners', JSON.stringify(banners));
+      } catch {}
+      return banners;
+    }
+    // Resilient fallback to local cache if network/server unavailable
+    try {
+      const cached = localStorage.getItem('aa_promotional_banners');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return banners;
+  },
+
+  async createBanner(banner: Partial<PromotionalBanner>): Promise<PromotionalBanner> {
+    const res = await safeMutationFetch<PromotionalBanner>('/api/banners', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(banner)
+    });
+    // Immediately synchronize local storage cache
+    try {
+      const cached = localStorage.getItem('aa_promotional_banners');
+      const list: PromotionalBanner[] = cached ? JSON.parse(cached) : [];
+      list.unshift(res);
+      localStorage.setItem('aa_promotional_banners', JSON.stringify(list));
+    } catch {}
+    return res;
+  },
+
+  async updateBanner(id: string, banner: Partial<PromotionalBanner>): Promise<PromotionalBanner> {
+    const res = await safeMutationFetch<PromotionalBanner>(`/api/banners/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(banner)
+    });
+    // Immediately synchronize local storage cache
+    try {
+      const cached = localStorage.getItem('aa_promotional_banners');
+      if (cached) {
+        let list: PromotionalBanner[] = JSON.parse(cached);
+        list = list.map(b => b.id === id ? { ...b, ...res } : b);
+        localStorage.setItem('aa_promotional_banners', JSON.stringify(list));
+      }
+    } catch {}
+    return res;
+  },
+
+  async deleteBanner(id: string): Promise<{ success: boolean }> {
+    const res = await safeMutationFetch<{ success: boolean }>(`/api/banners/${id}`, {
+      method: 'DELETE'
+    });
+    // Immediately synchronize local storage cache
+    try {
+      const cached = localStorage.getItem('aa_promotional_banners');
+      if (cached) {
+        let list: PromotionalBanner[] = JSON.parse(cached);
+        list = list.filter(b => b.id !== id);
+        localStorage.setItem('aa_promotional_banners', JSON.stringify(list));
+      }
+    } catch {}
+    return res;
+  },
+
   // Reset Data
   async resetDatabase(): Promise<any> {
     return safeMutationFetch<any>('/api/db/reset', { method: 'POST' });
+  },
+
+  // App Version & Distribution Sync
+  async getAppVersion(): Promise<{
+    version: string;
+    versionCode?: number;
+    downloadUrl: string;
+    apkUrl?: string;
+    updatedAt: string;
+    releaseNotes: string;
+    fileSize?: string;
+    minAndroidVersion?: string;
+  }> {
+    return safeJsonFetch<any>('/api/app/version', {}, {
+      version: '1.3.0',
+      versionCode: 130,
+      downloadUrl: '/download/aryan-agency-app.apk',
+      apkUrl: '/download/aryan-agency-app.apk',
+      updatedAt: new Date().toISOString(),
+      releaseNotes: 'Aryan Agency B2B App Latest Release',
+      fileSize: '18.4 MB',
+      minAndroidVersion: 'Android 8.0+'
+    });
+  },
+
+  async updateAppVersion(versionData: {
+    version: string;
+    versionCode?: number;
+    downloadUrl?: string;
+    apkUrl?: string;
+    releaseNotes?: string;
+    fileSize?: string;
+    minAndroidVersion?: string;
+  }): Promise<{ success: boolean; versionConfig: any; message: string }> {
+    return safeMutationFetch<any>('/api/app/version', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(versionData)
+    });
   }
 };
 

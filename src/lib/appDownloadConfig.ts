@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { api, getServerBaseUrl } from './api';
 
 export interface AppDownloadConfig {
   apkUrl: string;
@@ -23,14 +24,14 @@ const EVENT_NAME = 'aryan_app_download_config_updated';
 
 export const DEFAULT_APP_CONFIG: AppDownloadConfig = {
   apkUrl: '/download/aryan-agency-app.apk',
-  version: 'v1.2.6',
+  version: 'v1.3.0',
   fileSize: '18.4 MB',
   releaseDate: 'September 2026',
   minAndroidVersion: 'Android 8.0 (Oreo) or later',
   appName: 'Aryan Agency FMCG Distribution',
   packageName: 'in.aryanagency.fmcg',
   isAvailable: true,
-  notes: 'Direct Android APK for Kirana retailers, DSR salesmen, and delivery drivers with new FMCG Home Page and offline order sync.'
+  notes: 'Aryan Agency B2B App v1.3.0 with live wholesale banner carousel, pack selector, offline cart sync, and real-time app update detection.'
 };
 
 export function getAppDownloadConfig(): AppDownloadConfig {
@@ -38,7 +39,7 @@ export function getAppDownloadConfig(): AppDownloadConfig {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_APP_CONFIG;
     const parsed = JSON.parse(raw);
-    // If the cached URL was any previous GitHub release or mock path, migrate it to the permanent public APK route
+    // If the cached URL was any previous mock or outdated URL, keep the permanent APK route
     if (
       parsed.apkUrl === '/downloads/aryan-agency-fmcg.apk' ||
       parsed.apkUrl?.includes('releases/latest/download') ||
@@ -61,6 +62,19 @@ export function saveAppDownloadConfig(settings: Partial<AppDownloadConfig>): App
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(EVENT_NAME, { detail: updated }));
     }
+
+    // Persist to server in background if possible
+    api.updateAppVersion({
+      version: updated.version.replace(/^v/i, ''),
+      apkUrl: updated.apkUrl,
+      downloadUrl: updated.apkUrl,
+      fileSize: updated.fileSize,
+      releaseNotes: updated.notes,
+      minAndroidVersion: updated.minAndroidVersion
+    }).catch(err => {
+      console.warn('[appDownloadConfig] Background sync to server error:', err);
+    });
+
     return updated;
   } catch (err) {
     console.error('[appDownloadConfig] Error saving config:', err);
@@ -72,6 +86,7 @@ export function useAppDownloadConfig() {
   const [config, setConfig] = useState<AppDownloadConfig>(getAppDownloadConfig);
 
   useEffect(() => {
+    // 1. Listen for local and cross-tab update events
     const handleUpdate = (e: any) => {
       if (e?.detail) {
         setConfig(e.detail);
@@ -82,6 +97,29 @@ export function useAppDownloadConfig() {
 
     window.addEventListener(EVENT_NAME, handleUpdate);
     window.addEventListener('storage', handleUpdate);
+
+    // 2. Fetch live official version from server on mount
+    api.getAppVersion().then(serverVer => {
+      if (serverVer && serverVer.version) {
+        const remoteVersionFormatted = serverVer.version.startsWith('v') ? serverVer.version : `v${serverVer.version}`;
+        const current = getAppDownloadConfig();
+        if (remoteVersionFormatted !== current.version || (serverVer.apkUrl && serverVer.apkUrl !== current.apkUrl)) {
+          const merged: AppDownloadConfig = {
+            ...current,
+            version: remoteVersionFormatted,
+            apkUrl: serverVer.apkUrl || serverVer.downloadUrl || current.apkUrl,
+            fileSize: serverVer.fileSize || current.fileSize,
+            notes: serverVer.releaseNotes || current.notes,
+            minAndroidVersion: serverVer.minAndroidVersion || current.minAndroidVersion
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+          setConfig(merged);
+        }
+      }
+    }).catch(() => {
+      // Offline or network error - keep cached/default config
+    });
+
     return () => {
       window.removeEventListener(EVENT_NAME, handleUpdate);
       window.removeEventListener('storage', handleUpdate);

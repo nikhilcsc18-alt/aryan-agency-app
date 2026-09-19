@@ -18,6 +18,7 @@ import { LoginPage } from './components/LoginPage';
 import { HomePage } from './components/HomePage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { MobileHomeView } from './components/MobileHomeView';
+import { BannerManagementView } from './components/BannerManagementView';
 import { AccountDetailsModal } from './components/AccountDetailsModal';
 import { AppUpdateChecker } from './components/AppUpdateChecker';
 import { NotificationPanel } from './components/NotificationPanel';
@@ -43,7 +44,8 @@ import {
   OrderStatus,
   PaymentStatus,
   ProductPackingOption,
-  AppNotification
+  AppNotification,
+  PromotionalBanner
 } from './types';
 import { getProductPackingOptions } from './lib/packingUtils';
 import { AlertCircle, CheckCircle2, Building2, Loader2 } from 'lucide-react';
@@ -67,6 +69,7 @@ function MainApp() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [inventoryLogs, setInventoryLogs] = useState<InventoryMovement[]>([]);
   const [dashboardMetrics, setDashboardMetrics] = useState<DashboardMetrics | null>(null);
+  const [banners, setBanners] = useState<PromotionalBanner[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Cart State
@@ -120,6 +123,13 @@ function MainApp() {
       if (data.retailers && data.retailers.length > 0 && !selectedCartRetailerId) {
         setSelectedCartRetailerId(data.retailers[0].id);
       }
+      // Load promotional banners
+      try {
+        const bannersData = await api.getBanners();
+        setBanners(bannersData || []);
+      } catch (bErr) {
+        console.warn('Could not fetch banners:', bErr);
+      }
     } catch (err: any) {
       console.error('Failed to load FMCG data:', err?.message || err);
       showToast('Distribution database synchronized', 'info');
@@ -133,6 +143,15 @@ function MainApp() {
       loadData();
     }
   }, [currentUser?.id]);
+
+  const refreshBanners = async () => {
+    try {
+      const bannersData = await api.getBanners();
+      setBanners(bannersData || []);
+    } catch (err: any) {
+      console.error('Failed to reload banners:', err);
+    }
+  };
 
   // Sync active tab with user role permissions
   const getRoleHomeTab = (): NavTab => {
@@ -718,19 +737,26 @@ function MainApp() {
       />
 
       {/* View Router Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 pb-24 md:pb-8">
+      <main className={`flex-1 w-full mx-auto p-3 sm:p-6 pb-24 md:pb-8 transition-all duration-300 ${
+        isAdmin ? 'md:pl-24 lg:pl-72 max-w-[1600px]' : 'max-w-7xl'
+      }`}>
         
         {/* Mobile Home Page View - Reference UI match */}
         {activeTab === 'home' && (
           <MobileHomeView
             products={products}
             orders={orders}
+            banners={banners}
             onAddToCart={handleAddToCart}
             onNavigateTab={(tab) => setActiveTab(tab)}
             onOpenCart={() => setIsCartOpen(true)}
             onOpenAccountModal={() => setIsAccountDetailsModalOpen(true)}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
+            cartItems={cartItems}
+            onUpdateCartItem={handleUpdateCartItem}
+            onRemoveFromCart={handleRemoveFromCart}
+            onQuickOrder={openNewOrderWithProduct}
           />
         )}
 
@@ -884,6 +910,20 @@ function MainApp() {
               onOpenInvoice={(order) => setActiveInvoiceOrder(order)}
               onRecordPayment={handleRecordPayment}
               preselectedRetailer={preselectedRetailerForPayment}
+            />
+          </ProtectedRoute>
+        )}
+
+        {/* Banner Management View - Protected (Admin Only) */}
+        {activeTab === 'banners' && (
+          <ProtectedRoute 
+            pageName="Banner & Promotions Management"
+            allowedRoles={['admin']}
+            onNavigateHome={() => setActiveTab(getRoleHomeTab())}
+          >
+            <BannerManagementView
+              banners={banners}
+              onRefreshBanners={refreshBanners}
             />
           </ProtectedRoute>
         )}

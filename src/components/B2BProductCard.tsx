@@ -163,15 +163,17 @@ export const B2BProductCard: React.FC<B2BProductCardProps> = ({
           ) : null}
         </div>
 
-        {/* Product Image Stage */}
-        <div className="h-32 sm:h-40 bg-slate-50 relative flex items-center justify-center p-2 overflow-hidden">
+        {/* Product Image Stage - Pure White Background, Object-Fit Contain, No Forced Zoom/Crop */}
+        <div className="h-36 sm:h-44 bg-white relative flex items-center justify-center p-2.5 sm:p-3 overflow-hidden border-b border-slate-100">
           <ProductImage
             src={product.imageUrl}
             alt={product.name}
             brand={product.brand}
             category={product.category}
             sku={product.sku}
-            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200"
+            objectFit="contain"
+            className="w-full h-full object-contain"
+            containerClassName="w-full h-full relative flex items-center justify-center bg-white"
           />
 
           {/* Quick Admin Actions Overlay */}

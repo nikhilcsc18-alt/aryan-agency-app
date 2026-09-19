@@ -8,11 +8,24 @@ import {
   DeliveryRunSheet, 
   PaymentRecord, 
   InventoryMovement, 
-  User 
+  User,
+  PromotionalBanner
 } from '../src/types';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
+
+export interface AppVersionConfig {
+  version: string;
+  versionCode?: number;
+  downloadUrl: string;
+  apkUrl?: string;
+  updatedAt: string;
+  releaseNotes: string;
+  fileSize?: string;
+  minAndroidVersion?: string;
+  isMandatory?: boolean;
+}
 
 export interface DatabaseSchema {
   users: User[];
@@ -23,7 +36,56 @@ export interface DatabaseSchema {
   deliveries: DeliveryRunSheet[];
   payments: PaymentRecord[];
   inventoryLogs: InventoryMovement[];
+  banners?: PromotionalBanner[];
+  appVersionConfig?: AppVersionConfig;
 }
+
+const INITIAL_BANNERS: PromotionalBanner[] = [
+  {
+    id: 'banner_main',
+    bgGradient: 'from-[#F6BD27] via-[#F4B218] to-[#E89E0B]',
+    title: 'दुकानदारों के लिए सीधे डिपो थोक भाव',
+    subtitle: 'Best Wholesale Rates • Maximum Retailer Margins',
+    badgeText: 'केवल दुकानदारों के लिए (B2B)',
+    ctaText: 'हर पेटी / कार्टन पर ₹20 से ₹60 तक का सीधा दुकानदार मुनाफा',
+    accentColor: "Lay's • Kurkure • Parle-G • Amul • Sunfeast",
+    imageUrl: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&auto=format&fit=crop&q=80',
+    isActive: true
+  },
+  {
+    id: 'banner_offers',
+    bgGradient: 'from-[#F59E0B] via-[#D97706] to-[#B45309]',
+    title: 'Aryan B2B Retailer Trade Schemes',
+    subtitle: 'Parle • Britannia • Sunfeast • PepsiCo • Amul',
+    badgeText: 'थोक व्यापार डिस्काउंट',
+    ctaText: 'कार्टन / पेटी बुकिंग पर अतिरिक्त 5% थोक स्कीम मार्जिन',
+    accentColor: 'Special Wholesale Trade Margin on Bulk Booking',
+    imageUrl: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=500&auto=format&fit=crop&q=80',
+    isActive: true
+  },
+  {
+    id: 'banner_fast',
+    bgGradient: 'from-[#0284C7] via-[#0369A1] to-[#075985]',
+    title: 'Direct Depot Supply to Your Shop',
+    subtitle: 'Same-Day / 24-Hour Dispatch directly to your Kirana Counter',
+    badgeText: 'दुकान तक सीधी डिलीवरी',
+    ctaText: '100% Genuine Direct Supply Chain Guarantee with GST Bill',
+    accentColor: 'City Beat Fleet • Indiranagar • Yeshwanthpur • Whitefield',
+    imageUrl: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=500&auto=format&fit=crop&q=80',
+    isActive: true
+  },
+  {
+    id: 'banner_baby_care',
+    bgGradient: 'from-[#0D9488] via-[#0F766E] to-[#115E59]',
+    title: 'Baby Care & Personal Hygiene Wholesale',
+    subtitle: 'Honey Bunny • Dettol • Colgate • Stayfree',
+    badgeText: 'सुपर-स्टॉकिस्ट डिपो',
+    ctaText: 'Buy 5 Cases, Get 1 Case Free on Honey Bunny Diapers',
+    accentColor: 'Super-Stockist Authentic Direct Supply for Retailers',
+    imageUrl: 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=500&auto=format&fit=crop&q=80',
+    isActive: true
+  }
+];
 
 const INITIAL_DATA: DatabaseSchema = {
   users: [
@@ -33,7 +95,21 @@ const INITIAL_DATA: DatabaseSchema = {
       email: 'aryan@aryanagency.in',
       phone: '+91 98450 12345',
       role: 'admin',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      businessName: 'Aryan Agency FMCG Distribution',
+      businessLogoUrl: '',
+      address: 'Plot No. 42, Industrial Area, Yeshwanthpur Main Road',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      pincode: '560022',
+      gstin: '29AABCA1234F1Z8',
+      panNumber: 'AABCA1234F',
+      locationCoordinates: {
+        lat: 13.0285,
+        lng: 77.5407,
+        addressText: 'Yeshwanthpur Industrial Suburb, Bengaluru, Karnataka 560022'
+      },
+      verificationStatus: 'verified'
     },
     {
       id: 'usr_sales_1',
@@ -588,6 +664,11 @@ class Database {
           if (parsed.users.length !== originalLen) modified = true;
         }
 
+        if (!Array.isArray(parsed.banners) || parsed.banners.length === 0) {
+          parsed.banners = INITIAL_BANNERS;
+          modified = true;
+        }
+
         if (modified) {
           this.saveData(parsed);
         }
@@ -928,6 +1009,108 @@ class Database {
 
     this.saveData(this.data);
     return movement;
+  }
+
+  // Promotional Banners
+  public getBanners(): PromotionalBanner[] {
+    if (!Array.isArray(this.data.banners) || this.data.banners.length === 0) {
+      this.data.banners = [...INITIAL_BANNERS];
+      this.saveData(this.data);
+    }
+    return this.data.banners;
+  }
+
+  public saveBanner(banner: PromotionalBanner): PromotionalBanner {
+    if (!Array.isArray(this.data.banners)) {
+      this.data.banners = [...INITIAL_BANNERS];
+    }
+    const idx = this.data.banners.findIndex(b => b.id === banner.id);
+    if (idx >= 0) {
+      this.data.banners[idx] = banner;
+    } else {
+      this.data.banners.unshift(banner);
+    }
+    this.saveData(this.data);
+    return banner;
+  }
+
+  public deleteBanner(id: string): boolean {
+    if (!Array.isArray(this.data.banners)) {
+      return false;
+    }
+    const lenBefore = this.data.banners.length;
+    this.data.banners = this.data.banners.filter(b => b.id !== id);
+    if (this.data.banners.length !== lenBefore) {
+      this.saveData(this.data);
+      return true;
+    }
+    return false;
+  }
+
+  // App Version & APK Distribution Configuration
+  public getAppVersionConfig(): AppVersionConfig {
+    if (!this.data.appVersionConfig) {
+      try {
+        const vPath = path.join(process.cwd(), 'public', 'download', 'version.json');
+        if (fs.existsSync(vPath)) {
+          const parsed = JSON.parse(fs.readFileSync(vPath, 'utf-8'));
+          this.data.appVersionConfig = {
+            version: parsed.version || '1.3.0',
+            versionCode: parsed.versionCode || 130,
+            downloadUrl: parsed.downloadUrl || '/download/aryan-agency-app.apk',
+            apkUrl: parsed.apkUrl || parsed.downloadUrl || '/download/aryan-agency-app.apk',
+            updatedAt: parsed.updatedAt || new Date().toISOString(),
+            releaseNotes: parsed.releaseNotes || 'Aryan Agency Latest Version',
+            fileSize: parsed.fileSize || '18.4 MB',
+            minAndroidVersion: parsed.minAndroidVersion || 'Android 8.0+'
+          };
+        }
+      } catch (e) {
+        console.warn('[db] Failed to load version.json fallback:', e);
+      }
+    }
+
+    if (!this.data.appVersionConfig) {
+      this.data.appVersionConfig = {
+        version: '1.3.0',
+        versionCode: 130,
+        downloadUrl: '/download/aryan-agency-app.apk',
+        apkUrl: '/download/aryan-agency-app.apk',
+        updatedAt: new Date().toISOString(),
+        releaseNotes: 'Aryan Agency Retailer & Distributor App v1.3.0',
+        fileSize: '18.4 MB',
+        minAndroidVersion: 'Android 8.0+'
+      };
+    }
+
+    return this.data.appVersionConfig;
+  }
+
+  public saveAppVersionConfig(config: Partial<AppVersionConfig>): AppVersionConfig {
+    const current = this.getAppVersionConfig();
+    this.data.appVersionConfig = {
+      ...current,
+      ...config,
+      updatedAt: new Date().toISOString()
+    };
+    this.saveData(this.data);
+
+    // Sync to public/download/version.json and dist/download/version.json
+    try {
+      const paths = [
+        path.join(process.cwd(), 'public', 'download', 'version.json'),
+        path.join(process.cwd(), 'dist', 'download', 'version.json'),
+      ];
+      for (const p of paths) {
+        const dir = path.dirname(p);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(p, JSON.stringify(this.data.appVersionConfig, null, 2), 'utf-8');
+      }
+    } catch (e) {
+      console.warn('[db] Could not sync version.json file:', e);
+    }
+
+    return this.data.appVersionConfig;
   }
 }
 

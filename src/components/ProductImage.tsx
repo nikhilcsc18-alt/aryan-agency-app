@@ -20,10 +20,10 @@ export const ProductImage: React.FC<ProductImageProps> = ({
   brand = 'FMCG',
   category = 'General',
   sku = '',
-  className = 'w-full h-full object-cover',
-  containerClassName = 'w-full h-full relative overflow-hidden bg-slate-100 flex items-center justify-center',
+  className = 'w-full h-full object-contain',
+  containerClassName = 'w-full h-full relative overflow-hidden bg-white flex items-center justify-center',
   loading = 'lazy',
-  objectFit = 'cover'
+  objectFit = 'contain'
 }) => {
   const [hasError, setHasError] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -59,7 +59,7 @@ export const ProductImage: React.FC<ProductImageProps> = ({
 
   if (!finalSrc || hasError) {
     return (
-      <div className={`${containerClassName} bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-100`}>
+      <div className={`${containerClassName} bg-white`}>
         <div className="flex flex-col items-center justify-center p-2 text-center max-w-[90%]">
           {brand && (
             <div className="mb-1 drop-shadow-xs">
@@ -77,12 +77,15 @@ export const ProductImage: React.FC<ProductImageProps> = ({
     );
   }
 
+  // Clean incoming className from conflicting object-fit classes
+  const sanitizedClassName = className.replace(/\bobject-(cover|contain|fill|none|scale-down)\b/g, '').trim();
+
   return (
     <div className={containerClassName}>
       {/* Loading Skeleton */}
       {!isLoaded && (
-        <div className="absolute inset-0 bg-slate-200 animate-pulse flex items-center justify-center">
-          <Package className="w-5 h-5 text-slate-400 opacity-50" />
+        <div className="absolute inset-0 bg-slate-50 animate-pulse flex items-center justify-center">
+          <Package className="w-5 h-5 text-slate-300 opacity-60" />
         </div>
       )}
 
@@ -94,9 +97,12 @@ export const ProductImage: React.FC<ProductImageProps> = ({
         loading={loading}
         onLoad={() => setIsLoaded(true)}
         onError={() => setHasError(true)}
-        className={`${className} ${objectFit === 'contain' ? 'object-contain' : 'object-cover'} transition-opacity duration-200 ${
+        style={{ objectFit: objectFit || 'contain' }}
+        className={`max-h-full max-w-full w-auto h-auto ${
+          objectFit === 'cover' ? 'object-cover' : 'object-contain'
+        } transition-opacity duration-200 ${
           isLoaded ? 'opacity-100' : 'opacity-0'
-        }`}
+        } ${sanitizedClassName}`}
       />
     </div>
   );

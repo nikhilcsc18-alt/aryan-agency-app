@@ -35,6 +35,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   logout: () => Promise<void>;
   refreshUsers: () => Promise<void>;
+  updateProfile: (profileData: Partial<User>) => Promise<{ success: boolean; user?: User; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -486,6 +487,22 @@ const signInWithEmail = async (email: string, pass: string): Promise<{ success: 
     }
   };
 
+  const updateProfile = async (profileData: Partial<User>): Promise<{ success: boolean; user?: User; error?: string }> => {
+    try {
+      const res = await api.updateProfile(profileData);
+      if (res && res.success && res.user) {
+        setAuthenticatedUser(res.user);
+        setCurrentUser(res.user);
+        setAllUsers(prev => prev.map(u => u.id === res.user.id ? res.user : u));
+        return { success: true, user: res.user };
+      }
+      return { success: false, error: 'Failed to update profile' };
+    } catch (err: any) {
+      console.error('[AuthContext] Error updating profile:', err);
+      return { success: false, error: err?.message || 'Error updating profile' };
+    }
+  };
+
   const currentRole: UserRole | '' = currentUser?.role || '';
   const isAdmin = currentRole === 'admin';
   const isSalesman = currentRole === 'salesman';
@@ -534,7 +551,8 @@ const signInWithEmail = async (email: string, pass: string): Promise<{ success: 
         signUpWithEmail,
         resetPassword,
         logout,
-        refreshUsers: loadAuth
+        refreshUsers: loadAuth,
+        updateProfile
       }}
     >
       {children}

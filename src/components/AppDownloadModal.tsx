@@ -24,6 +24,8 @@ import {
   DEFAULT_APP_CONFIG 
 } from '../lib/appDownloadConfig';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../lib/api';
+import { triggerManualUpdateCheck } from './AppUpdateChecker';
 
 interface AppDownloadModalProps {
   isOpen: boolean;
@@ -93,20 +95,38 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  const handleSaveAdminConfig = (e: React.FormEvent) => {
+  const handleSaveAdminConfig = async (e: React.FormEvent) => {
     e.preventDefault();
+    const newVer = editVersion.trim() || DEFAULT_APP_CONFIG.version;
+    const newUrl = editUrl.trim() || DEFAULT_APP_CONFIG.apkUrl;
+    const newSize = editSize.trim() || DEFAULT_APP_CONFIG.fileSize;
+    const newNotes = editNotes.trim() || DEFAULT_APP_CONFIG.notes;
+
     updateConfig({
-      apkUrl: editUrl.trim() || DEFAULT_APP_CONFIG.apkUrl,
-      version: editVersion.trim() || DEFAULT_APP_CONFIG.version,
-      fileSize: editSize.trim() || DEFAULT_APP_CONFIG.fileSize,
-      notes: editNotes.trim() || DEFAULT_APP_CONFIG.notes,
+      apkUrl: newUrl,
+      version: newVer,
+      fileSize: newSize,
+      notes: newNotes,
       releaseDate: new Date().toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
     });
+
+    try {
+      await api.updateAppVersion({
+        version: newVer.replace(/^v/i, ''),
+        apkUrl: newUrl,
+        downloadUrl: newUrl,
+        fileSize: newSize,
+        releaseNotes: newNotes
+      });
+    } catch (err) {
+      console.warn('Could not sync to server version endpoint:', err);
+    }
+
     setAdminSaved(true);
     setTimeout(() => {
       setAdminSaved(false);
       setActiveTab('download');
-    }, 1200);
+    }, 1500);
   };
 
   return (
@@ -254,6 +274,19 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                   <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
                   <span>Direct GitHub Releases Mirror (18.4 MB APK)</span>
                 </a>
+
+                {/* In-App Live Update Check Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerManualUpdateCheck();
+                    onClose();
+                  }}
+                  className="w-full py-2.5 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold transition-all flex items-center justify-center space-x-2 text-xs cursor-pointer"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Check In-App Update (बिना APK दोबारा लोड किए तुरंत अपडेट करें)</span>
+                </button>
 
                 {downloadSuccess && (
                   <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-center space-x-2 animate-in fade-in duration-200">
