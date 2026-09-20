@@ -6,12 +6,15 @@ import {
   ArrowUpCircle, 
   ShieldCheck, 
   Smartphone, 
-  Clock,
-  ExternalLink,
-  RefreshCw,
-  CheckCircle2,
-  Zap
+  Clock, 
+  ExternalLink, 
+  RefreshCw, 
+  CheckCircle2, 
+  Zap,
+  ArrowRight,
+  HelpCircle
 } from 'lucide-react';
+import { Browser } from '@capacitor/browser';
 import { 
   performInAppUpdate, 
   isAutoUpdateEnabled, 
@@ -23,7 +26,7 @@ declare const __APP_VERSION__: string | undefined;
 // Current application version resolved from Vite build or package.json
 const CURRENT_APP_VERSION: string = 
   ((import.meta as any)?.env?.PACKAGE_VERSION) ||
-  (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.0');
+  (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.1');
 
 // Base URL resolution: in Capacitor/Android builds, resolve to the deployed public app URL via VITE_APP_URL,
 // falling back safely to the official Render domain or web origin.
@@ -50,6 +53,61 @@ interface AppVersionInfo {
   downloadUrl?: string;
   releaseNotes?: string;
   updatedAt?: string;
+}
+
+/**
+ * Triggers APK download using all available native and web methods
+ */
+export async function downloadAndOpenApk(url: string): Promise<boolean> {
+  const targetUrl = (url && url.trim()) ? url.trim() : DEFAULT_APK_DOWNLOAD_URL;
+  let opened = false;
+
+  // 1. Try Capacitor Browser plugin (opens Chrome Custom Tab or default Android browser)
+  try {
+    if (typeof window !== 'undefined') {
+      await Browser.open({ url: targetUrl });
+      opened = true;
+    }
+  } catch (err) {
+    console.warn('[AppUpdateChecker] Browser.open error:', err);
+  }
+
+  // 2. Fallback: window.open with _system for Android WebView
+  if (!opened && typeof window !== 'undefined') {
+    try {
+      const win = window.open(targetUrl, '_system');
+      if (win) opened = true;
+    } catch (e) {
+      console.warn('[AppUpdateChecker] window.open _system error:', e);
+    }
+  }
+
+  // 3. Fallback: standard web download link
+  try {
+    const link = document.createElement('a');
+    link.href = targetUrl;
+    link.setAttribute('download', 'aryan-agency-app.apk');
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    opened = true;
+  } catch (e) {
+    console.warn('[AppUpdateChecker] a.click download error:', e);
+  }
+
+  // 4. Fallback: window.location.href
+  if (!opened && typeof window !== 'undefined') {
+    try {
+      window.location.href = targetUrl;
+      opened = true;
+    } catch {
+      // ignore
+    }
+  }
+
+  return opened;
 }
 
 /**
@@ -95,7 +153,7 @@ export const AppUpdateChecker: React.FC = () => {
   const [latestVersion, setLatestVersion] = useState<string>('');
   const [downloadUrl, setDownloadUrl] = useState<string>(DEFAULT_APK_DOWNLOAD_URL);
   const [releaseNotes, setReleaseNotes] = useState<string>('');
-  const [isUpdatingInApp, setIsUpdatingInApp] = useState<boolean>(false);
+  const [modalStep, setModalStep] = useState<'prompt' | 'download_started' | 'reloading_web'>('prompt');
   const [updateProgress, setUpdateProgress] = useState<number>(0);
   const [updateStatusText, setUpdateStatusText] = useState<string>('Ready');
   const [autoUpdateChecked, setAutoUpdateChecked] = useState<boolean>(isAutoUpdateEnabled());
@@ -167,11 +225,7 @@ export const AppUpdateChecker: React.FC = () => {
             setReleaseNotes(notes.trim());
           }
 
-          // If user has background auto-update enabled, update seamlessly on next visit
-          if (isAutoUpdateEnabled() && !sessionStorage.getItem('auto_updated_performed')) {
-            sessionStorage.setItem('auto_updated_performed', 'true');
-          }
-
+          setModalStep('prompt');
           setIsUpdateModalOpen(true);
           foundUpdate = true;
           break; // Successfully found update and opened modal
@@ -227,41 +281,29 @@ export const AppUpdateChecker: React.FC = () => {
       // Ignore sessionStorage exceptions
     }
     setIsUpdateModalOpen(false);
+    setModalStep('prompt');
   };
 
-  const handleInAppAutoUpdate = async () => {
+  const handleStartApkUpdate = async () => {
+    // Switch to clear download-in-progress guidance screen immediately
+    setModalStep('download_started');
+    // Launch download via Browser plugin or fallback
+    await downloadAndOpenApk(downloadUrl || DEFAULT_APK_DOWNLOAD_URL);
+  };
+
+  const handleReloadWebAssets = async () => {
     try {
-      setIsUpdatingInApp(true);
+      setModalStep('reloading_web');
       await performInAppUpdate((percent, status) => {
         setUpdateProgress(percent);
         setUpdateStatusText(status);
       });
+      setIsUpdateModalOpen(false);
+      window.location.reload();
     } catch (err) {
-      console.error('In-app auto-update failed', err);
-      setIsUpdatingInApp(false);
-      alert('Could not auto-apply update. Falling back to APK download.');
-      handleDownloadApk();
+      console.error('Web reload failed', err);
+      window.location.reload();
     }
-  };
-
-  const handleDownloadApk = () => {
-    const targetUrl = downloadUrl || DEFAULT_APK_DOWNLOAD_URL;
-    try {
-      const isCapacitor = typeof window !== 'undefined' && (
-        (window as any).Capacitor !== undefined ||
-        window.location.protocol === 'capacitor:' ||
-        window.location.origin.includes('localhost')
-      );
-
-      if (isCapacitor && (window as any).Capacitor?.Plugins?.Browser?.open) {
-        (window as any).Capacitor.Plugins.Browser.open({ url: targetUrl });
-      } else {
-        window.open(targetUrl, '_system') || window.open(targetUrl, '_blank') || (window.location.href = targetUrl);
-      }
-    } catch {
-      window.location.href = targetUrl;
-    }
-    handleDismiss();
   };
 
   const displayCurrentVersion = CURRENT_APP_VERSION.startsWith('v') 
@@ -301,7 +343,7 @@ export const AppUpdateChecker: React.FC = () => {
             </p>
             <button
               type="button"
-              onClick={handleInAppAutoUpdate}
+              onClick={handleReloadWebAssets}
               className="mt-1 w-full py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] flex items-center justify-center space-x-1 shadow-xs cursor-pointer"
             >
               <RefreshCw className="w-3 h-3 mr-1" />
@@ -328,16 +370,16 @@ export const AppUpdateChecker: React.FC = () => {
 
           <div className="relative flex items-start justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner">
+              <div className="w-10 h-10 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center shadow-inner shrink-0">
                 <Zap className="w-5 h-5 text-amber-300 fill-amber-300" />
               </div>
               <div>
                 <div className="flex items-center space-x-2">
                   <h3 id="update-modal-title" className="text-sm sm:text-base font-black tracking-tight text-white">
-                    Auto Update Available
+                    {modalStep === 'download_started' ? 'Updating App' : 'New Update Available'}
                   </h3>
                   <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black uppercase">
-                    1-Click Update
+                    {latestVersion}
                   </span>
                 </div>
                 <p className="text-[11px] text-blue-200 mt-0.5 font-medium">
@@ -346,68 +388,136 @@ export const AppUpdateChecker: React.FC = () => {
               </div>
             </div>
 
-            {!isUpdatingInApp && (
-              <button
-                onClick={handleDismiss}
-                className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-                aria-label="Close modal"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
+            <button
+              onClick={handleDismiss}
+              className="text-white/70 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              aria-label="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
 
           <p className="text-xs text-blue-100/90 mt-2 font-medium leading-relaxed">
-            बिना APK डाउनलोड किए 1-क्लिक में नया वर्शन अपडेट करें। आपको बार-बार ऐप अनइनस्टॉल या री-इन्स्टॉल करने की आवश्यकता नहीं है।
+            {modalStep === 'download_started'
+              ? 'APK फाइल डाउनलोड हो रही है। डाउनलोड होने पर नोटिफिकेशन से इंस्टॉल करें।'
+              : 'नया वर्शन उपलब्ध है। 1-टैप में नया APK डाउनलोड कर अपडेट करें। आपका सारा डेटा व लॉगिन सुरक्षित रहेगा।'
+            }
           </p>
         </div>
 
         {/* Modal Body */}
-        <div className="p-4 sm:p-5 space-y-3.5 text-xs text-slate-600">
+        <div className="p-4 sm:p-5 space-y-3.5 text-xs text-slate-600 overflow-y-auto">
           
-          {/* Version Comparison Card */}
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-            <div className="grid grid-cols-2 gap-3 items-center">
-              <div className="p-2.5 bg-white rounded-lg border border-slate-200/80">
-                <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
-                  Current Version
-                </span>
-                <span className="font-mono text-xs font-bold text-slate-700">
-                  {displayCurrentVersion}
-                </span>
-              </div>
+          {/* STEP 1: INITIAL PROMPT VIEW */}
+          {modalStep === 'prompt' && (
+            <>
+              {/* Version Comparison Card */}
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="grid grid-cols-2 gap-3 items-center">
+                  <div className="p-2.5 bg-white rounded-lg border border-slate-200/80">
+                    <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-0.5">
+                      Current Version
+                    </span>
+                    <span className="font-mono text-xs font-bold text-slate-700">
+                      {displayCurrentVersion}
+                    </span>
+                  </div>
 
-              <div className="p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="block text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
-                    New Version
-                  </span>
-                  <span className="px-1.5 py-0.2 rounded bg-emerald-600 text-white text-[9px] font-bold">
-                    LATEST
-                  </span>
+                  <div className="p-2.5 bg-emerald-50/70 rounded-lg border border-emerald-200">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <span className="block text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                        New Version
+                      </span>
+                      <span className="px-1.5 py-0.2 rounded bg-emerald-600 text-white text-[9px] font-bold">
+                        LATEST
+                      </span>
+                    </div>
+                    <span className="font-mono text-xs font-black text-emerald-900">
+                      {latestVersion}
+                    </span>
+                  </div>
                 </div>
-                <span className="font-mono text-xs font-black text-emerald-900">
-                  {latestVersion}
-                </span>
               </div>
-            </div>
-          </div>
 
-          {/* Release Highlights */}
-          {releaseNotes && (
-            <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 space-y-1.5">
-              <span className="text-[10.5px] font-bold text-blue-950 flex items-center space-x-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                <span>What&apos;s New (नए बदलाव):</span>
-              </span>
-              <div className="text-[11px] text-slate-700 max-h-24 overflow-y-auto whitespace-pre-line leading-relaxed font-sans pr-1">
-                {releaseNotes}
+              {/* Release Highlights */}
+              {releaseNotes && (
+                <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 space-y-1.5">
+                  <span className="text-[10.5px] font-bold text-blue-950 flex items-center space-x-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                    <span>What&apos;s New (नए फीचर्स):</span>
+                  </span>
+                  <div className="text-[11px] text-slate-700 max-h-24 overflow-y-auto whitespace-pre-line leading-relaxed font-sans pr-1">
+                    {releaseNotes}
+                  </div>
+                </div>
+              )}
+
+              {/* Security & Data Safety Note */}
+              <div className="flex items-center space-x-2 text-[11px] text-emerald-700 bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-200/60">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>आपका कार्ट, ऑर्डर हिस्ट्री और लॉगिन डेटा सुरक्षित रहेगा।</span>
+              </div>
+            </>
+          )}
+
+          {/* STEP 2: DOWNLOAD STARTED INSTRUCTIONS VIEW */}
+          {modalStep === 'download_started' && (
+            <div className="space-y-3">
+              {/* Active Download Banner */}
+              <div className="p-3.5 bg-blue-50 border border-blue-200 rounded-xl flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm animate-pulse">
+                  <Download className="w-5 h-5 animate-bounce" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-blue-950">
+                    APK डाउनलोड शुरू हो गया है!
+                  </h4>
+                  <p className="text-[11px] text-blue-700">
+                    File: <span className="font-mono font-semibold">aryan-agency-app.apk</span> (~7.9 MB)
+                  </p>
+                </div>
+              </div>
+
+              {/* 3 Step Installation Guide */}
+              <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-2.5">
+                <h5 className="text-[11px] font-bold text-slate-800 flex items-center space-x-1.5">
+                  <Smartphone className="w-3.5 h-3.5 text-blue-600" />
+                  <span>इंस्टॉल करने के आसान 3 स्टेप्स:</span>
+                </h5>
+
+                <div className="space-y-2 text-[11px] text-slate-600">
+                  <div className="flex items-start space-x-2">
+                    <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                      1
+                    </span>
+                    <span>अपने मोबाइल के ऊपर से <strong>नोटिफिकेशन बार (Notification Bar)</strong> को नीचे खींचें।</span>
+                  </div>
+
+                  <div className="flex items-start space-x-2">
+                    <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                      2
+                    </span>
+                    <span><strong>aryan-agency-app.apk</strong> डाउनलोड पूरा होने पर उस पर टैप करें।</span>
+                  </div>
+
+                  <div className="flex items-start space-x-2">
+                    <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                      3
+                    </span>
+                    <span>स्क्रीन पर <strong>&quot;Update&quot;</strong> या <strong>&quot;Install&quot;</strong> बटन दबाएं। नया वर्शन तुरंत चालू हो जाएगा!</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2 text-[10.5px] text-slate-500">
+                <HelpCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <span>यदि डाउनलोड पॉपअप नहीं आया, तो नीचे &quot;फिर से डाउनलोड करें&quot; पर टैप करें।</span>
               </div>
             </div>
           )}
 
-          {/* In-app updating progress bar */}
-          {isUpdatingInApp ? (
+          {/* STEP 3: RELOADING WEB ASSETS VIEW */}
+          {modalStep === 'reloading_web' && (
             <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2 animate-in fade-in">
               <div className="flex items-center justify-between text-xs font-bold text-emerald-900">
                 <span className="flex items-center space-x-2">
@@ -423,69 +533,68 @@ export const AppUpdateChecker: React.FC = () => {
                 />
               </div>
               <p className="text-[10px] text-emerald-700 text-center">
-                Applying latest features seamlessly without manual APK reinstall...
+                Updating application assets...
               </p>
             </div>
-          ) : (
-            <>
-              {/* Background auto update preference */}
-              <label className="flex items-center space-x-2 text-[11px] text-slate-600 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={autoUpdateChecked}
-                  onChange={(e) => {
-                    const val = e.target.checked;
-                    setAutoUpdateChecked(val);
-                    setAutoUpdateEnabled(val);
-                  }}
-                  className="w-3.5 h-3.5 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
-                />
-                <span>Always update app automatically in background on launch</span>
-              </label>
-
-              {/* Security & Convenience Note */}
-              <div className="flex items-center space-x-2 text-[11px] text-slate-500">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Zero downtime: updates all features instantly in 1 tap.</span>
-              </div>
-            </>
           )}
 
         </div>
 
         {/* Modal Actions */}
-        {!isUpdatingInApp && (
-          <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2.5">
-            <button
-              type="button"
-              onClick={handleDismiss}
-              className="w-full sm:w-auto px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200/80 text-xs font-semibold transition-colors cursor-pointer text-center"
-            >
-              Later
-            </button>
-
-            <div className="flex items-center space-x-2 w-full sm:w-auto">
+        <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+          {modalStep === 'prompt' ? (
+            <>
               <button
                 type="button"
-                onClick={handleDownloadApk}
-                className="flex-1 sm:flex-none px-3 py-2 text-[11px] text-slate-600 hover:text-slate-900 border border-slate-300 rounded-xl hover:bg-slate-100 font-medium transition-all flex items-center justify-center space-x-1 cursor-pointer"
-                title="Download raw APK file to share via WhatsApp"
+                onClick={handleDismiss}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200/80 text-xs font-semibold transition-colors cursor-pointer text-center"
               >
-                <Download className="w-3 h-3" />
-                <span>Raw APK</span>
+                Later (बाद में)
               </button>
 
+              <div className="flex items-center space-x-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={handleReloadWebAssets}
+                  className="hidden sm:inline-flex px-3 py-2 text-[11px] text-slate-600 hover:text-slate-900 border border-slate-300 rounded-xl hover:bg-slate-100 font-medium transition-all items-center justify-center space-x-1 cursor-pointer"
+                  title="Reload web browser assets"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Reload Web</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleStartApkUpdate}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold text-xs shadow-md shadow-blue-500/25 hover:shadow-lg active:scale-98 transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                >
+                  <Download className="w-4 h-4 shrink-0" />
+                  <span>Download &amp; Install Update ({latestVersion})</span>
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
               <button
                 type="button"
-                onClick={handleInAppAutoUpdate}
-                className="flex-2 sm:flex-none px-4 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-bold text-xs shadow-md shadow-blue-500/20 hover:shadow-lg active:scale-98 transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+                onClick={handleStartApkUpdate}
+                className="w-full sm:w-auto px-3.5 py-2 text-xs text-blue-700 hover:text-blue-800 border border-blue-200 bg-blue-50/60 rounded-xl hover:bg-blue-100/60 font-semibold transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>1-Click Auto Update (तुरंत अपडेट)</span>
+                <span>फिर से डाउनलोड करें (Re-download)</span>
               </button>
-            </div>
-          </div>
-        )}
+
+              <button
+                type="button"
+                onClick={handleDismiss}
+                className="w-full sm:w-auto px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm active:scale-98 transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                <span>समझ गया (Done)</span>
+              </button>
+            </>
+          )}
+        </div>
 
       </div>
     </div>

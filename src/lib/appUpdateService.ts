@@ -114,12 +114,16 @@ export async function performInAppUpdate(
     }
   }
 
-  onProgress?.(95, 'Restarting with latest version...');
-  await new Promise(r => setTimeout(r, 400));
+  onProgress?.(100, 'Reloading application...');
+  await new Promise(r => setTimeout(r, 300));
 
-  // Reload the application cache-busted
-  const cleanUrl = window.location.origin + window.location.pathname + `?updated_v=${Date.now()}` + window.location.hash;
-  window.location.replace(cleanUrl);
+  try {
+    window.location.reload();
+  } catch {
+    // Fallback if reload is blocked
+    const cleanUrl = window.location.origin + window.location.pathname + `?updated_v=${Date.now()}` + window.location.hash;
+    window.location.replace(cleanUrl);
+  }
 }
 
 /**
