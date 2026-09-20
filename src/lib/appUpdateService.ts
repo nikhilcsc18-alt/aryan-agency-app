@@ -14,8 +14,11 @@ export interface AppVersionInfo {
   minSupportedVersion?: string;
 }
 
-export const CURRENT_APP_VERSION = '1.3.0';
-export const CURRENT_VERSION_CODE = 130;
+declare const __APP_VERSION__: string | undefined;
+
+export const CURRENT_APP_VERSION = 
+  typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.1';
+export const CURRENT_VERSION_CODE = 131;
 
 const VERSION_CHECK_ENDPOINT = '/download/version.json';
 const AUTO_UPDATE_PREF_KEY = 'aryan_auto_update_enabled';
