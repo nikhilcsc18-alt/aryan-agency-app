@@ -31,7 +31,8 @@ import {
   Navigation as NavIcon,
   Smartphone,
   RefreshCw,
-  Download
+  Download,
+  ScanLine
 } from 'lucide-react';
 import { Product, Order, ProductCategory, CartItem, ProductPackingOption, PromotionalBanner } from '../types';
 import { formatINR } from '../lib/api';
@@ -39,6 +40,7 @@ import { ProductImage } from './ProductImage';
 import { AryanAgencyFMCGLogo } from './AryanAgencyLogo';
 import { B2BProductCard } from './B2BProductCard';
 import { ApnaClubPackSelectorModal } from './ApnaClubPackSelectorModal';
+import { AnimatedDeliveryRouteBanner } from './AnimatedDeliveryRouteBanner';
 import { useAuth } from '../context/AuthContext';
 import { triggerManualUpdateCheck } from './AppUpdateChecker';
 import { triggerApkDownload, useAppDownloadConfig } from '../lib/appDownloadConfig';
@@ -57,6 +59,7 @@ interface MobileHomeViewProps {
   onUpdateCartItem?: (productId: string, cases: number, loosePcs: number, packingId?: string) => void;
   onRemoveFromCart?: (productId: string, packingId?: string) => void;
   onQuickOrder?: (productId: string) => void;
+  onOpenBarcodeScanner?: () => void;
 }
 
 // Visual FMCG Categories with Real High-Res Imagery
@@ -83,7 +86,8 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
   cartItems = [],
   onUpdateCartItem,
   onRemoveFromCart,
-  onQuickOrder
+  onQuickOrder,
+  onOpenBarcodeScanner
 }) => {
   const { isAdmin, isSalesman, isRetailer } = useAuth();
   const { config: appConfig } = useAppDownloadConfig();
@@ -323,7 +327,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
         tagline: 'Same-Day / 24-Hour Dispatch directly to your Kirana Counter',
         badge: 'दुकान तक सीधी डिलीवरी',
         offer: '100% Genuine Direct Supply Chain Guarantee with GST Bill',
-        brands: 'City Beat Fleet • Indiranagar • Yeshwanthpur • Whitefield',
+        brands: 'Depot Fleet • Utraula • Balrampur • Gonda • Tulsipur',
         hideTextOverlay: false,
         showBuyNow: true,
         buyNowText: 'थोक कैटलॉग देखें',
@@ -509,35 +513,6 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
     <div className="w-full pb-20 space-y-4 sm:space-y-5 animate-in fade-in duration-300">
       
       {/* ========================================================================= */}
-      {/* B2B WHOLESALE RETAILER CALLOUT (Dukandar / Shopkeeper Exclusive)          */}
-      {/* Clarifies that this app is for registered shopkeepers & wholesale orders  */}
-      {/* ========================================================================= */}
-      <div className="w-full bg-gradient-to-r from-[#07162c] via-[#0B2545] to-[#0A1E3F] border border-blue-800/80 rounded-2xl p-3 text-white shadow-xs flex items-center justify-between">
-        <div className="flex items-center space-x-2.5">
-          <div className="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black shadow-xs shrink-0">
-            <Store className="w-5 h-5 text-slate-950" />
-          </div>
-          <div>
-            <div className="flex items-center space-x-1.5 flex-wrap">
-              <span className="text-[9px] font-black uppercase tracking-wider bg-blue-600 px-1.5 py-0.5 rounded text-white">
-                B2B Wholesale
-              </span>
-              <span className="text-xs font-extrabold text-amber-300">
-                केवल दुकानदारों व किराना व्यापारियों के लिए
-              </span>
-            </div>
-            <p className="text-[10.5px] text-blue-200 mt-0.5 leading-tight">
-              सीधे डिपो से कार्टन / पेटी थोक भाव • स्पेशल दुकानदार मार्जिन व स्कीम • उपभोगता आर्डर मान्य नहीं
-            </p>
-          </div>
-        </div>
-        <div className="hidden sm:flex items-center space-x-1 text-emerald-400 text-[11px] font-bold shrink-0 bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-800/60">
-          <ShieldCheck className="w-4 h-4" />
-          <span>GST Bill & Dukan Delivery</span>
-        </div>
-      </div>
-
-      {/* ========================================================================= */}
       {/* MOBILE APP LIVE UPDATE & VERSION BAR                                      */}
       {/* ========================================================================= */}
       <div className="w-full bg-gradient-to-r from-blue-900/90 via-slate-900 to-indigo-950 text-white rounded-2xl p-2.5 px-3.5 border border-blue-700/60 shadow-md flex items-center justify-between">
@@ -583,10 +558,8 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
         <div 
           onClick={() => handleBannerAction(bannerSlides[currentBanner])}
           className={`relative w-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg border border-slate-200/40 dark:border-slate-800/40 ${
-            bannerSlides[currentBanner].imageUrl ? 'bg-slate-950' : `bg-gradient-to-r ${bannerSlides[currentBanner].bgGradient}`
-          } ${
-            bannerSlides[currentBanner].hideTextOverlay ? 'p-3 sm:p-5' : 'p-4 sm:p-6'
-          } text-white transition-all duration-700 aspect-[2/1] sm:aspect-[2.4/1] md:aspect-[2.8/1] lg:aspect-[3.2/1] min-h-[185px] sm:min-h-[220px] md:min-h-[250px] max-h-[380px] flex flex-col justify-between cursor-pointer group`}
+            bannerSlides[currentBanner].imageUrl ? 'bg-[#08172E]' : `bg-gradient-to-r ${bannerSlides[currentBanner].bgGradient}`
+          } text-white transition-all duration-700 aspect-[16/5.5] sm:aspect-[16/5] flex items-center justify-center cursor-pointer group select-none`}
         >
           {/* Subtle background decorative shapes when no custom image */}
           {!bannerSlides[currentBanner].imageUrl && (
@@ -596,24 +569,31 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
             </>
           )}
           
-          {/* Full-width banner image covering the entire container (Pure space edge-to-edge) */}
+          {/* 100% UN-CROPPED, FULLY CONTAINED BANNER IMAGE (NO ZOOM, NO CROP, COMPLETE VISIBILITY) */}
           {bannerSlides[currentBanner].imageUrl && (
-            <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
+            <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 flex items-center justify-center bg-[#07172B]">
+              {/* Soft ambient background aura so sides blend seamlessly with zero awkward voids */}
+              <img 
+                src={bannerSlides[currentBanner].imageUrl} 
+                alt="" 
+                aria-hidden="true"
+                className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-20 scale-105 pointer-events-none select-none"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-[#07172B]/35 pointer-events-none" />
+
+              {/* Contained image: complete banner visible top, bottom, left and right */}
               <img 
                 src={bannerSlides[currentBanner].imageUrl} 
                 alt={bannerSlides[currentBanner].title} 
-                className={`w-full h-full ${
-                  bannerSlides[currentBanner].posterFit === 'fill'
-                    ? 'object-fill'
-                    : 'object-cover object-center'
-                } scale-100 transition-transform duration-700 group-hover:scale-[1.02]`}
+                className="relative z-10 w-full h-full object-contain object-center scale-100 transition-transform duration-700 group-hover:scale-[1.01] pointer-events-none select-none"
                 referrerPolicy="no-referrer"
               />
 
-              {/* If text overlay is NOT hidden, show gradient scrim so text is readable */}
+              {/* If text overlay is NOT hidden, show subtle gradient scrim so text is readable */}
               {!bannerSlides[currentBanner].hideTextOverlay && (
                 <div className="absolute inset-0 z-[2] pointer-events-none">
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-black/15" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/45 to-black/10" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
                 </div>
               )}
@@ -622,89 +602,88 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
           
           {/* MAIN CONTENT AREA: DISPLAY TEXT ONLY IF NOT hideTextOverlay */}
           {!bannerSlides[currentBanner].hideTextOverlay ? (
-            <div className="relative z-10 w-full flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+            <div className="relative z-10 w-full h-full p-3 sm:p-5 md:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-2 sm:gap-3 pointer-events-none">
               
               {/* Left Content */}
-              <div className="w-full md:w-3/5 space-y-2 text-left">
+              <div className="w-full md:w-3/5 space-y-1.5 sm:space-y-2 text-left pointer-events-auto">
                 {/* Aryan Agency Mini Branding */}
                 <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-lg bg-white/95 p-1 flex items-center justify-center shadow-xs">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white/95 p-1 flex items-center justify-center shadow-xs">
                     <AryanAgencyFMCGLogo size="sm" theme="light" showSubline={false} />
                   </div>
                   <div>
-                    <h3 className="text-xs font-black tracking-wider text-amber-400 uppercase leading-none drop-shadow-xs">
+                    <h3 className="text-[10px] sm:text-xs font-black tracking-wider text-amber-400 uppercase leading-none drop-shadow-xs">
                       ARYAN AGENCY
                     </h3>
-                    <span className="text-[9px] font-bold text-white/90 tracking-tight uppercase">
+                    <span className="text-[8px] sm:text-[9px] font-bold text-white/90 tracking-tight uppercase">
                       B2B FMCG Distribution
                     </span>
                   </div>
-                  <span className="ml-2 px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[9px] font-black uppercase tracking-wider shadow-xs">
+                  <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[8px] sm:text-[9px] font-black uppercase tracking-wider shadow-xs">
                     {bannerSlides[currentBanner].badge}
                   </span>
                 </div>
 
                 {/* Banner Title - Bold Clear Typography */}
-                <h2 className="text-lg sm:text-2xl font-black text-white tracking-tight leading-tight drop-shadow-md">
+                <h2 className="text-sm sm:text-lg md:text-2xl font-black text-white tracking-tight leading-tight drop-shadow-md line-clamp-2">
                   {bannerSlides[currentBanner].title}
                 </h2>
 
                 {/* Tagline Pill */}
-                <div className="inline-flex items-center px-3 py-1 rounded-full bg-black/40 backdrop-blur-xs border border-white/20 text-white text-[10px] sm:text-xs font-bold tracking-tight shadow-sm">
+                <div className="inline-flex items-center px-2.5 py-0.5 sm:py-1 rounded-full bg-black/40 backdrop-blur-xs border border-white/20 text-white text-[9px] sm:text-xs font-bold tracking-tight shadow-sm">
                   <span>{bannerSlides[currentBanner].tagline}</span>
                 </div>
 
                 {/* Offer Text */}
-                <p className="text-[11px] sm:text-xs font-bold text-amber-300 drop-shadow-xs">
+                <p className="text-[10px] sm:text-xs font-bold text-amber-300 drop-shadow-xs">
                   {bannerSlides[currentBanner].offer}
                 </p>
 
                 {/* Buy Now Button if enabled */}
                 {bannerSlides[currentBanner].showBuyNow !== false && (
-                  <div className="pt-1.5">
+                  <div className="pt-0.5 sm:pt-1">
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleBannerAction(bannerSlides[currentBanner]);
                       }}
-                      className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-md active:scale-95 transition-all cursor-pointer border border-amber-300"
+                      className="inline-flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-md active:scale-95 transition-all cursor-pointer border border-amber-300"
                     >
-                      <ShoppingBag className="w-4 h-4 stroke-[2.5]" />
+                      <ShoppingBag className="w-3.5 h-3.5 stroke-[2.5]" />
                       <span>{bannerSlides[currentBanner].buyNowText || 'अभी खरीदें (Buy Now)'}</span>
-                      <ArrowRight className="w-3.5 h-3.5 stroke-[3]" />
+                      <ArrowRight className="w-3 h-3 stroke-[3]" />
                     </button>
                   </div>
                 )}
               </div>
 
               {/* Right Visual Products Info */}
-              <div className="w-full md:w-2/5 flex items-center justify-between sm:justify-end space-x-3">
-                <div className="flex flex-col space-y-1 text-left sm:text-right text-[10px] sm:text-[11px] font-bold text-white/90">
+              <div className="w-full md:w-2/5 flex items-center justify-between sm:justify-end space-x-3 pointer-events-auto">
+                <div className="flex flex-col space-y-1 text-left sm:text-right text-[9px] sm:text-[11px] font-bold text-white/90">
                   <span className="bg-black/40 backdrop-blur-xs px-2.5 py-1 rounded-lg border border-white/15 drop-shadow-xs">
                     ✓ {bannerSlides[currentBanner].brands}
                   </span>
-                  <span className="text-[9px] text-amber-200 drop-shadow-xs">
+                  <span className="text-[8px] sm:text-[9px] text-amber-200 drop-shadow-xs">
                     ISO 9001:2015 GST Verified Wholesale
                   </span>
                 </div>
 
                 {/* Verified seal on non-image banners */}
                 {!bannerSlides[currentBanner].imageUrl && (
-                  <div className="relative shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[#0A1E3F] text-white p-2 flex flex-col items-center justify-center text-center shadow-xl border-2 border-white/20 transform hover:scale-105 transition-transform">
-                    <span className="text-[9px] sm:text-xs font-black tracking-wider uppercase text-amber-400">
+                  <div className="relative shrink-0 w-16 h-16 sm:w-22 sm:h-22 rounded-full bg-[#0A1E3F] text-white p-2 flex flex-col items-center justify-center text-center shadow-xl border-2 border-white/20 transform hover:scale-105 transition-transform">
+                    <span className="text-[8px] sm:text-[10px] font-black tracking-wider uppercase text-amber-400">
                       B2B
                     </span>
-                    <span className="text-[11px] sm:text-sm font-black tracking-tight text-white uppercase">
+                    <span className="text-[10px] sm:text-xs font-black tracking-tight text-white uppercase">
                       RETAILER
                     </span>
-                    <span className="text-[9px] sm:text-xs font-black tracking-wider uppercase text-emerald-400">
+                    <span className="text-[8px] sm:text-[9px] font-black tracking-wider uppercase text-emerald-400">
                       WHOLESALE
                     </span>
                   </div>
                 )}
               </div>
-
             </div>
           ) : (
             /* PURE PHOTO / POSTER MODE: NO TEXT OVERLAY */
@@ -908,31 +887,8 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
 
           </div>
         ) : (
-          /* Compact Delivery Banner when no order is in transit */
-          <div className="w-full rounded-2xl bg-gradient-to-r from-[#0B2545] via-[#103058] to-[#0D233D] px-4 py-3 shadow-md border border-blue-950 flex items-center justify-between gap-3 text-white">
-            <div className="flex items-center space-x-3 text-left">
-              <div className="w-10 h-10 rounded-xl bg-blue-900/60 border border-blue-700/50 flex items-center justify-center text-white shrink-0">
-                <Truck className="w-5 h-5 text-amber-400" />
-              </div>
-              <div>
-                <h4 className="text-xs sm:text-sm font-black text-white tracking-tight leading-tight">
-                  डिपो से दुकान तक सीधी डिलीवरी (Direct Depot Supply)
-                </h4>
-                <p className="text-[11px] text-blue-200 font-medium">
-                  किराना दुकानों के लिए 24 घंटे में डिलीवरी • 100% पक्का GST बिल व आर्डर ट्रैकिंग
-                </p>
-              </div>
-            </div>
-
-            <button
-              id="home-compact-track-order-btn"
-              onClick={() => onNavigateTab('orders')}
-              className="px-3 py-2 rounded-xl bg-[#FFB703] hover:bg-amber-400 text-slate-950 font-black text-xs flex items-center space-x-1 shadow-sm active:scale-95 transition-all cursor-pointer whitespace-nowrap"
-            >
-              <span>Track Orders</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
+          /* Professional Animated Delivery Route Banner */
+          <AnimatedDeliveryRouteBanner onTrackOrders={() => onNavigateTab('orders')} />
         )}
       </section>
 
@@ -1161,13 +1117,27 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
             )}
           </div>
 
-          <button
-            onClick={() => onNavigateTab('products')}
-            className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center space-x-1 cursor-pointer group"
-          >
-            <span>View All ({products.length})</span>
-            <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-          </button>
+          <div className="flex items-center space-x-2">
+            {onOpenBarcodeScanner && (
+              <button
+                type="button"
+                onClick={onOpenBarcodeScanner}
+                className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold flex items-center space-x-1 cursor-pointer transition-all active:scale-95 shadow-xs"
+                title="बारकोड स्कैन करके तुरंत प्रोडक्ट खोजें"
+              >
+                <ScanLine className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                <span>स्कैन</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => onNavigateTab('products')}
+              className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center space-x-1 cursor-pointer group"
+            >
+              <span>View All ({products.length})</span>
+              <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+            </button>
+          </div>
         </div>
 
         {/* Product Cards Grid with B2BProductCard */}

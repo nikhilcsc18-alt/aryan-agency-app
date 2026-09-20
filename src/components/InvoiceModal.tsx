@@ -65,7 +65,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
             <h1 className="text-2xl font-black tracking-tight text-[#1e293b] mt-0.5">ARYAN AGENCY</h1>
             <p className="text-[11px] text-slate-700 font-medium">Authorised FMCG Super Stockist & Wholesale Distributor</p>
             <p className="text-[11px] text-slate-600">
-              #104, APMC Commercial Yard, Yeshwanthpur Industrial Area, Bengaluru, Karnataka - 560022
+              #104, Commercial Complex, Utraula, Balrampur, Uttar Pradesh - 271604
             </p>
             <div className="flex justify-center items-center space-x-4 text-[11px] font-mono text-slate-700 mt-1">
               <span><b>GSTIN:</b> 29ABCDE1234F1Z5</span>
@@ -183,7 +183,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
                 <span className="font-bold text-slate-800 block text-xs">Bank Transfer & UPI QR:</span>
                 <div><b>A/C Name:</b> {settings.upiPayeeName || 'ARYAN AGENCY'}</div>
-                <div><b>Bank:</b> HDFC Bank, Yeshwanthpur Branch</div>
+                <div><b>Bank:</b> HDFC Bank, Utraula Branch</div>
                 <div><b>A/C No:</b> 50200012345678 (Current) • <b>IFSC:</b> HDFC0001234</div>
                 <div><b>UPI ID:</b> {settings.upiVpa || 'aryanagency@upi'}</div>
               </div>
@@ -191,7 +191,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
               <div className="text-[10px] text-slate-500 leading-tight space-y-0.5">
                 <p>1. Goods once sold will not be accepted back except for verified factory leakage/damage.</p>
                 <p>2. Payment due strictly within agreed credit terms (14 days). Interest @18% p.a. on overdue bills.</p>
-                <p>3. Subject to Bengaluru Jurisdiction only.</p>
+                <p>3. Subject to Balrampur Jurisdiction only.</p>
               </div>
             </div>
 

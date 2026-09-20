@@ -114,16 +114,16 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
       );
       setBusinessLogoUrl(currentUser.businessLogoUrl || linkedRetailer?.logoUrl || '');
       setAddress(currentUser.address || linkedRetailer?.address || '');
-      setCity(currentUser.city || 'Bengaluru');
-      setState(currentUser.state || 'Karnataka');
-      setPincode(currentUser.pincode || '560022');
+      setCity(currentUser.city || 'Balrampur');
+      setState(currentUser.state || 'Uttar Pradesh');
+      setPincode(currentUser.pincode || '271604');
       setGstin(currentUser.gstin || linkedRetailer?.gstin || '');
       setPanNumber(currentUser.panNumber || linkedRetailer?.panNumber || '');
       
       const lat = currentUser.locationCoordinates?.lat || linkedRetailer?.lat;
       const lng = currentUser.locationCoordinates?.lng || linkedRetailer?.lng;
-      setLatitude(lat !== undefined ? String(lat) : '13.0285');
-      setLongitude(lng !== undefined ? String(lng) : '77.5407');
+      setLatitude(lat !== undefined ? String(lat) : '27.3167');
+      setLongitude(lng !== undefined ? String(lng) : '82.4167');
     }
   }, [currentUser, linkedRetailer, isOpen]);
 
@@ -174,15 +174,15 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
         (err) => {
           console.warn('Geolocation access warning:', err.message);
           setIsDetectingLocation(false);
-          // Fallback to Bengaluru defaults
-          setLatitude('13.0285');
-          setLongitude('77.5407');
+          // Fallback to Balrampur / Utraula defaults
+          setLatitude('27.3167');
+          setLongitude('82.4167');
         },
         { enableHighAccuracy: true, timeout: 8000 }
       );
     } else {
-      setLatitude('13.0285');
-      setLongitude('77.5407');
+      setLatitude('27.3167');
+      setLongitude('82.4167');
     }
   };
 
@@ -750,7 +750,7 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
                         className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-xl bg-white focus:outline-blue-500"
-                        placeholder="Bengaluru"
+                        placeholder="Balrampur"
                       />
                     </div>
                     <div className="space-y-1">
@@ -1114,7 +1114,7 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
                   </div>
                   <div>
                     <p className="text-xs font-black text-slate-900 leading-tight">Depot Order Helpline</p>
-                    <p className="text-[11px] text-slate-600">Yeshwanthpur Distribution Hub • 9:00 AM – 8:00 PM</p>
+                    <p className="text-[11px] text-slate-600">Utraula Distribution Hub • 9:00 AM – 8:00 PM</p>
                   </div>
                 </div>
                 <a

@@ -1,6 +1,6 @@
 {
   "name": "Aryan Agency FMCG Distribution",
   "description": "Enterprise FMCG distribution and supply chain management suite for Aryan Agency with live inventory, salesman beat booking, retailer credits, order dispatch, delivery run sheets, and UPI payment reconciliation.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

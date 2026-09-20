@@ -7,7 +7,6 @@ import {
   UserCircle2, 
   Sparkles, 
   PlusCircle, 
-  RotateCcw, 
   ChevronDown, 
   Check, 
   ShieldCheck, 
@@ -26,6 +25,7 @@ import {
   Smartphone,
   Bell,
   Search,
+  ScanLine,
   Menu,
   User
 } from 'lucide-react';
@@ -34,7 +34,6 @@ import { AppDownloadModal } from './AppDownloadModal';
 interface HeaderProps {
   onOpenNewOrder: () => void;
   onOpenAICopilot: () => void;
-  onResetData: () => void;
   cartItemCount?: number;
   onOpenCart?: () => void;
   onOpenAccount?: () => void;
@@ -43,12 +42,12 @@ interface HeaderProps {
   notificationCount?: number;
   onOpenNotifications?: () => void;
   onToggleMenu?: () => void;
+  onOpenBarcodeScanner?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenNewOrder,
   onOpenAICopilot,
-  onResetData,
   cartItemCount = 0,
   onOpenCart,
   onOpenAccount,
@@ -56,7 +55,8 @@ export const Header: React.FC<HeaderProps> = ({
   onSearchChange,
   notificationCount = 0,
   onOpenNotifications,
-  onToggleMenu
+  onToggleMenu,
+  onOpenBarcodeScanner
 }) => {
   const { 
     currentUser, 
@@ -70,7 +70,6 @@ export const Header: React.FC<HeaderProps> = ({
     logout 
   } = useAuth();
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isDownloadOpen, setIsDownloadOpen] = useState(false);
 
@@ -110,14 +109,6 @@ export const Header: React.FC<HeaderProps> = ({
         };
       default:
         return { label: role, bg: 'bg-slate-800 text-slate-200 border border-slate-700', icon: null };
-    }
-  };
-
-  const handleReset = async () => {
-    if (window.confirm('Reset database to default FMCG sample data (Products, Retailers, Orders, Stock)?')) {
-      setIsResetting(true);
-      await onResetData();
-      setIsResetting(false);
     }
   };
 
@@ -234,20 +225,6 @@ export const Header: React.FC<HeaderProps> = ({
           <LogOut className="w-3.5 h-3.5" />
           <span>Log Out Session</span>
         </button>
-
-        {isOwnerOrAdmin && (
-          <button
-            onClick={() => {
-              setShowRoleDropdown(false);
-              handleReset();
-            }}
-            disabled={isResetting}
-            className="w-full flex items-center justify-center space-x-1.5 text-[11px] text-slate-400 hover:text-rose-600 py-1 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-          >
-            <RotateCcw className={`w-3 h-3 ${isResetting ? 'animate-spin' : ''}`} />
-            <span>{isResetting ? 'Resetting...' : 'Reset FMCG Demo Data'}</span>
-          </button>
-        )}
       </div>
     </div>
   );
@@ -364,6 +341,19 @@ export const Header: React.FC<HeaderProps> = ({
               <Download className="w-3.5 h-3.5 sm:mr-1.5 text-emerald-400" />
               <span className="hidden sm:inline">Download App</span>
             </button>
+
+            {/* Barcode Scanner Button (Desktop) */}
+            {onOpenBarcodeScanner && (
+              <button
+                id="header-desktop-scan-btn"
+                onClick={onOpenBarcodeScanner}
+                className="inline-flex items-center px-2.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-600/70 shadow-xs transition-colors cursor-pointer"
+                title="बारकोड स्कैन करके प्रोडक्ट खोजें"
+              >
+                <ScanLine className="w-3.5 h-3.5 sm:mr-1.5 text-emerald-400" />
+                <span className="hidden sm:inline">बारकोड स्कैन</span>
+              </button>
+            )}
 
             {/* AI Copilot Button */}
             <button
@@ -487,24 +477,40 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Mobile Search Bar - Directly visible as in reference UI */}
+          {/* Mobile Search Bar - Directly visible with Barcode Scan Button next to it */}
           {onSearchChange && (
-            <div className="relative pt-0.5">
-              <Search className="w-4 h-4 text-blue-300 absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                id="mobile-header-search"
-                type="text"
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Search products, brands, biscuits, snacks..."
-                className="w-full bg-[#13284c] border border-blue-800/80 rounded-full pl-9 pr-8 py-2 text-xs text-white placeholder-blue-300/70 focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-transparent shadow-inner"
-              />
-              {searchQuery && (
+            <div className="pt-0.5 flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-blue-300 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  id="mobile-header-search"
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  placeholder="Search products, biscuits, snacks, SKU..."
+                  className="w-full bg-[#13284c] border border-blue-800/80 rounded-full pl-8 pr-7 py-2 text-xs text-white placeholder-blue-300/70 focus:outline-none focus:ring-2 focus:ring-[#1A73E8] focus:border-transparent shadow-inner font-medium"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => onSearchChange('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm text-blue-300 hover:text-white"
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
+              {/* Barcode Scan Button right next to search */}
+              {onOpenBarcodeScanner && (
                 <button
-                  onClick={() => onSearchChange('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-blue-300 hover:text-white"
+                  id="mobile-header-scan-btn"
+                  type="button"
+                  onClick={onOpenBarcodeScanner}
+                  className="h-[34px] px-2.5 sm:px-3 rounded-full bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white flex items-center space-x-1 shadow-md active:scale-95 transition-all text-xs font-black shrink-0 border border-emerald-400/50 cursor-pointer"
+                  title="बारकोड स्कैन करके प्रोडक्ट खोजें"
                 >
-                  ×
+                  <ScanLine className="w-3.5 h-3.5 text-emerald-200 animate-pulse" />
+                  <span className="text-[11px] tracking-wide">स्कैन</span>
                 </button>
               )}
             </div>

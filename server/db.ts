@@ -70,7 +70,7 @@ const INITIAL_BANNERS: PromotionalBanner[] = [
     subtitle: 'Same-Day / 24-Hour Dispatch directly to your Kirana Counter',
     badgeText: 'दुकान तक सीधी डिलीवरी',
     ctaText: '100% Genuine Direct Supply Chain Guarantee with GST Bill',
-    accentColor: 'City Beat Fleet • Indiranagar • Yeshwanthpur • Whitefield',
+    accentColor: 'Depot Fleet • Utraula • Balrampur • Gonda • Tulsipur',
     imageUrl: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=500&auto=format&fit=crop&q=80',
     isActive: true
   },
@@ -98,16 +98,16 @@ const INITIAL_DATA: DatabaseSchema = {
       avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
       businessName: 'Aryan Agency FMCG Distribution',
       businessLogoUrl: '',
-      address: 'Plot No. 42, Industrial Area, Yeshwanthpur Main Road',
-      city: 'Bengaluru',
-      state: 'Karnataka',
-      pincode: '560022',
-      gstin: '29AABCA1234F1Z8',
+      address: 'Main Road, Utraula',
+      city: 'Balrampur',
+      state: 'Uttar Pradesh',
+      pincode: '271604',
+      gstin: '09AABCA1234F1Z8',
       panNumber: 'AABCA1234F',
       locationCoordinates: {
-        lat: 13.0285,
-        lng: 77.5407,
-        addressText: 'Yeshwanthpur Industrial Suburb, Bengaluru, Karnataka 560022'
+        lat: 27.3167,
+        lng: 82.4167,
+        addressText: 'Utraula, Balrampur, Uttar Pradesh 271604'
       },
       verificationStatus: 'verified'
     },

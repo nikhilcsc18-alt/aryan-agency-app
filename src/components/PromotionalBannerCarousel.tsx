@@ -180,29 +180,36 @@ export const PromotionalBannerCarousel: React.FC<PromotionalBannerCarouselProps>
             onSelectCategory(currentBanner.targetCategory);
           }
         }}
-        className={`relative w-full aspect-[2/1] sm:aspect-[2.4/1] md:aspect-[2.8/1] lg:aspect-[3.2/1] min-h-[185px] sm:min-h-[220px] md:min-h-[250px] max-h-[380px] bg-slate-950 flex items-center transition-all duration-500 overflow-hidden ${
+        className={`relative w-full aspect-[16/5.5] sm:aspect-[16/5] bg-slate-950 flex items-center justify-center transition-all duration-500 overflow-hidden rounded-2xl sm:rounded-3xl ${
           (currentBanner.targetBrand || currentBanner.targetCategory) ? 'cursor-pointer' : ''
         }`}
       >
         
-        {/* Full-bleed background banner image covering the entire container (Zero blank sides) */}
+        {/* 100% UN-CROPPED, FULLY CONTAINED BANNER IMAGE (NO ZOOM, NO CROP, COMPLETE VISIBILITY) */}
         {currentBanner.imageUrl && (
-          <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none flex items-center justify-center bg-[#07172B]">
+            {/* Soft ambient background aura */}
+            <img
+              src={currentBanner.imageUrl}
+              alt=""
+              aria-hidden="true"
+              referrerPolicy="no-referrer"
+              className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-20 scale-105 pointer-events-none select-none"
+            />
+            <div className="absolute inset-0 bg-[#07172B]/35 pointer-events-none" />
+
+            {/* Contained image: complete banner visible top, bottom, left and right */}
             <img
               src={currentBanner.imageUrl}
               alt={currentBanner.title}
               referrerPolicy="no-referrer"
-              className={`w-full h-full ${
-                currentBanner.posterFit === 'fill'
-                  ? 'object-fill'
-                  : 'object-cover object-center'
-              } opacity-100 scale-100 transition-transform duration-700 hover:scale-[1.02]`}
+              className="relative z-10 w-full h-full object-contain object-center scale-100 transition-transform duration-700 hover:scale-[1.01] pointer-events-none select-none"
             />
 
             {/* If text overlay is NOT hidden, show gradient scrim so text is readable */}
             {!currentBanner.hideTextOverlay && (
               <div className="absolute inset-0 z-[2]">
-                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/85 via-slate-950/45 to-slate-950/20" />
+                <div className="absolute inset-0 bg-gradient-to-r from-slate-950/85 via-slate-950/45 to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-transparent to-transparent" />
               </div>
             )}

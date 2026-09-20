@@ -22,6 +22,7 @@ import { BannerManagementView } from './components/BannerManagementView';
 import { AccountDetailsModal } from './components/AccountDetailsModal';
 import { AppUpdateChecker } from './components/AppUpdateChecker';
 import { NotificationPanel } from './components/NotificationPanel';
+import { BarcodeScannerModal } from './components/BarcodeScannerModal';
 import { 
   buildLiveNotifications, 
   saveReadNotificationId, 
@@ -80,10 +81,22 @@ function MainApp() {
   // Modals state
   const [isAccountDetailsModalOpen, setIsAccountDetailsModalOpen] = useState(false);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
+  const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [selectedProductForOrder, setSelectedProductForOrder] = useState<string | undefined>(undefined);
   const [activeInvoiceOrder, setActiveInvoiceOrder] = useState<Order | null>(null);
   const [preselectedRetailerForPayment, setPreselectedRetailerForPayment] = useState<Retailer | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null);
+
+  // Fast Product Search via Barcode Scanner
+  const handleProductScanned = (product: Product) => {
+    // Fill search query so products filter immediately
+    setSearchQuery(product.name);
+    // If not already on products or home tab, navigate to products tab
+    if (activeTab !== 'home' && activeTab !== 'products') {
+      setActiveTab('products');
+    }
+    showToast(`बारकोड मैच: ${product.name} (डिपो स्टॉक: ${product.currentStockCases} कार्टन)`, 'success');
+  };
 
   // Notifications State
   const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
@@ -233,7 +246,7 @@ function MainApp() {
       showToast('Please select a valid retailer store', 'error');
       return;
     }
-    const defaultSalesman = salesmen[0] || { id: 'SAL-01', name: 'Ramesh Kumar (Bengaluru North)' };
+    const defaultSalesman = salesmen[0] || { id: 'SAL-01', name: 'Ramesh Kumar (Balrampur / Utraula Beat)' };
 
     // Build OrderItem array from CartItem array respecting ApnaClub packing tiers
     let grossSubtotal = 0;
@@ -705,7 +718,6 @@ function MainApp() {
         onOpenAICopilot={() => {
           setIsNewOrderModalOpen(true);
         }}
-        onResetData={loadData}
         cartItemCount={totalCartCount}
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAccount={() => setIsAccountDetailsModalOpen(true)}
@@ -714,6 +726,7 @@ function MainApp() {
         onToggleMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         notificationCount={unreadNotificationsCount}
         onOpenNotifications={() => setIsNotificationPanelOpen(true)}
+        onOpenBarcodeScanner={() => setIsBarcodeScannerOpen(true)}
       />
 
       {/* Module Navigation Tabs */}
@@ -757,6 +770,7 @@ function MainApp() {
             onUpdateCartItem={handleUpdateCartItem}
             onRemoveFromCart={handleRemoveFromCart}
             onQuickOrder={openNewOrderWithProduct}
+            onOpenBarcodeScanner={() => setIsBarcodeScannerOpen(true)}
           />
         )}
 
@@ -1010,9 +1024,19 @@ function MainApp() {
         }}
       />
 
+      {/* Global Barcode Scanner Modal with Camera Access */}
+      {isBarcodeScannerOpen && (
+        <BarcodeScannerModal
+          isOpen={isBarcodeScannerOpen}
+          onClose={() => setIsBarcodeScannerOpen(false)}
+          products={products}
+          onProductFound={handleProductScanned}
+        />
+      )}
+
       {/* Footer Branding */}
       <footer className="bg-white border-t border-slate-200 py-3 px-4 text-center text-[11px] text-slate-500">
-        <span>Aryan Agency FMCG Distribution Suite • ISO 9001:2015 & GST Compliant ERP • Yeshwanthpur, Bengaluru</span>
+        <span>Aryan Agency FMCG Distribution Suite • ISO 9001:2015 & GST Compliant ERP • Utraula, Balrampur, Uttar Pradesh</span>
       </footer>
 
     </div>
