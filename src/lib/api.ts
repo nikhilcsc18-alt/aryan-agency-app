@@ -420,6 +420,33 @@ export const api = {
     return safeMutationFetch<{ success: boolean }>(`/api/products/${id}`, { method: 'DELETE' }, { success: true });
   },
 
+  async lookupProductByBarcode(barcode: string): Promise<{
+    found: boolean;
+    source: 'database' | 'gemini' | 'catalog' | 'none';
+    barcode: string;
+    name?: string;
+    brand?: string;
+    category?: string;
+    subCategory?: string;
+    packSize?: string;
+    unit?: string;
+    mrp?: number;
+    manufacturer?: string;
+    hsnCode?: string;
+    gstRate?: number;
+    sku?: string;
+    imageUrl?: string;
+    piecesPerCase?: number;
+    wholesalePricePiece?: number;
+    message?: string;
+  }> {
+    return safeJsonFetch(`/api/products/lookup/${encodeURIComponent(barcode.trim())}`, {}, {
+      found: false,
+      source: 'none',
+      barcode
+    });
+  },
+
   // Retailers
  async getRetailers(): Promise<Retailer[]> {
   let list: Retailer[] = [];

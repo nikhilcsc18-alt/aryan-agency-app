@@ -1049,35 +1049,34 @@ class Database {
 
   // App Version & APK Distribution Configuration
   public getAppVersionConfig(): AppVersionConfig {
-    if (!this.data.appVersionConfig) {
-      try {
-        const vPath = path.join(process.cwd(), 'public', 'download', 'version.json');
-        if (fs.existsSync(vPath)) {
-          const parsed = JSON.parse(fs.readFileSync(vPath, 'utf-8'));
-          this.data.appVersionConfig = {
-            version: parsed.version || '1.3.0',
-            versionCode: parsed.versionCode || 130,
-            downloadUrl: parsed.downloadUrl || '/download/aryan-agency-app.apk',
-            apkUrl: parsed.apkUrl || parsed.downloadUrl || '/download/aryan-agency-app.apk',
-            updatedAt: parsed.updatedAt || new Date().toISOString(),
-            releaseNotes: parsed.releaseNotes || 'Aryan Agency Latest Version',
-            fileSize: parsed.fileSize || '18.4 MB',
-            minAndroidVersion: parsed.minAndroidVersion || 'Android 8.0+'
-          };
-        }
-      } catch (e) {
-        console.warn('[db] Failed to load version.json fallback:', e);
+    try {
+      const vPath = path.join(process.cwd(), 'public', 'download', 'version.json');
+      if (fs.existsSync(vPath)) {
+        const parsed = JSON.parse(fs.readFileSync(vPath, 'utf-8'));
+        this.data.appVersionConfig = {
+          version: parsed.version || '1.3.1',
+          versionCode: Number(parsed.versionCode) || 131,
+          downloadUrl: parsed.downloadUrl || '/download/aryan-agency-app.apk',
+          apkUrl: parsed.apkUrl || parsed.downloadUrl || '/download/aryan-agency-app.apk',
+          updatedAt: parsed.updatedAt || new Date().toISOString(),
+          releaseNotes: parsed.releaseNotes || 'Aryan Agency Latest Version',
+          fileSize: parsed.fileSize || '18.4 MB',
+          minAndroidVersion: parsed.minAndroidVersion || 'Android 8.0+'
+        };
+        return this.data.appVersionConfig;
       }
+    } catch (e) {
+      console.warn('[db] Failed to load version.json fallback:', e);
     }
 
     if (!this.data.appVersionConfig) {
       this.data.appVersionConfig = {
-        version: '1.3.0',
-        versionCode: 130,
+        version: '1.3.1',
+        versionCode: 131,
         downloadUrl: '/download/aryan-agency-app.apk',
         apkUrl: '/download/aryan-agency-app.apk',
         updatedAt: new Date().toISOString(),
-        releaseNotes: 'Aryan Agency Retailer & Distributor App v1.3.0',
+        releaseNotes: 'Aryan Agency Retailer & Distributor App v1.3.1',
         fileSize: '18.4 MB',
         minAndroidVersion: 'Android 8.0+'
       };

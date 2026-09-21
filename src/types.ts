@@ -121,6 +121,10 @@ export interface Product {
   activeScheme?: TradeScheme;
   description?: string;
   packingOptions?: ProductPackingOption[];
+  packSize?: string;
+  unit?: string;
+  manufacturer?: string;
+  subCategory?: string;
 }
 
 export interface Retailer {

@@ -5,7 +5,7 @@ import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { db } from './server/db';
-import { parseNaturalLanguageOrder, generateFMCGInsights } from './server/gemini';
+import { parseNaturalLanguageOrder, generateFMCGInsights, lookupProductByBarcode } from './server/gemini';
 import { Order, OrderItem, PaymentRecord, DeliveryRunSheet } from './src/types';
 
 declare global {
@@ -462,6 +462,22 @@ app.get('/api/products', (req, res) => {
     sku: p.sku || (p as any).product_sku || (p as any).productSku || ''
   }));
   res.json(products);
+});
+
+// Barcode / GTIN Product Information & Auto Image Lookup
+app.get('/api/products/lookup/:barcode', async (req, res) => {
+  const barcode = req.params.barcode;
+  if (!barcode) {
+    return res.status(400).json({ found: false, message: 'Barcode is required' });
+  }
+
+  try {
+    const result = await lookupProductByBarcode(barcode);
+    res.json(result);
+  } catch (err: any) {
+    console.error('Barcode lookup error:', err);
+    res.status(500).json({ found: false, message: err?.message || 'Lookup failed' });
+  }
 });
 
 app.post('/api/products', requireRoles(['admin']), (req, res) => {
