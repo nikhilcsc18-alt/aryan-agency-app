@@ -1,4 +1,4 @@
-package com.aryanagency.app;
+package com.aryanagency.fmcg;
 
 import android.content.Intent;
 import android.net.Uri;
