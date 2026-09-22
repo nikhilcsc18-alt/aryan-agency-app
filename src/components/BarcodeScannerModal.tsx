@@ -47,14 +47,20 @@ interface BarcodeScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
   products: Product[];
-  onProductFound: (product: Product) => void;
+  onProductFound?: (product: Product) => void;
+  onBarcodeDetected?: (barcode: string) => void;
+  title?: string;
+  subtitle?: string;
 }
 
 export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
   isOpen,
   onClose,
   products,
-  onProductFound
+  onProductFound,
+  onBarcodeDetected,
+  title,
+  subtitle
 }) => {
   const [activeTab, setActiveTab] = useState<'camera' | 'manual'>('camera');
   const [manualCode, setManualCode] = useState('');
@@ -135,6 +141,13 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     }
 
     setLastScannedCode(decodedText);
+
+    if (onBarcodeDetected) {
+      onBarcodeDetected(decodedText);
+      onClose();
+      return;
+    }
+
     const product = findProductByCode(decodedText);
     if (product) {
       setScannedProduct(product);
@@ -290,6 +303,13 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
     if (e) e.preventDefault();
     if (!manualCode.trim()) return;
 
+    if (onBarcodeDetected) {
+      playBeep();
+      onBarcodeDetected(manualCode.trim());
+      onClose();
+      return;
+    }
+
     const product = findProductByCode(manualCode);
     if (product) {
       playBeep();
@@ -303,7 +323,9 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
 
   const handleConfirmProduct = () => {
     if (!scannedProduct) return;
-    onProductFound(scannedProduct);
+    if (onProductFound) {
+      onProductFound(scannedProduct);
+    }
     onClose();
   };
 
@@ -337,12 +359,12 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
             </div>
             <div>
               <div className="flex items-center space-x-1.5">
-                <h3 className="text-sm font-black tracking-tight text-white">बारकोड स्कैनर (Barcode Scanner)</h3>
+                <h3 className="text-sm font-black tracking-tight text-white">{title || 'बारकोड स्कैनर (Barcode Scanner)'}</h3>
                 <span className="text-[10px] bg-emerald-500/30 text-emerald-300 font-bold px-1.5 py-0.2 rounded border border-emerald-400/30">
                   Live
                 </span>
               </div>
-              <p className="text-[11px] text-blue-200">Camera permission enabled • EAN-13, SKU & Gun reader</p>
+              <p className="text-[11px] text-blue-200">{subtitle || 'Camera permission enabled • EAN-13, SKU & Gun reader'}</p>
             </div>
           </div>
 
@@ -600,6 +622,12 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                   key={demo.sku}
                   type="button"
                   onClick={() => {
+                    if (onBarcodeDetected) {
+                      playBeep();
+                      onBarcodeDetected(demo.code);
+                      onClose();
+                      return;
+                    }
                     setManualCode(demo.code);
                     const p = findProductByCode(demo.code);
                     if (p) {

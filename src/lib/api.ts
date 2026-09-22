@@ -969,8 +969,8 @@ export const api = {
     minAndroidVersion?: string;
   }> {
     return safeJsonFetch<any>('/api/app/version', {}, {
-      version: '1.3.0',
-      versionCode: 130,
+      version: '1.3.2',
+      versionCode: 132,
       downloadUrl: '/download/aryan-agency-app.apk',
       apkUrl: '/download/aryan-agency-app.apk',
       updatedAt: new Date().toISOString(),

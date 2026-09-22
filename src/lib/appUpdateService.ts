@@ -17,9 +17,10 @@ export interface AppVersionInfo {
 declare const __APP_VERSION__: string | undefined;
 
 export const CURRENT_APP_VERSION = 
-  typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.1';
-export const CURRENT_VERSION_CODE = 131;
+  typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.2';
+export const CURRENT_VERSION_CODE = 132;
 
+export const LIVE_APP_URL = 'https://ais-pre-56ktpfi5kyykyubymhw3f5-703386228811.asia-east1.run.app';
 const VERSION_CHECK_ENDPOINT = '/download/version.json';
 const AUTO_UPDATE_PREF_KEY = 'aryan_auto_update_enabled';
 const LAST_SKIPPED_VERSION_KEY = 'aryan_last_skipped_version';
@@ -114,15 +115,36 @@ export async function performInAppUpdate(
     }
   }
 
+  // Clean up old cached localStorage version keys
+  try {
+    localStorage.removeItem('aryan_app_download_config');
+    localStorage.removeItem('aryan_agency_update_dismissed');
+    localStorage.removeItem('aryan_last_skipped_version');
+  } catch (e) {
+    // ignore
+  }
+
   onProgress?.(100, 'Reloading application...');
   await new Promise(r => setTimeout(r, 300));
 
   try {
-    window.location.reload();
-  } catch {
-    // Fallback if reload is blocked
+    // If inside Capacitor localhost or file:// protocol on Android phone, redirect to live server
+    const isCapacitorLocal = 
+      typeof window !== 'undefined' && 
+      (window.location.origin.includes('localhost') || 
+       window.location.origin.startsWith('capacitor') || 
+       window.location.protocol === 'file:');
+
+    if (isCapacitorLocal) {
+      window.location.href = `${LIVE_APP_URL}?v=${Date.now()}`;
+      return;
+    }
+
+    // Force hard reload bypassing browser cache
     const cleanUrl = window.location.origin + window.location.pathname + `?updated_v=${Date.now()}` + window.location.hash;
     window.location.replace(cleanUrl);
+  } catch {
+    window.location.reload();
   }
 }
 

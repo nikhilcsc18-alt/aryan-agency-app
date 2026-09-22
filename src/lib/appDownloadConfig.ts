@@ -24,14 +24,14 @@ const EVENT_NAME = 'aryan_app_download_config_updated';
 
 export const DEFAULT_APP_CONFIG: AppDownloadConfig = {
   apkUrl: '/download/aryan-agency-app.apk',
-  version: 'v1.3.1',
-  fileSize: '7.9 MB',
+  version: 'v1.3.2',
+  fileSize: '8.2 MB',
   releaseDate: 'September 2026',
   minAndroidVersion: 'Android 8.0 (Oreo) or later',
   appName: 'Aryan Agency FMCG Distribution',
   packageName: 'com.aryanagency.app',
   isAvailable: true,
-  notes: 'Aryan Agency B2B App v1.3.1 with responsive 16:5 wholesale banners, animated depot supply tracking, pack selector, and robust APK auto-updater.'
+  notes: 'Aryan Agency B2B App v1.3.2 with live barcode scanning, internet product auto-fill, and live cloud sync.'
 };
 
 export function getAppDownloadConfig(): AppDownloadConfig {
@@ -46,6 +46,11 @@ export function getAppDownloadConfig(): AppDownloadConfig {
       parsed.apkUrl?.includes('github.com')
     ) {
       parsed.apkUrl = DEFAULT_APP_CONFIG.apkUrl;
+    }
+    // Auto-upgrade stale cached versions from previous testing
+    if (parsed.version === 'v1.3.0' || parsed.version === 'v1.3.1' || parsed.version === '1.3.0' || parsed.version === '1.3.1') {
+      parsed.version = DEFAULT_APP_CONFIG.version;
+      parsed.notes = DEFAULT_APP_CONFIG.notes;
     }
     return { ...DEFAULT_APP_CONFIG, ...parsed };
   } catch (err) {

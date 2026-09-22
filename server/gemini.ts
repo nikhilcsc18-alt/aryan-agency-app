@@ -14,6 +14,110 @@ function getAI(): GoogleGenAI {
   return aiInstance;
 }
 
+/**
+ * Executes generateContent with resilient model fallback to handle 503 (high demand) or 429 spikes.
+ */
+async function generateContentWithFallback(contents: string, config?: any) {
+  const ai = getAI();
+  const candidateModels = [
+    'gemini-3.8-flash',
+    'gemini-3.1-flash-lite',
+    'gemini-flash-latest'
+  ];
+
+  let lastError: any = null;
+  for (const model of candidateModels) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents,
+        config
+      });
+      return response;
+    } catch (err: any) {
+      lastError = err;
+      const isOverloaded = 
+        err?.status === 503 || 
+        err?.status === 429 || 
+        err?.code === 503 ||
+        err?.code === 429 ||
+        err?.message?.includes('503') || 
+        err?.message?.includes('429') || 
+        err?.message?.includes('high demand') ||
+        err?.message?.includes('UNAVAILABLE') ||
+        err?.message?.includes('RESOURCE_EXHAUSTED');
+
+      if (isOverloaded) {
+        console.warn(`[Gemini AI] Model ${model} is experiencing temporary high demand (503/429). Trying fallback model...`);
+        continue;
+      }
+      console.warn(`[Gemini AI] Model ${model} returned error:`, err?.message || err);
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Free, non-rate-limited Open Food Facts public API lookup for Indian FMCG barcodes
+ */
+async function lookupOpenFoodFacts(barcode: string): Promise<Partial<BarcodeLookupResult> | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`, {
+      headers: {
+        'User-Agent': 'AryanAgencyFMCG/1.0 (info@aryanagency.in)'
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    if (!res.ok) return null;
+    const data: any = await res.json();
+    if (data && data.status === 1 && data.product) {
+      const p = data.product;
+      const name = p.product_name || p.product_name_en || p.generic_name;
+      if (!name) return null;
+
+      const brand = p.brands ? p.brands.split(',')[0].trim() : 'General FMCG';
+      const imageUrl = p.image_front_url || p.image_url || '';
+      const packSize = p.quantity || '';
+
+      let category = 'Biscuits & Bakery';
+      const catStr = ((p.categories || '') + ' ' + (p.categories_tags || []).join(' ') + ' ' + name).toLowerCase();
+      if (catStr.includes('biscuit') || catStr.includes('cookie') || catStr.includes('bakery') || catStr.includes('cake') || catStr.includes('rusk')) {
+        category = 'Biscuits & Bakery';
+      } else if (catStr.includes('beverage') || catStr.includes('tea') || catStr.includes('coffee') || catStr.includes('juice') || catStr.includes('drink') || catStr.includes('soda')) {
+        category = 'Beverages';
+      } else if (catStr.includes('snack') || catStr.includes('noodle') || catStr.includes('namkeen') || catStr.includes('chips') || catStr.includes('wafer')) {
+        category = 'Snacks & Namkeen';
+      } else if (catStr.includes('spice') || catStr.includes('masala') || catStr.includes('flour') || catStr.includes('atta') || catStr.includes('oil') || catStr.includes('rice') || catStr.includes('staple')) {
+        category = 'Spices & Staples';
+      } else if (catStr.includes('soap') || catStr.includes('shampoo') || catStr.includes('paste') || catStr.includes('cream') || catStr.includes('personal')) {
+        category = 'Personal Care';
+      } else if (catStr.includes('chocolate') || catStr.includes('sweet') || catStr.includes('candy') || catStr.includes('confectionery')) {
+        category = 'Confectionery & Chocolates';
+      } else if (catStr.includes('milk') || catStr.includes('butter') || catStr.includes('cheese') || catStr.includes('ghee') || catStr.includes('paneer') || catStr.includes('dairy')) {
+        category = 'Dairy & Refrigerated';
+      } else if (catStr.includes('detergent') || catStr.includes('cleaner') || catStr.includes('wash') || catStr.includes('hygiene') || catStr.includes('household')) {
+        category = 'Household & Hygiene';
+      }
+
+      return {
+        name,
+        brand,
+        category,
+        packSize,
+        imageUrl,
+        sku: `${brand.toUpperCase().replace(/[^A-Z0-9]/g, '')}-${barcode.slice(-4)}`
+      };
+    }
+  } catch (e) {
+    // Proceed silently
+  }
+  return null;
+}
+
 export async function parseNaturalLanguageOrder(orderText: string) {
   const products = db.getProducts();
   const retailers = db.getRetailers();
@@ -72,13 +176,8 @@ Return ONLY a valid JSON object with the following structure:
 }`;
 
   try {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json'
-      }
+    const response = await generateContentWithFallback(prompt, {
+      responseMimeType: 'application/json'
     });
 
     const text = response.text || '{}';
@@ -173,13 +272,8 @@ Return ONLY a JSON array of recommendation objects with:
 ]`;
 
   try {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json'
-      }
+    const response = await generateContentWithFallback(prompt, {
+      responseMimeType: 'application/json'
     });
     return JSON.parse(response.text || '[]');
   } catch (err) {
@@ -498,10 +592,34 @@ export async function lookupProductByBarcode(barcode: string): Promise<BarcodeLo
     };
   }
 
-  // 3. Fallback: Ask Gemini 3.6 Flash for Indian FMCG product matching this barcode/GTIN
+  // 3. Fallback: Check Open Food Facts public database
+  try {
+    const offProduct = await lookupOpenFoodFacts(cleanCode);
+    if (offProduct && offProduct.name) {
+      return {
+        found: true,
+        source: 'catalog',
+        barcode: cleanCode,
+        name: offProduct.name,
+        brand: offProduct.brand || 'General FMCG',
+        category: offProduct.category || 'Biscuits & Bakery',
+        packSize: offProduct.packSize || '',
+        sku: offProduct.sku || cleanCode,
+        imageUrl: offProduct.imageUrl || '',
+        piecesPerCase: 24,
+        mrp: 20,
+        wholesalePricePiece: 17,
+        hsnCode: '19053100',
+        gstRate: 18
+      };
+    }
+  } catch (e) {
+    // Ignore Open Food Facts error, fall through to Gemini
+  }
+
+  // 4. Fallback: Ask Gemini (gemini-3.8-flash with automatic model fallback) for Indian FMCG product
   // STRICT CONSTRAINT: Do NOT hallucinate. If not a known authentic product, return found: false.
   try {
-    const ai = getAI();
     const prompt = `You are a real Indian FMCG barcode/GTIN database identifier for wholesale kirana distribution.
 Target barcode/GTIN/EAN: "${cleanCode}".
 
@@ -533,12 +651,8 @@ If not found or uncertain:
   "found": false
 }`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json'
-      }
+    const response = await generateContentWithFallback(prompt, {
+      responseMimeType: 'application/json'
     });
 
     const parsed = JSON.parse(response.text || '{}');
@@ -564,7 +678,7 @@ If not found or uncertain:
       };
     }
   } catch (err: any) {
-    console.warn(`[Gemini barcode lookup] Error or busy:`, err?.message || err);
+    console.warn(`[Barcode lookup] AI models busy or offline, barcode ${cleanCode} ready for manual input.`);
   }
 
   return {

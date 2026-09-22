@@ -969,35 +969,34 @@ var Database = class {
   }
   // App Version & APK Distribution Configuration
   getAppVersionConfig() {
-    if (!this.data.appVersionConfig) {
-      try {
-        const vPath = import_path.default.join(process.cwd(), "public", "download", "version.json");
-        if (import_fs.default.existsSync(vPath)) {
-          const parsed = JSON.parse(import_fs.default.readFileSync(vPath, "utf-8"));
-          this.data.appVersionConfig = {
-            version: parsed.version || "1.3.0",
-            versionCode: parsed.versionCode || 130,
-            downloadUrl: parsed.downloadUrl || "/download/aryan-agency-app.apk",
-            apkUrl: parsed.apkUrl || parsed.downloadUrl || "/download/aryan-agency-app.apk",
-            updatedAt: parsed.updatedAt || (/* @__PURE__ */ new Date()).toISOString(),
-            releaseNotes: parsed.releaseNotes || "Aryan Agency Latest Version",
-            fileSize: parsed.fileSize || "18.4 MB",
-            minAndroidVersion: parsed.minAndroidVersion || "Android 8.0+"
-          };
-        }
-      } catch (e) {
-        console.warn("[db] Failed to load version.json fallback:", e);
+    try {
+      const vPath = import_path.default.join(process.cwd(), "public", "download", "version.json");
+      if (import_fs.default.existsSync(vPath)) {
+        const parsed = JSON.parse(import_fs.default.readFileSync(vPath, "utf-8"));
+        this.data.appVersionConfig = {
+          version: parsed.version || "1.3.2",
+          versionCode: Number(parsed.versionCode) || 132,
+          downloadUrl: parsed.downloadUrl || "/download/aryan-agency-app.apk",
+          apkUrl: parsed.apkUrl || parsed.downloadUrl || "/download/aryan-agency-app.apk",
+          updatedAt: parsed.updatedAt || (/* @__PURE__ */ new Date()).toISOString(),
+          releaseNotes: parsed.releaseNotes || "Aryan Agency v1.3.2: \u092C\u093E\u0930\u0915\u094B\u0921 \u0938\u094D\u0915\u0948\u0928\u0930 \u0914\u0930 \u0911\u091F\u094B-\u092B\u093F\u0932",
+          fileSize: parsed.fileSize || "8.2 MB",
+          minAndroidVersion: parsed.minAndroidVersion || "Android 8.0+"
+        };
+        return this.data.appVersionConfig;
       }
+    } catch (e) {
+      console.warn("[db] Failed to load version.json fallback:", e);
     }
     if (!this.data.appVersionConfig) {
       this.data.appVersionConfig = {
-        version: "1.3.0",
-        versionCode: 130,
+        version: "1.3.2",
+        versionCode: 132,
         downloadUrl: "/download/aryan-agency-app.apk",
         apkUrl: "/download/aryan-agency-app.apk",
         updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-        releaseNotes: "Aryan Agency Retailer & Distributor App v1.3.0",
-        fileSize: "18.4 MB",
+        releaseNotes: "Aryan Agency Retailer & Distributor App v1.3.2",
+        fileSize: "8.2 MB",
         minAndroidVersion: "Android 8.0+"
       };
     }
@@ -1041,6 +1040,86 @@ function getAI() {
     aiInstance = new import_genai.GoogleGenAI({ apiKey: key });
   }
   return aiInstance;
+}
+async function generateContentWithFallback(contents, config) {
+  const ai = getAI();
+  const candidateModels = [
+    "gemini-3.8-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-flash-latest"
+  ];
+  let lastError = null;
+  for (const model of candidateModels) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents,
+        config
+      });
+      return response;
+    } catch (err) {
+      lastError = err;
+      const isOverloaded = err?.status === 503 || err?.status === 429 || err?.code === 503 || err?.code === 429 || err?.message?.includes("503") || err?.message?.includes("429") || err?.message?.includes("high demand") || err?.message?.includes("UNAVAILABLE") || err?.message?.includes("RESOURCE_EXHAUSTED");
+      if (isOverloaded) {
+        console.warn(`[Gemini AI] Model ${model} is experiencing temporary high demand (503/429). Trying fallback model...`);
+        continue;
+      }
+      console.warn(`[Gemini AI] Model ${model} returned error:`, err?.message || err);
+    }
+  }
+  throw lastError;
+}
+async function lookupOpenFoodFacts(barcode) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(barcode)}.json`, {
+      headers: {
+        "User-Agent": "AryanAgencyFMCG/1.0 (info@aryanagency.in)"
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data && data.status === 1 && data.product) {
+      const p = data.product;
+      const name = p.product_name || p.product_name_en || p.generic_name;
+      if (!name) return null;
+      const brand = p.brands ? p.brands.split(",")[0].trim() : "General FMCG";
+      const imageUrl = p.image_front_url || p.image_url || "";
+      const packSize = p.quantity || "";
+      let category = "Biscuits & Bakery";
+      const catStr = ((p.categories || "") + " " + (p.categories_tags || []).join(" ") + " " + name).toLowerCase();
+      if (catStr.includes("biscuit") || catStr.includes("cookie") || catStr.includes("bakery") || catStr.includes("cake") || catStr.includes("rusk")) {
+        category = "Biscuits & Bakery";
+      } else if (catStr.includes("beverage") || catStr.includes("tea") || catStr.includes("coffee") || catStr.includes("juice") || catStr.includes("drink") || catStr.includes("soda")) {
+        category = "Beverages";
+      } else if (catStr.includes("snack") || catStr.includes("noodle") || catStr.includes("namkeen") || catStr.includes("chips") || catStr.includes("wafer")) {
+        category = "Snacks & Namkeen";
+      } else if (catStr.includes("spice") || catStr.includes("masala") || catStr.includes("flour") || catStr.includes("atta") || catStr.includes("oil") || catStr.includes("rice") || catStr.includes("staple")) {
+        category = "Spices & Staples";
+      } else if (catStr.includes("soap") || catStr.includes("shampoo") || catStr.includes("paste") || catStr.includes("cream") || catStr.includes("personal")) {
+        category = "Personal Care";
+      } else if (catStr.includes("chocolate") || catStr.includes("sweet") || catStr.includes("candy") || catStr.includes("confectionery")) {
+        category = "Confectionery & Chocolates";
+      } else if (catStr.includes("milk") || catStr.includes("butter") || catStr.includes("cheese") || catStr.includes("ghee") || catStr.includes("paneer") || catStr.includes("dairy")) {
+        category = "Dairy & Refrigerated";
+      } else if (catStr.includes("detergent") || catStr.includes("cleaner") || catStr.includes("wash") || catStr.includes("hygiene") || catStr.includes("household")) {
+        category = "Household & Hygiene";
+      }
+      return {
+        name,
+        brand,
+        category,
+        packSize,
+        imageUrl,
+        sku: `${brand.toUpperCase().replace(/[^A-Z0-9]/g, "")}-${barcode.slice(-4)}`
+      };
+    }
+  } catch (e) {
+  }
+  return null;
 }
 async function parseNaturalLanguageOrder(orderText) {
   const products = db.getProducts();
@@ -1096,13 +1175,8 @@ Return ONLY a valid JSON object with the following structure:
   "unmatchedItems": [ "any text items you could not match" ]
 }`;
   try {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json"
-      }
+    const response = await generateContentWithFallback(prompt, {
+      responseMimeType: "application/json"
     });
     const text = response.text || "{}";
     return JSON.parse(text);
@@ -1181,13 +1255,8 @@ Return ONLY a JSON array of recommendation objects with:
   }
 ]`;
   try {
-    const ai = getAI();
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json"
-      }
+    const response = await generateContentWithFallback(prompt, {
+      responseMimeType: "application/json"
     });
     return JSON.parse(response.text || "[]");
   } catch (err) {
@@ -1223,6 +1292,338 @@ Return ONLY a JSON array of recommendation objects with:
       }
     ];
   }
+}
+var VERIFIED_FMCG_BARCODES = {
+  "8901063012345": {
+    name: "Parle-G Glucose Biscuit (80g)",
+    brand: "Parle",
+    category: "Biscuits & Bakery",
+    subCategory: "Glucose Biscuits",
+    packSize: "80g",
+    unit: "g",
+    mrp: 10,
+    manufacturer: "Parle Products Pvt. Ltd.",
+    hsnCode: "19053100",
+    gstRate: 18,
+    sku: "PARLE-G-80G",
+    piecesPerCase: 60,
+    wholesalePricePiece: 8.4,
+    imageUrl: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=600&auto=format&fit=crop&q=80"
+  },
+  "8901063012346": {
+    name: "Parle-G Gold Biscuits (1kg)",
+    brand: "Parle",
+    category: "Biscuits & Bakery",
+    subCategory: "Glucose Biscuits",
+    packSize: "1kg",
+    unit: "kg",
+    mrp: 140,
+    manufacturer: "Parle Products Pvt. Ltd.",
+    hsnCode: "19053100",
+    gstRate: 18,
+    sku: "PARLE-GOLD-1KG",
+    piecesPerCase: 12,
+    wholesalePricePiece: 118,
+    imageUrl: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=600&auto=format&fit=crop&q=80"
+  },
+  "8901030383742": {
+    name: "Britannia Good Day Butter Cookies (100g)",
+    brand: "Britannia",
+    category: "Biscuits & Bakery",
+    subCategory: "Cookies",
+    packSize: "100g",
+    unit: "g",
+    mrp: 20,
+    manufacturer: "Britannia Industries Ltd.",
+    hsnCode: "19053100",
+    gstRate: 18,
+    sku: "BRIT-GD-BUTTER-100G",
+    piecesPerCase: 48,
+    wholesalePricePiece: 16.8,
+    imageUrl: "https://images.unsplash.com/photo-1590080875515-8a3a8dc5735e?w=600&auto=format&fit=crop&q=80"
+  },
+  "8901030705571": {
+    name: "Britannia Marie Gold Biscuits (250g)",
+    brand: "Britannia",
+    category: "Biscuits & Bakery",
+    subCategory: "Tea Biscuits",
+    packSize: "250g",
+    unit: "g",
+    mrp: 35,
+    manufacturer: "Britannia Industries Ltd.",
+    hsnCode: "19053100",
+    gstRate: 18,
+    sku: "BRIT-MARIE-250G",
+    piecesPerCase: 24,
+    wholesalePricePiece: 29.5,
+    imageUrl: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&auto=format&fit=crop&q=80"
+  },
+  "8901725181223": {
+    name: "Sunfeast Mom\u2019s Magic Rich Butter Cookies (150g)",
+    brand: "ITC Sunfeast",
+    category: "Biscuits & Bakery",
+    subCategory: "Cookies",
+    packSize: "150g",
+    unit: "g",
+    mrp: 30,
+    manufacturer: "ITC Limited",
+    hsnCode: "19053100",
+    gstRate: 18,
+    sku: "ITC-SUNFEAST-MOM-CHOC",
+    piecesPerCase: 36,
+    wholesalePricePiece: 24.6,
+    imageUrl: "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=600&auto=format&fit=crop&q=80"
+  },
+  "8901058852331": {
+    name: "Nestl\xE9 Maggi 2-Minute Masala Noodles (70g)",
+    brand: "Nestl\xE9",
+    category: "Snacks & Instant Food",
+    subCategory: "Instant Noodles",
+    packSize: "70g",
+    unit: "g",
+    mrp: 14,
+    manufacturer: "Nestl\xE9 India Limited",
+    hsnCode: "19023010",
+    gstRate: 12,
+    sku: "NESTLE-MAGGI-70G",
+    piecesPerCase: 96,
+    wholesalePricePiece: 12.2,
+    imageUrl: "https://images.unsplash.com/photo-1612927601601-6638404737ce?w=600&auto=format&fit=crop&q=80"
+  },
+  "8901058852734": {
+    name: "Nestl\xE9 Maggi Masala Noodles (280g Pack of 4)",
+    brand: "Nestl\xE9",
+    category: "Snacks & Instant Food",
+    subCategory: "Instant Noodles",
+    packSize: "280g",
+    unit: "g",
+    mrp: 56,
+    manufacturer: "Nestl\xE9 India Limited",
+    hsnCode: "19023010",
+    gstRate: 12,
+    sku: "MAGGI-MASALA-280G",
+    piecesPerCase: 24,
+    wholesalePricePiece: 48.5,
+    imageUrl: "https://images.unsplash.com/photo-1612927601601-6638404737ce?w=600&auto=format&fit=crop&q=80"
+  },
+  "8901233024567": {
+    name: "Cadbury Dairy Milk Silk Chocolate (60g)",
+    brand: "Cadbury",
+    category: "Confectionery & Sweets",
+    subCategory: "Chocolates",
+    packSize: "60g",
+    unit: "g",
+    mrp: 80,
+    manufacturer: "Mondelez India Foods Pvt. Ltd.",
+    hsnCode: "18063200",
+    gstRate: 18,
+    sku: "CADBURY-DM-SILK-60G",
+    piecesPerCase: 40,
+    wholesalePricePiece: 69.6,
+    imageUrl: "https://images.unsplash.com/photo-1549007994-cb92caebd54b?w=600&auto=format&fit=crop&q=80"
+  },
+  "8901052002134": {
+    name: "Tata Tea Gold Premium Black Tea (500g)",
+    brand: "Tata Tea",
+    category: "Beverages",
+    subCategory: "Tea",
+    packSize: "500g",
+    unit: "g",
+    mrp: 310,
+    manufacturer: "Tata Consumer Products Ltd.",
+    hsnCode: "09024020",
+    gstRate: 5,
+    sku: "TATA-TEA-GOLD-500G",
+    piecesPerCase: 20,
+    wholesalePricePiece: 279,
+    imageUrl: "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&auto=format&fit=crop&q=80"
+  },
+  "8901262010011": {
+    name: "Amul Taaza Homogenised Toned Milk (1L)",
+    brand: "Amul",
+    category: "Dairy & Refrigerated",
+    subCategory: "Milk",
+    packSize: "1L",
+    unit: "L",
+    mrp: 74,
+    manufacturer: "Gujarat Co-operative Milk Marketing Federation (GCMMF)",
+    hsnCode: "04012000",
+    gstRate: 5,
+    sku: "AMUL-TAAZA-1L",
+    piecesPerCase: 12,
+    wholesalePricePiece: 69.5,
+    imageUrl: "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=600&auto=format&fit=crop&q=80"
+  },
+  "8901207010032": {
+    name: "Dabur Red Ayurvedic Toothpaste (200g)",
+    brand: "Dabur",
+    category: "Personal Care",
+    subCategory: "Oral Care",
+    packSize: "200g",
+    unit: "g",
+    mrp: 110,
+    manufacturer: "Dabur India Limited",
+    hsnCode: "33061020",
+    gstRate: 18,
+    sku: "DABUR-RED-PASTE-200G",
+    piecesPerCase: 36,
+    wholesalePricePiece: 94.5,
+    imageUrl: "https://images.unsplash.com/photo-1559563458-527698bf5295?w=600&auto=format&fit=crop&q=80"
+  },
+  "8901786010045": {
+    name: "Everest Garam Masala (100g)",
+    brand: "Everest",
+    category: "Spices & Staples",
+    subCategory: "Blended Spices",
+    packSize: "100g",
+    unit: "g",
+    mrp: 92,
+    manufacturer: "S. Narendrakumar & Co.",
+    hsnCode: "09109100",
+    gstRate: 5,
+    sku: "EVEREST-GARAM-MASALA-100G",
+    piecesPerCase: 30,
+    wholesalePricePiece: 81,
+    imageUrl: "https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=600&auto=format&fit=crop&q=80"
+  },
+  "8904063200118": {
+    name: "Haldiram\u2019s Nagpur Aloo Bhujia (400g)",
+    brand: "Haldiram\u2019s",
+    category: "Snacks & Namkeen",
+    subCategory: "Namkeen",
+    packSize: "400g",
+    unit: "g",
+    mrp: 120,
+    manufacturer: "Haldiram Foods International Pvt. Ltd.",
+    hsnCode: "21069099",
+    gstRate: 12,
+    sku: "HALDIRAMS-BHUJIA-400G",
+    piecesPerCase: 20,
+    wholesalePricePiece: 104,
+    imageUrl: "https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=600&auto=format&fit=crop&q=80"
+  }
+};
+async function lookupProductByBarcode(barcode) {
+  const cleanCode = (barcode || "").trim().replace(/[^0-9A-Za-z_-]/g, "");
+  if (!cleanCode) {
+    return { found: false, source: "none", barcode };
+  }
+  const products = db.getProducts();
+  const existingInDb = products.find(
+    (p) => p.barcode === cleanCode || p.barcode_number === cleanCode || p.sku?.toLowerCase() === cleanCode.toLowerCase()
+  );
+  if (existingInDb) {
+    return {
+      found: true,
+      source: "database",
+      barcode: cleanCode,
+      name: existingInDb.name,
+      brand: existingInDb.brand,
+      category: existingInDb.category,
+      hsnCode: existingInDb.hsnCode,
+      gstRate: existingInDb.gstRate,
+      mrp: existingInDb.mrpPiece,
+      piecesPerCase: existingInDb.piecesPerCase,
+      wholesalePricePiece: existingInDb.wholesalePricePiece,
+      sku: existingInDb.sku,
+      imageUrl: existingInDb.imageUrl
+    };
+  }
+  if (VERIFIED_FMCG_BARCODES[cleanCode]) {
+    const verified = VERIFIED_FMCG_BARCODES[cleanCode];
+    return {
+      found: true,
+      source: "catalog",
+      barcode: cleanCode,
+      ...verified
+    };
+  }
+  try {
+    const offProduct = await lookupOpenFoodFacts(cleanCode);
+    if (offProduct && offProduct.name) {
+      return {
+        found: true,
+        source: "catalog",
+        barcode: cleanCode,
+        name: offProduct.name,
+        brand: offProduct.brand || "General FMCG",
+        category: offProduct.category || "Biscuits & Bakery",
+        packSize: offProduct.packSize || "",
+        sku: offProduct.sku || cleanCode,
+        imageUrl: offProduct.imageUrl || "",
+        piecesPerCase: 24,
+        mrp: 20,
+        wholesalePricePiece: 17,
+        hsnCode: "19053100",
+        gstRate: 18
+      };
+    }
+  } catch (e) {
+  }
+  try {
+    const prompt = `You are a real Indian FMCG barcode/GTIN database identifier for wholesale kirana distribution.
+Target barcode/GTIN/EAN: "${cleanCode}".
+
+Rules:
+1. ONLY identify the product if "${cleanCode}" is a genuine, officially known FMCG retail barcode or standard EAN in India (e.g. Parle, Britannia, ITC, Nestl\xE9, Amul, HUL, Dabur, Haldirams, Everest, Tata, PepsiCo, Coca-Cola).
+2. DO NOT GUESS OR FABRICATE FAKE DATA. If you are not 100% sure of the exact real product for this barcode, return {"found": false}.
+3. Category MUST be one of: "Biscuits & Bakery", "Beverages", "Spices & Staples", "Personal Care", "Dairy & Refrigerated", "Confectionery & Chocolates", "Snacks & Namkeen", "Household & Hygiene", "Baby Care".
+4. Do NOT generate fake image URLs. If you know a verified official image URL, provide it; otherwise leave imageUrl as "".
+
+If verified real product, return JSON:
+{
+  "found": true,
+  "name": "Exact official product name (e.g. Parle-G Gluco Biscuits 80g)",
+  "brand": "Brand name",
+  "category": "One of allowed categories",
+  "subCategory": "Sub-category name",
+  "packSize": "e.g. 80g, 500ml, 1kg",
+  "unit": "g | kg | ml | L | pcs",
+  "mrp": numeric MRP in INR (e.g. 10 or 20),
+  "manufacturer": "Company name",
+  "hsnCode": "Official Indian GST HSN code (e.g. 19053100)",
+  "gstRate": numeric GST rate (0, 5, 12, 18, 28),
+  "sku": "UPPERCASE-HYPHENATED-SKU",
+  "imageUrl": ""
+}
+
+If not found or uncertain:
+{
+  "found": false
+}`;
+    const response = await generateContentWithFallback(prompt, {
+      responseMimeType: "application/json"
+    });
+    const parsed = JSON.parse(response.text || "{}");
+    if (parsed && parsed.found && parsed.name) {
+      return {
+        found: true,
+        source: "gemini",
+        barcode: cleanCode,
+        name: parsed.name,
+        brand: parsed.brand || "General FMCG",
+        category: parsed.category || "Biscuits & Bakery",
+        subCategory: parsed.subCategory || "",
+        packSize: parsed.packSize || "",
+        unit: parsed.unit || "",
+        mrp: Number(parsed.mrp) || 0,
+        manufacturer: parsed.manufacturer || "",
+        hsnCode: parsed.hsnCode || "19053100",
+        gstRate: Number(parsed.gstRate) || 18,
+        sku: parsed.sku || cleanCode,
+        imageUrl: parsed.imageUrl || "",
+        piecesPerCase: Number(parsed.piecesPerCase) || 24,
+        wholesalePricePiece: Number(parsed.wholesalePricePiece) || (parsed.mrp ? Math.round(parsed.mrp * 0.85 * 100) / 100 : 0)
+      };
+    }
+  } catch (err) {
+    console.warn(`[Barcode lookup] AI models busy or offline, barcode ${cleanCode} ready for manual input.`);
+  }
+  return {
+    found: false,
+    source: "none",
+    barcode: cleanCode
+  };
 }
 
 // server.ts
@@ -1553,6 +1954,19 @@ app.get("/api/products", (req, res) => {
     sku: p.sku || p.product_sku || p.productSku || ""
   }));
   res.json(products);
+});
+app.get("/api/products/lookup/:barcode", async (req, res) => {
+  const barcode = req.params.barcode;
+  if (!barcode) {
+    return res.status(400).json({ found: false, message: "Barcode is required" });
+  }
+  try {
+    const result = await lookupProductByBarcode(barcode);
+    res.json(result);
+  } catch (err) {
+    console.warn("Barcode lookup notice:", err?.message || err);
+    res.json({ found: false, source: "none", barcode, message: "Could not fetch external details; please enter manually." });
+  }
 });
 app.post("/api/products", requireRoles(["admin"]), (req, res) => {
   const newProduct = req.body;

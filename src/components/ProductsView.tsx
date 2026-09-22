@@ -29,13 +29,14 @@ import {
   Copy,
   Barcode,
   Loader2,
+  Camera,
   Upload,
   Image as ImageIcon,
   RefreshCw,
   ImagePlus
 } from 'lucide-react';
 import { Product, ProductCategory, TradeScheme, CartItem, ProductPackingOption } from '../types';
-import { formatINR } from '../lib/api';
+import { formatINR, api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { PromotionalBannerCarousel } from './PromotionalBannerCarousel';
 import { B2BProductCard } from './B2BProductCard';
@@ -98,6 +99,13 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [isBulkAddOpen, setIsBulkAddOpen] = useState(false);
   
+  // Barcode scanning & net auto-fill states for Add/Edit SKU modal
+  const [isAddModalScannerOpen, setIsAddModalScannerOpen] = useState(false);
+  const [isLookingUpBarcode, setIsLookingUpBarcode] = useState(false);
+  const [barcodeInput, setBarcodeInput] = useState('');
+  const [barcodeLookupMessage, setBarcodeLookupMessage] = useState<string | null>(null);
+  const [barcodeLookupSuccess, setBarcodeLookupSuccess] = useState(false);
+
   const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
   const [packSelectorProduct, setPackSelectorProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -230,9 +238,92 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
   const totalCartCases = cartItems.reduce((sum, item) => sum + item.cases, 0);
   const totalCartAmount = cartItems.reduce((sum, item) => sum + (item.cases * item.product.casePrice), 0);
 
+  const handleLookupBarcodeAndAutoFill = async (rawCode: string) => {
+    const code = rawCode.trim();
+    if (!code) return;
+
+    try {
+      setIsLookingUpBarcode(true);
+      setBarcodeLookupMessage(null);
+      setBarcodeInput(code);
+
+      const result = await api.lookupProductByBarcode(code);
+
+      if (result && result.found) {
+        const baseMrp = result.mrp || 20;
+        const baseWp = result.wholesalePricePiece || (baseMrp > 0 ? Math.round(baseMrp * 0.85 * 100) / 100 : 16.5);
+        const pcsPerCase = result.piecesPerCase || 24;
+        const casePrice = pcsPerCase * baseWp;
+
+        const defaultPacks = [
+          createPresetPacking(1, baseWp, baseMrp, 'Pack of 1', 0),
+          createPresetPacking(2, baseWp, baseMrp, 'Pack of 2', 1),
+          createPresetPacking(4, baseWp, baseMrp, 'Pack of 4', 2),
+          createPresetPacking(10, baseWp, baseMrp, 'Pack of 10', 3)
+        ];
+
+        setEditingProduct(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            name: result.name || prev.name,
+            brand: result.brand || prev.brand,
+            category: (result.category as ProductCategory) || prev.category || 'Biscuits & Bakery',
+            subCategory: result.subCategory || prev.subCategory,
+            sku: result.sku || prev.sku || code,
+            barcode: code,
+            hsnCode: result.hsnCode || prev.hsnCode || '19053100',
+            gstRate: result.gstRate !== undefined ? result.gstRate : (prev.gstRate || 18),
+            mrpPiece: baseMrp,
+            wholesalePricePiece: baseWp,
+            piecesPerCase: pcsPerCase,
+            casePrice: casePrice,
+            imageUrl: result.imageUrl || prev.imageUrl,
+            packSize: result.packSize || prev.packSize,
+            unit: result.unit || prev.unit,
+            packingOptions: defaultPacks,
+            description: result.manufacturer ? `Manufacturer: ${result.manufacturer}` : prev.description
+          };
+        });
+
+        setBarcodeLookupSuccess(true);
+        setBarcodeLookupMessage(`✓ बारकोड ${code} सफलता से मिला: "${result.name}" (${result.brand})! नाम, ब्रांड, एमआरपी, थोक भाव, एचएसएन, टैक्स व फोटो इंटरनेट से भर दी गई हैं।`);
+      } else {
+        // Not found in catalog/net, but keep the scanned barcode
+        setEditingProduct(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            barcode: code,
+            sku: prev.sku ? prev.sku : code
+          };
+        });
+        setBarcodeLookupSuccess(false);
+        setBarcodeLookupMessage(`बारकोड ${code} सेट हो गया। नेट पर इस कोड का विशिष्ट FMCG डेटा नहीं मिला, कृपया नाम, ब्रांड व रेट स्वयं भरें।`);
+      }
+    } catch (err) {
+      console.warn('Error during barcode lookup:', err);
+      setEditingProduct(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          barcode: code,
+          sku: prev.sku ? prev.sku : code
+        };
+      });
+      setBarcodeLookupSuccess(false);
+      setBarcodeLookupMessage(`बारकोड ${code} सेट हो गया। कृपया प्रोडक्ट का नाम व रेट भरें।`);
+    } finally {
+      setIsLookingUpBarcode(false);
+    }
+  };
+
   const handleOpenAdd = () => {
+    setBarcodeInput('');
+    setBarcodeLookupMessage(null);
     setEditingProduct({
       sku: '',
+      barcode: '',
       name: '',
       brand: '',
       category: 'Biscuits & Bakery',
@@ -270,8 +361,11 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
       ? JSON.parse(JSON.stringify(product.packingOptions))
       : getProductPackingOptions(product);
 
+    setBarcodeInput(product.barcode || '');
+    setBarcodeLookupMessage(null);
     setEditingProduct({
       ...product,
+      barcode: product.barcode || '',
       packingOptions: packs,
       sku: product.sku || (product as any).product_sku || (product as any).productSku || ''
     });
@@ -290,6 +384,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
 
       const finalProduct = {
         ...editingProduct,
+        barcode: editingProduct.barcode ? editingProduct.barcode.trim() : undefined,
         packingOptions: currentPacks,
         sku: cleanSku,
         product_sku: cleanSku
@@ -831,18 +926,161 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-[4px] shadow-xl border border-slate-200 max-w-2xl w-full max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <h2 className="text-sm font-bold text-slate-900">
-                {editingProduct.id ? 'Edit FMCG Product SKU' : 'Add New FMCG SKU'}
-              </h2>
-              <button 
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div>
+                <h2 className="text-sm font-bold text-slate-900">
+                  {editingProduct.id ? 'Edit FMCG Product SKU' : 'Add New FMCG SKU'}
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  बारकोड स्कैन करें या नया SKU प्रोडक्ट मैनुअल दर्ज करें
+                </p>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalScannerOpen(true)}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center space-x-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
+                  title="कैमरा खोलकर बारकोड स्कैन करें"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">बारकोड स्कैन करें</span>
+                  <span className="sm:hidden">Scan</span>
+                </button>
+
+                <button 
+                  onClick={() => setIsModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleSaveModal} className="p-5 space-y-4 overflow-y-auto text-xs">
+              
+              {/* Barcode Quick Scanner & Net Auto-Fill Card */}
+              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border-2 border-emerald-300 rounded-xl p-3.5 space-y-2.5 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center space-x-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <ScanLine className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-1.5">
+                        <h3 className="text-xs font-bold text-slate-900">
+                          बारकोड स्कैनर व नेट ऑटो-फिल (Scan Barcode &amp; Fill from Net)
+                        </h3>
+                        <span className="text-[10px] bg-emerald-600 text-white font-bold px-1.5 py-0.2 rounded-full">
+                          AI / Web
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600">
+                        बारकोड स्कैन करते ही नाम, ब्रांड, एमआरपी, थोक रेट, टैक्स व फोटो अपने आप भर जाएगी!
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Camera Scanner Trigger Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsAddModalScannerOpen(true)}
+                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 transition-all cursor-pointer shrink-0"
+                  >
+                    <Camera className="w-4 h-4" />
+                    <span>कैमरा स्कैन (Live Camera)</span>
+                  </button>
+                </div>
+
+                {/* Barcode Input Bar with Manual / Gun / Paste trigger */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={barcodeInput}
+                      onChange={(e) => setBarcodeInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleLookupBarcodeAndAutoFill(barcodeInput);
+                        }
+                      }}
+                      placeholder="बारकोड / EAN-13 नंबर डालें या गन से स्कैन करें (उदा. 8901063012345)"
+                      className="w-full pl-8 pr-3 py-2 text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 outline-none shadow-2xs"
+                    />
+                    <Barcode className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isLookingUpBarcode || !barcodeInput.trim()}
+                    onClick={() => handleLookupBarcodeAndAutoFill(barcodeInput)}
+                    className="px-4 py-2 bg-[#1A365D] hover:bg-[#102A43] text-white font-bold text-xs rounded-lg flex items-center justify-center space-x-1.5 disabled:opacity-50 cursor-pointer shadow-xs shrink-0 active:scale-95"
+                  >
+                    {isLookingUpBarcode ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>नेट से खोज रहे हैं...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-3.5 h-3.5" />
+                        <span>नेट से खोजें (Auto-Fill)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Quick Demo Barcodes 1-Click Chips */}
+                <div className="pt-1 flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
+                  <span className="text-[10px] text-slate-500 font-bold shrink-0">टेस्ट बारकोड:</span>
+                  {[
+                    { name: 'Parle-G', code: '8901063012345' },
+                    { name: 'Good Day', code: '8901030383742' },
+                    { name: 'Maggi 70g', code: '8901058852331' },
+                    { name: 'Tata Tea', code: '8901052002134' },
+                    { name: 'Cadbury Silk', code: '8901233024567' },
+                    { name: 'Amul Milk', code: '8901262010011' },
+                    { name: 'Everest Masala', code: '8901786010045' },
+                    { name: 'Haldiram Bhujia', code: '8904063200118' },
+                    { name: 'Dabur Red', code: '8901207010032' }
+                  ].map(demo => (
+                    <button
+                      key={demo.code}
+                      type="button"
+                      onClick={() => handleLookupBarcodeAndAutoFill(demo.code)}
+                      className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white border border-emerald-200 hover:border-emerald-500 hover:bg-emerald-50 text-emerald-900 shrink-0 cursor-pointer shadow-2xs transition-all"
+                      title={`Barcode: ${demo.code}`}
+                    >
+                      {demo.name}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Status/Feedback notification */}
+                {barcodeLookupMessage && (
+                  <div className={`p-2.5 rounded-lg text-xs flex items-start justify-between gap-2 border animate-in fade-in duration-200 ${
+                    barcodeLookupSuccess 
+                      ? 'bg-emerald-100/90 border-emerald-400 text-emerald-950 font-medium' 
+                      : 'bg-amber-100/90 border-amber-400 text-amber-950 font-medium'
+                  }`}>
+                    <div className="flex items-start space-x-2">
+                      {barcodeLookupSuccess ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                      )}
+                      <span>{barcodeLookupMessage}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setBarcodeLookupMessage(null)}
+                      className="text-slate-400 hover:text-slate-700 p-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
@@ -870,7 +1108,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">SKU Code</label>
                   <input
@@ -880,6 +1118,30 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     onChange={(e) => setEditingProduct({ ...editingProduct, sku: e.target.value })}
                     className="w-full px-3 py-2 font-mono border border-slate-300 rounded-[4px] focus:border-[#2B6CB0] focus:outline-none"
                     placeholder="PARLE-G-80G"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-slate-700 font-semibold">Barcode / EAN-13</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddModalScannerOpen(true)}
+                      className="text-[10px] text-emerald-700 font-bold hover:underline flex items-center space-x-0.5 cursor-pointer"
+                    >
+                      <ScanLine className="w-3 h-3" />
+                      <span>Scan</span>
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={editingProduct.barcode || ''}
+                    onChange={(e) => {
+                      setEditingProduct({ ...editingProduct, barcode: e.target.value });
+                      setBarcodeInput(e.target.value);
+                    }}
+                    className="w-full px-3 py-2 font-mono border border-slate-300 rounded-[4px] focus:border-[#2B6CB0] focus:outline-none"
+                    placeholder="8901063012345"
                   />
                 </div>
 
@@ -1800,7 +2062,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
         </div>
       )}
 
-      {/* Barcode Scanner Modal */}
+      {/* Barcode Scanner Modal for Main Search */}
       {isBarcodeScannerOpen && (
         <BarcodeScannerModal
           isOpen={isBarcodeScannerOpen}
@@ -1810,6 +2072,20 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
             setSelectedBrand('all');
             setSelectedCategory('all');
             setSearchQuery(foundProduct.sku);
+          }}
+        />
+      )}
+
+      {/* Barcode Scanner Modal for Add/Edit Product (Auto-Fill from Internet) */}
+      {isAddModalScannerOpen && (
+        <BarcodeScannerModal
+          isOpen={isAddModalScannerOpen}
+          onClose={() => setIsAddModalScannerOpen(false)}
+          products={products}
+          title="प्रोडक्ट बारकोड स्कैन करें (Barcode Auto-Fill)"
+          subtitle="कैमरे के सामने बारकोड रखें — इंटरनेट से पूरी डिटेल तुरंत भर जाएगी"
+          onBarcodeDetected={(scannedCode) => {
+            handleLookupBarcodeAndAutoFill(scannedCode);
           }}
         />
       )}

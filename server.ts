@@ -475,8 +475,8 @@ app.get('/api/products/lookup/:barcode', async (req, res) => {
     const result = await lookupProductByBarcode(barcode);
     res.json(result);
   } catch (err: any) {
-    console.error('Barcode lookup error:', err);
-    res.status(500).json({ found: false, message: err?.message || 'Lookup failed' });
+    console.warn('Barcode lookup notice:', err?.message || err);
+    res.json({ found: false, source: 'none', barcode, message: 'Could not fetch external details; please enter manually.' });
   }
 });
 

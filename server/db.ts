@@ -1054,13 +1054,13 @@ class Database {
       if (fs.existsSync(vPath)) {
         const parsed = JSON.parse(fs.readFileSync(vPath, 'utf-8'));
         this.data.appVersionConfig = {
-          version: parsed.version || '1.3.1',
-          versionCode: Number(parsed.versionCode) || 131,
+          version: parsed.version || '1.3.2',
+          versionCode: Number(parsed.versionCode) || 132,
           downloadUrl: parsed.downloadUrl || '/download/aryan-agency-app.apk',
           apkUrl: parsed.apkUrl || parsed.downloadUrl || '/download/aryan-agency-app.apk',
           updatedAt: parsed.updatedAt || new Date().toISOString(),
-          releaseNotes: parsed.releaseNotes || 'Aryan Agency Latest Version',
-          fileSize: parsed.fileSize || '18.4 MB',
+          releaseNotes: parsed.releaseNotes || 'Aryan Agency v1.3.2: बारकोड स्कैनर और ऑटो-फिल',
+          fileSize: parsed.fileSize || '8.2 MB',
           minAndroidVersion: parsed.minAndroidVersion || 'Android 8.0+'
         };
         return this.data.appVersionConfig;
@@ -1071,13 +1071,13 @@ class Database {
 
     if (!this.data.appVersionConfig) {
       this.data.appVersionConfig = {
-        version: '1.3.1',
-        versionCode: 131,
+        version: '1.3.2',
+        versionCode: 132,
         downloadUrl: '/download/aryan-agency-app.apk',
         apkUrl: '/download/aryan-agency-app.apk',
         updatedAt: new Date().toISOString(),
-        releaseNotes: 'Aryan Agency Retailer & Distributor App v1.3.1',
-        fileSize: '18.4 MB',
+        releaseNotes: 'Aryan Agency Retailer & Distributor App v1.3.2',
+        fileSize: '8.2 MB',
         minAndroidVersion: 'Android 8.0+'
       };
     }

@@ -26,10 +26,12 @@ declare const __APP_VERSION__: string | undefined;
 // Current application version resolved from Vite build or package.json
 const CURRENT_APP_VERSION: string = 
   ((import.meta as any)?.env?.PACKAGE_VERSION) ||
-  (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.1');
+  (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.2');
 
 // Base URL resolution: in Capacitor/Android builds, resolve to the deployed public app URL via VITE_APP_URL,
-// falling back safely to the official Render domain or web origin.
+// falling back safely to the official Cloud Run domain or web origin.
+const LIVE_CLOUD_URL = 'https://ais-pre-56ktpfi5kyykyubymhw3f5-703386228811.asia-east1.run.app';
+
 const APP_BASE_URL: string = (() => {
   const envUrl = ((import.meta as any)?.env?.VITE_APP_URL || (import.meta as any)?.env?.APP_URL || '').trim();
   if (envUrl) {
@@ -42,7 +44,7 @@ const APP_BASE_URL: string = (() => {
       return origin;
     }
   }
-  return 'https://aryan-agency-app.onrender.com';
+  return LIVE_CLOUD_URL;
 })();
 
 const DEFAULT_APK_DOWNLOAD_URL = 'https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk';
@@ -169,11 +171,12 @@ export const AppUpdateChecker: React.FC = () => {
 
     // Multiple fallback endpoints so Android phone APK, Web preview, and Render always find the latest version
     const endpoints = [
+      `${LIVE_CLOUD_URL}/api/app/version?t=${Date.now()}`,
+      `${LIVE_CLOUD_URL}/download/version.json?t=${Date.now()}`,
       `/api/app/version?t=${Date.now()}`,
       `/download/version.json?t=${Date.now()}`,
       `${APP_BASE_URL}/api/app/version?t=${Date.now()}`,
       `${APP_BASE_URL}/download/version.json?t=${Date.now()}`,
-      'https://aryan-agency-app.onrender.com/download/version.json',
       'https://raw.githubusercontent.com/nikhilcsc18-alt/aryan-agency-app/main/public/download/version.json',
       'https://api.github.com/repos/nikhilcsc18-alt/aryan-agency-app/releases/latest',
     ];
