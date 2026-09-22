@@ -20,7 +20,6 @@ export const CURRENT_APP_VERSION =
   typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.2';
 export const CURRENT_VERSION_CODE = 132;
 
-export const LIVE_APP_URL = 'https://ais-pre-56ktpfi5kyykyubymhw3f5-703386228811.asia-east1.run.app';
 const VERSION_CHECK_ENDPOINT = '/download/version.json';
 const AUTO_UPDATE_PREF_KEY = 'aryan_auto_update_enabled';
 const LAST_SKIPPED_VERSION_KEY = 'aryan_last_skipped_version';
@@ -128,23 +127,9 @@ export async function performInAppUpdate(
   await new Promise(r => setTimeout(r, 300));
 
   try {
-    // If inside Capacitor localhost or file:// protocol on Android phone, redirect to live server
-    const isCapacitorLocal = 
-      typeof window !== 'undefined' && 
-      (window.location.origin.includes('localhost') || 
-       window.location.origin.startsWith('capacitor') || 
-       window.location.protocol === 'file:');
-
-    if (isCapacitorLocal) {
-      window.location.href = `${LIVE_APP_URL}?v=${Date.now()}`;
-      return;
-    }
-
-    // Force hard reload bypassing browser cache
-    const cleanUrl = window.location.origin + window.location.pathname + `?updated_v=${Date.now()}` + window.location.hash;
-    window.location.replace(cleanUrl);
-  } catch {
     window.location.reload();
+  } catch {
+    window.location.href = window.location.href;
   }
 }
 
