@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Store, 
   Search, 
@@ -22,7 +22,10 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  Camera
+  Camera,
+  Image as ImageIcon,
+  Map,
+  Eye
 } from 'lucide-react';
 import { Retailer } from '../types';
 import { formatINR, formatINRDecimals, api } from '../lib/api';
@@ -32,19 +35,40 @@ import { setRetailerCreditControl, isCreditEnabledForRetailer } from '../lib/ret
 interface RetailersViewProps {
   retailers: Retailer[];
   onSaveRetailer: (retailer: Partial<Retailer>) => Promise<void>;
+  onVerifyRetailer?: (id: string, status: 'verified' | 'rejected', remarks?: string) => Promise<void>;
   onDeleteRetailer?: (id: string) => Promise<void>;
   onOpenNewOrderForRetailer: (retailerId: string) => void;
   onRecordPaymentForRetailer: (retailer: Retailer) => void;
 }
 
+const DEFAULT_BEAT_ROUTES = [
+  'Utraula Retail Beat',
+  'Balrampur Central Beat',
+  'Jarwa Rural Beat',
+  'Tulsipur Provision Beat',
+  'Indiranagar Retail Beat',
+  'MG Road Commercial Beat',
+  'Koramangala Daily Beat',
+  'Whitefield Supermarket Beat',
+  'Jayanagar Provision Beat'
+];
+
 export const RetailersView: React.FC<RetailersViewProps> = ({
   retailers,
   onSaveRetailer,
+  onVerifyRetailer,
   onDeleteRetailer,
   onOpenNewOrderForRetailer,
   onRecordPaymentForRetailer
 }) => {
   const { isAdmin, isSalesman, isAccounts, isRetailer, currentUser } = useAuth();
+  
+  // Local retailers state for instant optimistic updates
+  const [localRetailers, setLocalRetailers] = useState<Retailer[]>(retailers);
+  useEffect(() => {
+    setLocalRetailers(retailers);
+  }, [retailers]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBeat, setSelectedBeat] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -53,6 +77,21 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   const [togglingCreditId, setTogglingCreditId] = useState<string | null>(null);
   const [verifyingRetailerId, setVerifyingRetailerId] = useState<string | null>(null);
 
+  // Beat Management State
+  const [customBeats, setCustomBeats] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('fmcg_custom_beats');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [isBeatModalOpen, setIsBeatModalOpen] = useState(false);
+  const [newBeatName, setNewBeatName] = useState('');
+  const [newBeatDescription, setNewBeatDescription] = useState('');
+  const [isAddingBeatInline, setIsAddingBeatInline] = useState(false);
+  const [inlineBeatInput, setInlineBeatInput] = useState('');
+
   // Edit / Add Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRetailer, setEditingRetailer] = useState<Partial<Retailer> | null>(null);
@@ -60,14 +99,37 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   const [modalError, setModalError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Shop Photo Lightbox Modal
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<{ url: string; title: string } | null>(null);
+
   // Ledger Modal
   const [ledgerData, setLedgerData] = useState<{ retailer: Retailer; entries: any[]; finalBalance: number } | null>(null);
   const [isLoadingLedger, setIsLoadingLedger] = useState(false);
 
-  const beats = Array.from(new Set(retailers.map(r => r.beatName))).filter(Boolean);
+  // Aggregate all beats
+  const beats = Array.from(new Set([
+    ...DEFAULT_BEAT_ROUTES,
+    ...localRetailers.map(r => r.beatName),
+    ...customBeats
+  ])).filter(Boolean);
+
+  const handleCreateBeat = (beatNameToAdd: string) => {
+    const trimmed = beatNameToAdd.trim();
+    if (!trimmed) return;
+    if (!customBeats.includes(trimmed)) {
+      const updated = [...customBeats, trimmed];
+      setCustomBeats(updated);
+      try {
+        localStorage.setItem('fmcg_custom_beats', JSON.stringify(updated));
+      } catch {}
+    }
+    setIsBeatModalOpen(false);
+    setNewBeatName('');
+    setNewBeatDescription('');
+  };
 
   const visibleRetailers = currentUser?.role === 'retailer'
-    ? retailers.filter(r => 
+    ? localRetailers.filter(r => 
         (currentUser.retailerId && r.id === currentUser.retailerId) ||
         (currentUser.name && (
           r.storeName.toLowerCase() === currentUser.name.toLowerCase() ||
@@ -76,43 +138,59 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
         )) ||
         (currentUser.phone && r.phone && r.phone.includes(currentUser.phone.replace(/\D/g, '').slice(-10)))
       )
-    : retailers;
+    : localRetailers;
 
-const filteredRetailers = visibleRetailers.filter(r => {
+  const filteredRetailers = visibleRetailers.filter(r => {
+    if (r.status === 'inactive' && statusFilter !== 'inactive') {
+      // Don't show inactive unless explicitly requested
+      if (statusFilter === 'active') return false;
+    }
 
-  const matchesSearch =
-    r.storeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.phone.includes(searchQuery) ||
-    (r.gstin && r.gstin.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesSearch =
+      r.storeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.phone.includes(searchQuery) ||
+      (r.gstin && r.gstin.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  const matchesBeat = selectedBeat === 'all' || r.beatName === selectedBeat;
+    const matchesBeat = selectedBeat === 'all' || r.beatName === selectedBeat;
+    const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
 
-  const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
+    const isCreditOn = Boolean(r.creditEnabled);
+    const matchesCreditAccess = 
+      creditAccessFilter === 'all' ||
+      (creditAccessFilter === 'enabled' && isCreditOn) ||
+      (creditAccessFilter === 'disabled' && !isCreditOn);
 
-  const isCreditOn = Boolean(r.creditEnabled);
-  const matchesCreditAccess = 
-    creditAccessFilter === 'all' ||
-    (creditAccessFilter === 'enabled' && isCreditOn) ||
-    (creditAccessFilter === 'disabled' && !isCreditOn);
+    const vStatus = r.verificationStatus || 'pending';
+    const matchesVerification = 
+      verificationFilter === 'all' ||
+      r.verificationStatus === verificationFilter ||
+      (verificationFilter === 'pending' && !r.verificationStatus);
 
-  const vStatus = r.verificationStatus || 'pending';
-  const matchesVerification = 
-    verificationFilter === 'all' ||
-    r.verificationStatus === verificationFilter ||
-    (verificationFilter === 'pending' && !r.verificationStatus);
-
-  return matchesSearch && matchesBeat && matchesStatus && matchesCreditAccess && matchesVerification;
-
-});
+    return matchesSearch && matchesBeat && matchesStatus && matchesCreditAccess && matchesVerification;
+  });
 
   const handleVerifyRetailer = async (retailerId: string, status: 'verified' | 'rejected', remarks?: string) => {
-    if (!isAdmin) return;
+    if (!isAdmin && !isSalesman) return;
     try {
       setVerifyingRetailerId(retailerId);
-      const res = await api.verifyRetailer(retailerId, status, remarks);
-      if (res && res.retailer) {
-        await onSaveRetailer(res.retailer);
+      
+      // Optimistic update
+      setLocalRetailers(prev => prev.map(r => r.id === retailerId ? {
+        ...r,
+        verificationStatus: status,
+        verificationRemarks: remarks || (status === 'verified' ? 'Verified by Admin / Salesman' : 'Rejected'),
+        verifiedAt: status === 'verified' ? new Date().toISOString() : undefined,
+        verifiedBy: currentUser?.name || 'Admin'
+      } : r));
+
+      if (onVerifyRetailer) {
+        await onVerifyRetailer(retailerId, status, remarks);
+      } else {
+        const res = await api.verifyRetailer(retailerId, status, remarks);
+        if (res?.retailer) {
+          await onSaveRetailer(res.retailer);
+        }
       }
     } catch (err: any) {
       console.error('[RetailersView Verify Retailer Error]:', err);
@@ -128,12 +206,13 @@ const filteredRetailers = visibleRetailers.filter(r => {
     const newStatus = !currentStatus;
 
     setTogglingCreditId(retailer.id);
-    // Instant optimistic update in local credit registry & custom event
     setRetailerCreditControl(retailer.id, {
       creditEnabled: newStatus,
       creditLimit: retailer.creditLimit,
       creditDaysAllowed: retailer.creditDaysAllowed
     });
+
+    setLocalRetailers(prev => prev.map(r => r.id === retailer.id ? { ...r, creditEnabled: newStatus } : r));
 
     try {
       await onSaveRetailer({
@@ -162,21 +241,24 @@ const filteredRetailers = visibleRetailers.filter(r => {
   const handleOpenAdd = () => {
     setModalError(null);
     setIsSaving(false);
+    setIsAddingBeatInline(false);
     setEditingRetailer({
       storeName: '',
       ownerName: '',
       phone: '+91 ',
       email: '',
       address: '',
-      area: 'Indiranagar',
-      beatName: 'Indiranagar Retail Beat',
-      gstin: '29ABCDE',
-      panNumber: 'ABCDE1234F',
+      area: 'Utraula Central',
+      beatName: beats[0] || 'Utraula Retail Beat',
+      gstin: '',
+      panNumber: '',
       creditLimit: 50000,
       currentOutstanding: 0,
-      creditDaysAllowed: 14,
+      creditDaysAllowed: 15,
       status: 'active',
-      creditEnabled: false // Disabled by default for new outlets until Admin explicitly approves
+      creditEnabled: false,
+      verificationStatus: 'verified', // Admin/salesman created is verified by default
+      shopPhotoUrl: ''
     });
     setIsModalOpen(true);
   };
@@ -184,82 +266,124 @@ const filteredRetailers = visibleRetailers.filter(r => {
   const handleOpenEdit = (retailer: Retailer) => {
     setModalError(null);
     setIsSaving(false);
-    setEditingRetailer({ 
+    setIsAddingBeatInline(false);
+    setEditingRetailer({
       ...retailer,
-      creditEnabled: retailer.creditEnabled !== undefined ? Boolean(retailer.creditEnabled) : false
+      creditEnabled: Boolean(retailer.creditEnabled)
     });
     setIsModalOpen(true);
+  };
+
+  // Compress and save shop photo captured from camera/file
+  const handleShopPhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 900;
+        const scale = Math.min(1, MAX_WIDTH / img.width);
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.84);
+
+        setEditingRetailer(prev => prev ? {
+          ...prev,
+          shopPhotoUrl: dataUrl,
+          logoUrl: dataUrl
+        } : null);
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSaveModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingRetailer) return;
 
-    // 1. Client-side field validations
     const storeName = editingRetailer.storeName?.trim();
     if (!storeName) {
-      setModalError('Store / Outlet Name is required.');
+      setModalError('Retail outlet store name is mandatory.');
       return;
     }
 
     const ownerName = editingRetailer.ownerName?.trim();
     if (!ownerName) {
-      setModalError('Owner / Proprietor Name is required.');
+      setModalError('Proprietor / Owner name is mandatory.');
       return;
     }
 
-    const rawPhone = editingRetailer.phone?.trim() || '';
-    const digitsOnly = rawPhone.replace(/\D/g, '');
-    if (!digitsOnly || digitsOnly.length < 10) {
-      setModalError('A valid 10-digit mobile phone number is required for retailer order and payment tracking.');
+    const phoneDigits = (editingRetailer.phone || '').replace(/\D/g, '');
+    if (!phoneDigits || phoneDigits.length < 10) {
+      setModalError('A valid 10-digit mobile number is mandatory for wholesale dispatch.');
       return;
     }
 
     const address = editingRetailer.address?.trim();
     if (!address) {
-      setModalError('Full shop address is required for delivery routing.');
+      setModalError('Full shop address is mandatory for beat delivery.');
       return;
     }
 
-    // 2. Prevent duplicate phone number registration
-    const targetSuffix = digitsOnly.slice(-10);
-    const phoneDuplicate = retailers.find(r => {
-      if (editingRetailer.id && r.id === editingRetailer.id) return false;
-      const existingDigits = (r.phone || '').replace(/\D/g, '');
-      return existingDigits.endsWith(targetSuffix);
-    });
-
-    if (phoneDuplicate) {
-      setModalError(`A retailer outlet with phone ${rawPhone} already exists (${phoneDuplicate.storeName}). Please check the phone number or edit the existing outlet.`);
+    const gstin = (editingRetailer.gstin || '').trim().toUpperCase();
+    if (gstin && gstin.length !== 15 && gstin !== 'UNREGISTERED') {
+      setModalError('Invalid GSTIN format. Must be 15 alphanumeric characters (e.g. 29ABCDE1234F1Z5) or left blank.');
       return;
-    }
-
-    // 3. Prevent duplicate GSTIN registration
-    const gstin = editingRetailer.gstin?.trim().toUpperCase() || '';
-    if (gstin && gstin.length >= 15) {
-      const gstinDuplicate = retailers.find(r => {
-        if (editingRetailer.id && r.id === editingRetailer.id) return false;
-        return (r.gstin || '').trim().toUpperCase() === gstin;
-      });
-
-      if (gstinDuplicate) {
-        setModalError(`A retailer outlet with GSTIN ${gstin} already exists (${gstinDuplicate.storeName}).`);
-        return;
-      }
     }
 
     try {
       setIsSaving(true);
       setModalError(null);
-      await onSaveRetailer(editingRetailer);
+
+      const toSave = {
+        ...editingRetailer,
+        beatName: editingRetailer.beatName || beats[0]
+      };
+
+      await onSaveRetailer(toSave);
+      
+      // Optimistic update to local retailers
+      setLocalRetailers(prev => {
+        const idx = prev.findIndex(r => r.id === toSave.id);
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = { ...copy[idx], ...toSave } as Retailer;
+          return copy;
+        } else {
+          return [{ ...toSave, id: toSave.id || `ret_${Date.now()}` } as Retailer, ...prev];
+        }
+      });
+
       setIsModalOpen(false);
       setEditingRetailer(null);
     } catch (err: any) {
       console.error('[RetailersView Save Error]:', err);
-      // Preserve form values and show the actual error message inside the modal
       setModalError(err?.message || 'Failed to save retailer outlet. Please check connection and try again.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDeleteConfirmed = async () => {
+    if (!deletingRetailerId) return;
+    const targetId = deletingRetailerId;
+    
+    // Instant optimistic removal from UI
+    setLocalRetailers(prev => prev.filter(r => r.id !== targetId));
+    setDeletingRetailerId(null);
+
+    if (onDeleteRetailer) {
+      try {
+        await onDeleteRetailer(targetId);
+      } catch (err) {
+        console.error('Failed to delete retailer:', err);
+      }
     }
   };
 
@@ -282,21 +406,36 @@ const filteredRetailers = visibleRetailers.filter(r => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-lg border border-slate-200 shadow-xs">
         <div>
           <h1 className="text-lg font-bold text-slate-900 tracking-tight">Retailer & Kirana Network</h1>
-          <p className="text-xs text-slate-500">Retail store directory, credit lines, payment ledgers, and beat assignments</p>
+          <p className="text-xs text-slate-500">Retail store directory, credit lines, shop photos, and beat route management</p>
         </div>
 
         {(isAdmin || isSalesman) && (
-          <button
-            onClick={handleOpenAdd}
-            className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>+ Onboard New Retailer</span>
-          </button>
+          <div className="flex items-center space-x-2.5">
+            {/* Beat Creation Button */}
+            <button
+              type="button"
+              onClick={() => setIsBeatModalOpen(true)}
+              className="px-3.5 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shrink-0"
+              title="Add a new Beat Delivery Route"
+            >
+              <Map className="w-4 h-4" />
+              <span>+ Create Beat (नई बीट)</span>
+            </button>
+
+            {/* Onboard Retailer Button */}
+            <button
+              type="button"
+              onClick={handleOpenAdd}
+              className="px-4 py-2 text-xs font-bold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Onboard New Retailer</span>
+            </button>
+          </div>
         )}
       </div>
 
-      {/* Filters */}
+      {/* Filters Bar */}
       <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
           
@@ -355,7 +494,7 @@ const filteredRetailers = visibleRetailers.filter(r => {
               onChange={(e) => setVerificationFilter(e.target.value)}
               className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
             >
-              <option value="all">All KYC Statuses</option>
+              <option value="all">All Verification Statuses</option>
               <option value="verified">✓ KYC Verified Only</option>
               <option value="pending">⏳ Pending Review Only</option>
               <option value="rejected">✕ Rejected Only</option>
@@ -370,31 +509,55 @@ const filteredRetailers = visibleRetailers.filter(r => {
         {filteredRetailers.map((retailer) => {
           const creditPct = Math.min(100, Math.round((retailer.currentOutstanding / retailer.creditLimit) * 100));
           const isOverdue = retailer.status === 'overdue' || retailer.currentOutstanding > retailer.creditLimit;
+          const isVerified = retailer.verificationStatus === 'verified';
+          const isRejected = retailer.verificationStatus === 'rejected';
 
           return (
             <div 
               key={retailer.id}
-              className="bg-white rounded-lg border border-slate-200 shadow-xs p-4 flex flex-col justify-between hover:border-[#2563eb]/60 transition-colors"
+              className="bg-white rounded-xl border border-slate-200 shadow-xs p-4 flex flex-col justify-between hover:border-[#2563eb]/60 transition-colors"
             >
               <div>
                 {/* Store Header */}
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start space-x-2.5">
-                    {retailer.logoUrl ? (
-                      <img 
-                        src={retailer.logoUrl} 
-                        alt={retailer.storeName}
-                        className="w-9 h-9 rounded-lg object-cover border border-slate-200 shrink-0 mt-0.5"
-                        referrerPolicy="no-referrer"
-                      />
+                    {/* Shop Photo or Logo */}
+                    {retailer.shopPhotoUrl || retailer.logoUrl ? (
+                      <div 
+                        onClick={() => setPreviewPhotoUrl({
+                          url: retailer.shopPhotoUrl || retailer.logoUrl || '',
+                          title: retailer.storeName
+                        })}
+                        className="relative group cursor-pointer shrink-0 mt-0.5"
+                        title="Click to view shop photo"
+                      >
+                        <img 
+                          src={retailer.shopPhotoUrl || retailer.logoUrl} 
+                          alt={retailer.storeName}
+                          className="w-12 h-12 rounded-lg object-cover border border-slate-300 shadow-xs group-hover:opacity-90"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-black/30 rounded-lg opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <Eye className="w-3.5 h-3.5 text-white" />
+                        </div>
+                      </div>
                     ) : (
-                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#2563eb] border border-blue-100 flex items-center justify-center shrink-0 mt-0.5">
-                        <Store className="w-4 h-4" />
+                      <div className="w-11 h-11 rounded-lg bg-blue-50 text-[#2563eb] border border-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                        <Store className="w-5 h-5" />
                       </div>
                     )}
+
                     <div>
-                      <h3 className="font-bold text-slate-900 text-sm leading-tight">{retailer.storeName}</h3>
+                      <h3 className="font-bold text-slate-900 text-sm leading-tight flex items-center gap-1.5">
+                        <span>{retailer.storeName}</span>
+                      </h3>
                       <p className="text-[11px] text-slate-600 font-medium mt-0.5">Prop: {retailer.ownerName}</p>
+                      {retailer.shopPhotoUrl && (
+                        <span className="inline-flex items-center space-x-1 text-[10px] text-emerald-700 font-semibold mt-0.5">
+                          <Camera className="w-3 h-3 text-emerald-600" />
+                          <span>Shop Photo Added</span>
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -411,18 +574,18 @@ const filteredRetailers = visibleRetailers.filter(r => {
 
                     {/* Verification Status Pill */}
                     <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full flex items-center space-x-1 border ${
-                      retailer.verificationStatus === 'verified'
+                      isVerified
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        : retailer.verificationStatus === 'rejected'
+                        : isRejected
                         ? 'bg-rose-50 text-rose-700 border-rose-200'
                         : 'bg-amber-50 text-amber-800 border-amber-200'
                     }`}>
-                      {retailer.verificationStatus === 'verified' ? (
+                      {isVerified ? (
                         <>
                           <CheckCircle2 className="w-2.5 h-2.5 mr-0.5 text-emerald-600" />
-                          <span>KYC Verified</span>
+                          <span>Verified</span>
                         </>
-                      ) : retailer.verificationStatus === 'rejected' ? (
+                      ) : isRejected ? (
                         <>
                           <XCircle className="w-2.5 h-2.5 mr-0.5 text-rose-600" />
                           <span>Rejected</span>
@@ -430,7 +593,7 @@ const filteredRetailers = visibleRetailers.filter(r => {
                       ) : (
                         <>
                           <Clock className="w-2.5 h-2.5 mr-0.5 text-amber-600" />
-                          <span>Pending KYC</span>
+                          <span>Pending</span>
                         </>
                       )}
                     </span>
@@ -448,79 +611,56 @@ const filteredRetailers = visibleRetailers.filter(r => {
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="flex items-center text-slate-600">
-                      <Phone className="w-3 h-3 mr-1 text-slate-400" />
-                      {retailer.phone}
+                      <Phone className="w-3.5 h-3.5 mr-1 text-slate-400" />
+                      <span className="font-mono">{retailer.phone}</span>
                     </span>
-                    {retailer.gstin && (
-                      <span className="font-mono text-slate-500 font-medium">
-                        GST: {retailer.gstin}
-                      </span>
-                    )}
+                    <span className="font-mono text-slate-500 text-[10px]">
+                      GSTIN: {retailer.gstin || 'Unregistered'}
+                    </span>
                   </div>
                 </div>
 
-                {/* Credit Limit & Outstanding Gauge */}
-                <div className="mt-3.5 p-3 rounded-lg bg-slate-50 border border-slate-200 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-slate-500">Outstanding Dues:</span>
-                    <span className="font-mono font-bold text-rose-700">{formatINR(retailer.currentOutstanding)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 mt-0.5">
-                    <span>Credit Limit:</span>
-                    <span className="font-mono text-slate-800">{formatINR(retailer.creditLimit)} ({retailer.creditDaysAllowed} days)</span>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        creditPct > 90 ? 'bg-rose-500' : creditPct > 60 ? 'bg-amber-500' : 'bg-emerald-500'
-                      }`}
-                      style={{ width: `${creditPct}%` }}
-                    />
-                  </div>
-
-                  {/* Admin Credit Control Switch */}
-                  <div className="mt-2.5 pt-2 border-t border-slate-200/90 flex items-center justify-between">
-                    <div className="flex items-center space-x-1.5">
-                      <CreditCard className={`w-3.5 h-3.5 ${retailer.creditEnabled ? 'text-emerald-600' : 'text-slate-400'}`} />
-                      <span className="text-[11px] font-semibold text-slate-700">
-                        Credit / Udhar:
+                {/* Credit Control & Limits */}
+                <div className="mt-3 pt-3 border-t border-slate-100 bg-slate-50/60 p-2.5 rounded-lg space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-500 font-medium">Credit Access:</span>
+                    <div className="flex items-center space-x-2">
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
+                        retailer.creditEnabled 
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                          : 'bg-slate-200 text-slate-700'
+                      }`}>
+                        {retailer.creditEnabled ? '✓ Credit Enabled' : '✕ Disabled (Cash Only)'}
                       </span>
-                    </div>
-
-                    {isAdmin || isAccounts ? (
-                      <div className="flex items-center space-x-1.5">
+                      
+                      {(isAdmin || isAccounts) && (
                         <button
                           type="button"
                           disabled={togglingCreditId === retailer.id}
                           onClick={(e) => handleToggleCredit(retailer, e)}
-                          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                            retailer.creditEnabled ? 'bg-emerald-600' : 'bg-slate-300'
-                          } ${togglingCreditId === retailer.id ? 'opacity-60 cursor-wait' : ''}`}
-                          title={retailer.creditEnabled ? 'Click to Disable credit for this retailer' : 'Click to Enable credit for this retailer'}
+                          className="text-[10px] font-semibold text-[#2563eb] hover:underline cursor-pointer"
                         >
-                          <span
-                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
-                              retailer.creditEnabled ? 'translate-x-4' : 'translate-x-0'
-                            }`}
-                          />
+                          {togglingCreditId === retailer.id ? 'Saving...' : (retailer.creditEnabled ? 'Turn OFF' : 'Turn ON')}
                         </button>
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                          retailer.creditEnabled ? 'text-emerald-700' : 'text-slate-500'
-                        }`}>
-                          {retailer.creditEnabled ? 'ON' : 'OFF'}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        retailer.creditEnabled 
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
-                          : 'bg-slate-100 text-slate-600 border border-slate-200'
-                      }`}>
-                        {retailer.creditEnabled ? 'Active' : 'Disabled'}
-                      </span>
-                    )}
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-500">Credit Outstanding:</span>
+                      <span className="font-mono font-bold text-slate-900">{formatINR(retailer.currentOutstanding)}</span>
+                    </div>
+                    <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full ${creditPct > 90 ? 'bg-rose-500' : creditPct > 70 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                        style={{ width: `${creditPct}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-400">
+                      <span>Limit: {formatINR(retailer.creditLimit)}</span>
+                      <span>Credit Days: {retailer.creditDaysAllowed || 15}d</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -528,6 +668,7 @@ const filteredRetailers = visibleRetailers.filter(r => {
               {/* Action Buttons */}
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                 <button
+                  type="button"
                   onClick={() => handleOpenLedger(retailer.id)}
                   className="text-[#2563eb] hover:text-[#1d4ed8] font-semibold flex items-center cursor-pointer"
                 >
@@ -536,20 +677,23 @@ const filteredRetailers = visibleRetailers.filter(r => {
                 </button>
 
                 <div className="flex items-center space-x-1.5">
-                  {isAdmin && retailer.verificationStatus !== 'verified' && (
+                  {/* Verification Quick Action for Admin & Salesman */}
+                  {(isAdmin || isSalesman) && !isVerified && (
                     <button
+                      type="button"
                       disabled={verifyingRetailerId === retailer.id}
                       onClick={() => handleVerifyRetailer(retailer.id, 'verified')}
-                      className="px-2 py-1 text-[11px] font-bold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer flex items-center space-x-1 shadow-xs"
-                      title="Approve & Verify Retailer KYC Profile"
+                      className="px-2.5 py-1 text-[11px] font-bold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer flex items-center space-x-1 shadow-xs"
+                      title="Approve & Verify Retailer Store"
                     >
                       <CheckCircle2 className="w-3 h-3" />
-                      <span>{verifyingRetailerId === retailer.id ? '...' : 'Verify'}</span>
+                      <span>{verifyingRetailerId === retailer.id ? '...' : 'Verify Store'}</span>
                     </button>
                   )}
 
                   {!isRetailer && (
                     <button
+                      type="button"
                       onClick={() => onRecordPaymentForRetailer(retailer)}
                       className="px-2.5 py-1 text-[11px] font-semibold rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer"
                     >
@@ -559,6 +703,7 @@ const filteredRetailers = visibleRetailers.filter(r => {
 
                   {(isAdmin || isSalesman) && (
                     <button
+                      type="button"
                       onClick={() => handleOpenEdit(retailer)}
                       className="p-1 text-slate-500 hover:text-blue-600 rounded-md cursor-pointer"
                       title="Edit Retailer Details"
@@ -566,11 +711,13 @@ const filteredRetailers = visibleRetailers.filter(r => {
                       <Edit className="w-4 h-4" />
                     </button>
                   )}
-                  {isAdmin && onDeleteRetailer && (
+                  
+                  {(isAdmin || isSalesman) && (
                     <button
+                      type="button"
                       onClick={() => setDeletingRetailerId(retailer.id)}
                       className="p-1 text-slate-400 hover:text-rose-600 rounded-md cursor-pointer"
-                      title="Delete Retailer (Admin Only)"
+                      title="Delete Retailer"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -578,6 +725,7 @@ const filteredRetailers = visibleRetailers.filter(r => {
 
                   {!isRetailer && (isSalesman || isAdmin) && (
                     <button
+                      type="button"
                       onClick={() => onOpenNewOrderForRetailer(retailer.id)}
                       className="px-3 py-1 text-[11px] font-semibold rounded-md bg-[#2563eb] hover:bg-[#1d4ed8] text-white transition-colors cursor-pointer"
                     >
@@ -592,36 +740,190 @@ const filteredRetailers = visibleRetailers.filter(r => {
         })}
       </div>
 
-      {/* Add / Edit Retailer Modal */}
-      {isModalOpen && editingRetailer && (
+      {filteredRetailers.length === 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500">
+          <Store className="w-8 h-8 mx-auto mb-2 text-slate-400" />
+          <p className="font-semibold text-slate-700">No Retailers Found</p>
+          <p className="text-xs text-slate-400 mt-1">Try adjusting your search query, beat route, or verification status filter.</p>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* CREATE NEW BEAT MODAL                                                     */}
+      {/* ========================================================================= */}
+      {isBeatModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl border border-slate-200 max-w-xl w-full max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-              <h2 className="text-sm font-bold text-slate-900">
-                {editingRetailer.id ? 'Edit Retail Outlet Info' : 'Onboard New Kirana Retailer'}
-              </h2>
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-md w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <Map className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Create New Beat Route</h3>
+                  <p className="text-[11px] text-slate-500">नई बीट डिलीवरी मार्ग जोड़ें</p>
+                </div>
+              </div>
               <button 
+                type="button"
+                onClick={() => setIsBeatModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleCreateBeat(newBeatName); }} className="space-y-3.5">
+              <div>
+                <label className="block text-slate-700 font-semibold text-xs mb-1">Beat Name / बीट का नाम *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Utraula Main Market Beat"
+                  value={newBeatName}
+                  onChange={(e) => setNewBeatName(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold text-xs mb-1">Locality / Sector Coverage (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Utraula town, Sadar Bazaar, Bus Stand"
+                  value={newBeatDescription}
+                  onChange={(e) => setNewBeatDescription(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsBeatModalOpen(false)}
+                  className="px-3.5 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs cursor-pointer"
+                >
+                  Save New Beat (बीट सुरक्षित करें)
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ONBOARD / EDIT RETAILER MODAL WITH SHOP PHOTO CAPTURE                     */}
+      {/* ========================================================================= */}
+      {isModalOpen && editingRetailer && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-xl w-full max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-150 my-auto">
+            
+            {/* Modal Header */}
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  {editingRetailer.id ? 'Edit Retail Outlet Info' : 'Onboard New Kirana Retailer'}
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Store profile, shop front photo, beat assignment & KYC verification
+                </p>
+              </div>
+              <button 
+                type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveModal} className="p-5 space-y-4 overflow-y-auto text-xs">
+            {/* Modal Body */}
+            <form onSubmit={handleSaveModal} className="p-4 overflow-y-auto space-y-4 text-xs">
               
               {modalError && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-start space-x-2 text-rose-700 animate-in fade-in duration-150">
-                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                  <div className="text-xs leading-relaxed font-medium">
-                    {modalError}
-                  </div>
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 flex items-start space-x-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>{modalError}</span>
                 </div>
               )}
-              
+
+              {/* ----------------------------------------------------------------- */}
+              {/* SHOP FRONT PHOTO CAPTURE SECTION (CAMERA / FILE UPLOAD)            */}
+              {/* ----------------------------------------------------------------- */}
+              <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-slate-800 font-bold text-xs flex items-center space-x-1.5">
+                    <Camera className="w-4 h-4 text-[#2563eb]" />
+                    <span>Shop Front Photo / दुकान की फोटो (Capture / Upload)</span>
+                  </label>
+                  <span className="text-[10px] text-slate-500">दुकान के बोर्ड की साफ फोटो लें</span>
+                </div>
+
+                {editingRetailer.shopPhotoUrl ? (
+                  <div className="relative rounded-lg border border-slate-300 bg-white p-2.5 flex items-center space-x-3.5 shadow-xs">
+                    <img 
+                      src={editingRetailer.shopPhotoUrl} 
+                      alt="Captured Shop" 
+                      className="w-20 h-20 object-cover rounded-lg border border-slate-200 shrink-0"
+                    />
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex items-center space-x-1 text-emerald-700 font-bold text-xs">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>फोटो सुरक्षित है (Photo Uploaded)</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500">
+                        यह फोटो दुकान सत्यापन व ऑर्डर डिलीवरी में प्रदर्शित होगी।
+                      </p>
+                      <div className="flex items-center space-x-2 pt-1">
+                        <label className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-md cursor-pointer flex items-center space-x-1">
+                          <Camera className="w-3 h-3 text-[#2563eb]" />
+                          <span>Retake (दोबारा लें)</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            onChange={handleShopPhotoCapture}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setEditingRetailer(prev => prev ? { ...prev, shopPhotoUrl: '', logoUrl: '' } : null)}
+                          className="px-2 py-1 text-[11px] text-rose-600 hover:bg-rose-50 rounded-md font-medium"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="border-2 border-dashed border-blue-300 hover:border-blue-500 rounded-lg p-4 flex flex-col items-center justify-center cursor-pointer bg-white hover:bg-blue-50/50 transition-colors">
+                    <div className="p-2.5 bg-blue-50 text-[#2563eb] rounded-full mb-1.5">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <span className="font-bold text-slate-800 text-xs">कैमरा से दुकान की फोटो खींचें (Capture Shop Photo)</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">या गैलरी से दुकान की इमेज अपलोड करें</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleShopPhotoCapture}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* Store Name & Owner Name */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Store / Outlet Name *</label>
+                  <label className="block text-slate-700 font-semibold mb-1">Retail Store / Kirana Name *</label>
                   <input
                     type="text"
                     required
@@ -644,6 +946,7 @@ const filteredRetailers = visibleRetailers.filter(r => {
                 </div>
               </div>
 
+              {/* Mobile Phone & Email */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">Mobile Phone *</label>
@@ -668,21 +971,57 @@ const filteredRetailers = visibleRetailers.filter(r => {
                 </div>
               </div>
 
+              {/* Assigned Beat Route & Area (WITH INLINE BEAT CREATION) */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Assigned Beat Route *</label>
-                  <select
-                    value={editingRetailer.beatName || 'Indiranagar Retail Beat'}
-                    onChange={(e) => setEditingRetailer({ ...editingRetailer, beatName: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
-                  >
-                    <option value="Indiranagar Retail Beat">Indiranagar Retail Beat</option>
-                    <option value="MG Road Commercial Beat">MG Road Commercial Beat</option>
-                    <option value="Koramangala Daily Beat">Koramangala Daily Beat</option>
-                    <option value="Whitefield Supermarket Beat">Whitefield Supermarket Beat</option>
-                    <option value="Jayanagar Provision Beat">Jayanagar Provision Beat</option>
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-slate-700 font-semibold">Assigned Beat Route *</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingBeatInline(!isAddingBeatInline)}
+                      className="text-[10px] font-bold text-[#2563eb] hover:underline cursor-pointer"
+                    >
+                      {isAddingBeatInline ? '← Choose Existing' : '+ New Beat (नई बीट)'}
+                    </button>
+                  </div>
+                  
+                  {isAddingBeatInline ? (
+                    <div className="flex space-x-1.5">
+                      <input
+                        type="text"
+                        value={inlineBeatInput}
+                        onChange={(e) => setInlineBeatInput(e.target.value)}
+                        placeholder="Type new beat name..."
+                        className="flex-1 px-2.5 py-1.5 border border-blue-400 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (inlineBeatInput.trim()) {
+                            handleCreateBeat(inlineBeatInput);
+                            setEditingRetailer(prev => prev ? { ...prev, beatName: inlineBeatInput.trim() } : null);
+                            setIsAddingBeatInline(false);
+                            setInlineBeatInput('');
+                          }
+                        }}
+                        className="px-2.5 py-1.5 text-xs font-bold bg-[#2563eb] text-white rounded-lg hover:bg-blue-700"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={editingRetailer.beatName || beats[0]}
+                      onChange={(e) => setEditingRetailer({ ...editingRetailer, beatName: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+                    >
+                      {beats.map(b => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
+
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">Area / Locality</label>
                   <input
@@ -690,67 +1029,25 @@ const filteredRetailers = visibleRetailers.filter(r => {
                     value={editingRetailer.area || ''}
                     onChange={(e) => setEditingRetailer({ ...editingRetailer, area: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
-                    placeholder="e.g. 100ft Road"
+                    placeholder="e.g. Sadar Bazaar, Utraula"
                   />
                 </div>
               </div>
 
+              {/* Full Address */}
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Full Shop Address</label>
+                <label className="block text-slate-700 font-semibold mb-1">Full Shop Address *</label>
                 <input
                   type="text"
                   required
                   value={editingRetailer.address || ''}
                   onChange={(e) => setEditingRetailer({ ...editingRetailer, address: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
-                  placeholder="#42, 100ft Road, Indiranagar, Bangalore"
+                  placeholder="#12, Main Market, Utraula, Balrampur, UP"
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">City</label>
-                  <input
-                    type="text"
-                    value={editingRetailer.city || ''}
-                    onChange={(e) => setEditingRetailer({ ...editingRetailer, city: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
-                    placeholder="Bangalore"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">State</label>
-                  <input
-                    type="text"
-                    value={editingRetailer.state || ''}
-                    onChange={(e) => setEditingRetailer({ ...editingRetailer, state: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
-                    placeholder="Karnataka"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-700 font-semibold mb-1">PIN Code</label>
-                  <input
-                    type="text"
-                    value={editingRetailer.pincode || ''}
-                    onChange={(e) => setEditingRetailer({ ...editingRetailer, pincode: e.target.value })}
-                    className="w-full px-3 py-2 font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
-                    placeholder="560038"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Store Logo / Board Photo (URL)</label>
-                <input
-                  type="url"
-                  value={editingRetailer.logoUrl || ''}
-                  onChange={(e) => setEditingRetailer({ ...editingRetailer, logoUrl: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
-                  placeholder="https://images.unsplash.com/... or image link"
-                />
-              </div>
-
+              {/* Tax Information */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">GSTIN Number</label>
@@ -759,7 +1056,7 @@ const filteredRetailers = visibleRetailers.filter(r => {
                     value={editingRetailer.gstin || ''}
                     onChange={(e) => setEditingRetailer({ ...editingRetailer, gstin: e.target.value })}
                     className="w-full px-3 py-2 font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
-                    placeholder="29ABCDE1234F1Z5"
+                    placeholder="09ABCDE1234F1Z5"
                   />
                 </div>
                 <div>
@@ -774,32 +1071,30 @@ const filteredRetailers = visibleRetailers.filter(r => {
                 </div>
               </div>
 
-              {/* Admin KYC Verification Box */}
-              {isAdmin && (
-                <div className="p-3.5 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        editingRetailer.verificationStatus === 'verified' 
-                          ? 'bg-emerald-600 text-white' 
-                          : editingRetailer.verificationStatus === 'rejected' 
-                          ? 'bg-rose-600 text-white' 
-                          : 'bg-amber-500 text-white'
-                      }`}>
-                        <ShieldCheck className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900">
-                          KYC Profile Verification & Approval
-                        </h4>
-                        <p className="text-[10px] text-slate-500">
-                          Verify retailer identity documents (GST, PAN, Shop board photo)
-                        </p>
-                      </div>
+              {/* Verification & KYC Status */}
+              {(isAdmin || isSalesman) && (
+                <div className="p-3 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+                      editingRetailer.verificationStatus === 'verified' 
+                        ? 'bg-emerald-600 text-white' 
+                        : editingRetailer.verificationStatus === 'rejected' 
+                        ? 'bg-rose-600 text-white' 
+                        : 'bg-amber-500 text-white'
+                    }`}>
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">
+                        Retailer KYC Verification & Order Access
+                      </h4>
+                      <p className="text-[10px] text-slate-500">
+                        Retailers cannot place wholesale orders until status is marked Verified
+                      </p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                     <div>
                       <label className="block text-slate-700 font-semibold mb-1 text-xs">Verification Status</label>
                       <select
@@ -807,32 +1102,31 @@ const filteredRetailers = visibleRetailers.filter(r => {
                         onChange={(e) => setEditingRetailer({ ...editingRetailer, verificationStatus: e.target.value as any })}
                         className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs font-semibold"
                       >
-                        <option value="pending">⏳ Pending Review</option>
-                        <option value="verified">✓ Verified & Approved</option>
-                        <option value="rejected">✕ Rejected</option>
+                        <option value="verified">✓ Verified & Approved (ऑर्डर चालू)</option>
+                        <option value="pending">⏳ Pending Review (सत्यापन लंबित)</option>
+                        <option value="rejected">✕ Rejected (अस्वीकृत)</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className="block text-slate-700 font-semibold mb-1 text-xs">Verification Remarks / Notes</label>
+                      <label className="block text-slate-700 font-semibold mb-1 text-xs">Verification Remarks</label>
                       <input
                         type="text"
                         value={editingRetailer.verificationRemarks || ''}
                         onChange={(e) => setEditingRetailer({ ...editingRetailer, verificationRemarks: e.target.value })}
-                        placeholder="e.g. GSTIN and physical shop verified"
+                        placeholder="e.g. Shop photo & physical verification confirmed"
                         className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs"
-                      >
-                      </input>
+                      />
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Admin Credit Control & Limits Box */}
-              <div className="p-3.5 rounded-xl border border-blue-200 bg-blue-50/40 space-y-3">
+              {/* Credit Control & Limits Box */}
+              <div className="p-3 rounded-xl border border-blue-200 bg-blue-50/40 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${editingRetailer.creditEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-700'}`}>
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${editingRetailer.creditEnabled ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-700'}`}>
                       <CreditCard className="w-4 h-4" />
                     </div>
                     <div>
@@ -840,9 +1134,7 @@ const filteredRetailers = visibleRetailers.filter(r => {
                         Retailer Credit / Udhar Control
                       </h4>
                       <p className="text-[10px] text-slate-500">
-                        {isAdmin || isAccounts 
-                          ? 'Allow or restrict 15-Day Wholesale Credit during checkout' 
-                          : 'Admin restricted: Retailer cannot modify their own credit settings'}
+                        Allow or restrict 15-Day Wholesale Credit during checkout
                       </p>
                     </div>
                   </div>
@@ -871,10 +1163,10 @@ const filteredRetailers = visibleRetailers.filter(r => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2.5 border-t border-blue-100">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-blue-100">
                   <div>
                     <label className="block text-slate-700 font-semibold mb-1 text-xs">
-                      Credit Limit Amount (₹) {!isAdmin && !isAccounts && <span className="text-[10px] text-slate-400 font-normal">(Admin setting)</span>}
+                      Credit Limit Amount (₹)
                     </label>
                     <input
                       type="number"
@@ -889,7 +1181,7 @@ const filteredRetailers = visibleRetailers.filter(r => {
                   </div>
                   <div>
                     <label className="block text-slate-700 font-semibold mb-1 text-xs">
-                      Credit Days Allowed {!isAdmin && !isAccounts && <span className="text-[10px] text-slate-400 font-normal">(Admin setting)</span>}
+                      Credit Days Allowed
                     </label>
                     <input
                       type="number"
@@ -897,29 +1189,15 @@ const filteredRetailers = visibleRetailers.filter(r => {
                       max="90"
                       required
                       disabled={!isAdmin && !isAccounts}
-                      value={editingRetailer.creditDaysAllowed !== undefined ? editingRetailer.creditDaysAllowed : 14}
+                      value={editingRetailer.creditDaysAllowed !== undefined ? editingRetailer.creditDaysAllowed : 15}
                       onChange={(e) => setEditingRetailer({ ...editingRetailer, creditDaysAllowed: Number(e.target.value) })}
                       className={`w-full px-3 py-2 font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs ${!isAdmin && !isAccounts ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
                     />
                   </div>
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-1 text-xs">
-                      Account Status {!isAdmin && <span className="text-[10px] text-slate-400 font-normal">(Admin setting)</span>}
-                    </label>
-                    <select
-                      disabled={!isAdmin}
-                      value={editingRetailer.status || 'active'}
-                      onChange={(e) => setEditingRetailer({ ...editingRetailer, status: e.target.value as any })}
-                      className={`w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs ${!isAdmin ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-white'}`}
-                    >
-                      <option value="active">Active</option>
-                      <option value="overdue">Overdue</option>
-                      <option value="blocked">Blocked</option>
-                    </select>
-                  </div>
                 </div>
               </div>
 
+              {/* Submit Buttons */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
                 <button
                   type="button"
@@ -932,7 +1210,7 @@ const filteredRetailers = visibleRetailers.filter(r => {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-semibold rounded-lg shadow-xs cursor-pointer flex items-center space-x-1.5 disabled:opacity-75 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-semibold rounded-lg shadow-xs cursor-pointer flex items-center space-x-1.5 disabled:opacity-75"
                 >
                   {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                   <span>{isSaving ? 'Saving Outlet...' : 'Save Retail Outlet'}</span>
@@ -944,20 +1222,56 @@ const filteredRetailers = visibleRetailers.filter(r => {
         </div>
       )}
 
-      {/* Ledger Statement Modal */}
+      {/* ========================================================================= */}
+      {/* SHOP PHOTO LIGHTBOX PREVIEW MODAL                                         */}
+      {/* ========================================================================= */}
+      {previewPhotoUrl && (
+        <div 
+          className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4"
+          onClick={() => setPreviewPhotoUrl(null)}
+        >
+          <div className="relative max-w-2xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl border border-slate-200" onClick={e => e.stopPropagation()}>
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Store className="w-4 h-4 text-blue-400" />
+                <h3 className="font-bold text-sm">{previewPhotoUrl.title} - Shop Photo</h3>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setPreviewPhotoUrl(null)}
+                className="text-slate-300 hover:text-white p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-2 bg-black flex items-center justify-center max-h-[75vh]">
+              <img 
+                src={previewPhotoUrl.url} 
+                alt={previewPhotoUrl.title} 
+                className="max-h-[70vh] w-auto object-contain rounded"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* LEDGER MODAL                                                              */}
+      {/* ========================================================================= */}
       {ledgerData && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-3xl w-full max-h-[90vh] flex flex-col animate-in fade-in zoom-in-95 duration-150">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">
-                  Account Ledger Statement • {ledgerData.retailer.storeName}
+                  {ledgerData.retailer.storeName} - Ledger Statement
                 </h3>
-                <p className="text-xs text-slate-500 font-mono">
+                <p className="text-[11px] text-slate-500">
                   Prop: {ledgerData.retailer.ownerName} • GSTIN: {ledgerData.retailer.gstin || 'Unregistered'}
                 </p>
               </div>
               <button 
+                type="button"
                 onClick={() => setLedgerData(null)}
                 className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
@@ -965,90 +1279,74 @@ const filteredRetailers = visibleRetailers.filter(r => {
               </button>
             </div>
 
-            {/* Statement Summary */}
-            <div className="p-4 bg-slate-50 border-b border-slate-200 grid grid-cols-3 gap-3 text-xs">
-              <div>
-                <span className="text-slate-500 block">Credit Limit</span>
-                <span className="font-mono font-bold text-slate-900">{formatINR(ledgerData.retailer.creditLimit)}</span>
+            <div className="p-4 overflow-y-auto space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Credit Limit</span>
+                  <span className="font-mono font-bold text-slate-900">{formatINR(ledgerData.retailer.creditLimit)}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Outstanding Balance</span>
+                  <span className="font-mono font-bold text-rose-600">{formatINR(ledgerData.finalBalance)}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-bold">Status</span>
+                  <span className="font-bold text-emerald-600 uppercase">{ledgerData.retailer.status}</span>
+                </div>
               </div>
-              <div>
-                <span className="text-slate-500 block">Current Outstanding Balance</span>
-                <span className="font-mono font-bold text-rose-700">{formatINR(ledgerData.finalBalance)}</span>
-              </div>
-              <div>
-                <span className="text-slate-500 block">Credit Terms</span>
-                <span className="font-semibold text-slate-800">{ledgerData.retailer.creditDaysAllowed} Days Allowed</span>
-              </div>
-            </div>
 
-            {/* Entries Table */}
-            <div className="flex-1 overflow-y-auto p-4">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#f1f5f9] text-slate-600 uppercase text-[11px] font-semibold border-b border-slate-200">
-                  <tr>
-                    <th className="px-3 py-2">Date</th>
-                    <th className="px-3 py-2">Type & Ref</th>
-                    <th className="px-3 py-2">Particulars / Details</th>
-                    <th className="px-3 py-2 text-right">Debit (₹)</th>
-                    <th className="px-3 py-2 text-right">Credit (₹)</th>
-                    <th className="px-3 py-2 text-right">Running Balance</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {ledgerData.entries.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-slate-50">
-                      <td className="px-3 py-2 font-mono text-slate-500">
-                        {new Date(entry.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                      </td>
-                      <td className="px-3 py-2 font-mono font-semibold">
-                        <span className={`status-pill ${
-                          entry.type === 'invoice' ? 'status-info' : 'status-success'
-                        }`}>
-                          {entry.referenceNumber}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-slate-700 max-w-xs">
-                        {entry.description}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-slate-900 font-semibold">
-                        {entry.debit > 0 ? formatINR(entry.debit) : '-'}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono text-emerald-700 font-semibold">
-                        {entry.credit > 0 ? formatINR(entry.credit) : '-'}
-                      </td>
-                      <td className="px-3 py-2 text-right font-mono font-bold text-slate-900">
-                        {formatINR(entry.runningBalance)}
-                      </td>
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[10px]">
+                    <tr>
+                      <th className="p-2.5">Date</th>
+                      <th className="p-2.5">Description</th>
+                      <th className="p-2.5 text-right">Debit (₹)</th>
+                      <th className="p-2.5 text-right">Credit (₹)</th>
+                      <th className="p-2.5 text-right">Balance (₹)</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {ledgerData.entries.map((entry, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50">
+                        <td className="p-2.5 font-mono text-slate-600">{entry.date}</td>
+                        <td className="p-2.5 font-medium text-slate-900">{entry.description}</td>
+                        <td className="p-2.5 text-right font-mono text-slate-700">{entry.debit ? formatINR(entry.debit) : '-'}</td>
+                        <td className="p-2.5 text-right font-mono text-emerald-600">{entry.credit ? formatINR(entry.credit) : '-'}</td>
+                        <td className="p-2.5 text-right font-mono font-bold text-slate-900">{formatINR(entry.balance)}</td>
+                      </tr>
+                    ))}
+                    {ledgerData.entries.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="p-4 text-center text-slate-400">No transaction entries found for this retailer outlet.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            <div className="p-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
+            <div className="p-4 border-t border-slate-100 flex justify-end">
               <button
-                onClick={() => window.print()}
-                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-semibold rounded-lg text-xs cursor-pointer"
-              >
-                Print Statement
-              </button>
-              <button
+                type="button"
                 onClick={() => setLedgerData(null)}
-                className="px-4 py-1.5 bg-[#1e293b] hover:bg-slate-800 text-white font-semibold rounded-lg text-xs cursor-pointer"
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs"
               >
-                Done
+                Close Statement
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* ========================================================================= */}
+      {/* DELETE CONFIRMATION MODAL                                                 */}
+      {/* ========================================================================= */}
       {deletingRetailerId && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl border border-slate-200 max-w-sm w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-sm w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center space-x-3 text-rose-600">
-              <div className="w-9 h-9 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
                 <AlertCircle className="w-5 h-5" />
               </div>
               <div>
@@ -1058,23 +1356,20 @@ const filteredRetailers = visibleRetailers.filter(r => {
             </div>
             
             <p className="text-xs text-slate-600">
-              Are you sure you want to delete <strong>{retailers.find(r => r.id === deletingRetailerId)?.storeName}</strong>?
+              Are you sure you want to delete <strong>{localRetailers.find(r => r.id === deletingRetailerId)?.storeName}</strong>?
             </p>
 
             <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
               <button
+                type="button"
                 onClick={() => setDeletingRetailerId(null)}
                 className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
-                onClick={async () => {
-                  if (deletingRetailerId && onDeleteRetailer) {
-                    await onDeleteRetailer(deletingRetailerId);
-                    setDeletingRetailerId(null);
-                  }
-                }}
+                type="button"
+                onClick={handleDeleteConfirmed}
                 className="px-3.5 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer"
               >
                 Yes, Delete Retailer

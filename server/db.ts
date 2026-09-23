@@ -40,6 +40,62 @@ export interface DatabaseSchema {
   appVersionConfig?: AppVersionConfig;
 }
 
+function getBannerMainImageUrl(): string {
+  try {
+    const publicPath = path.join(process.cwd(), 'public', 'download', 'banner_main.jpg');
+    if (fs.existsSync(publicPath)) {
+      const b64 = fs.readFileSync(publicPath).toString('base64');
+      return `data:image/jpeg;base64,${b64}`;
+    }
+  } catch {}
+  return '/download/banner_main.jpg';
+}
+
+const INITIAL_RETAILERS: Retailer[] = [
+  {
+    id: 'ret_672eaf9602624692',
+    storeName: 'Paras Kirana Store',
+    ownerName: 'Paras Kirana Store',
+    phone: '+91 98659 86532',
+    address: 'Station Road, Utraula, Balrampur',
+    area: 'Utraula Central',
+    beatName: 'Utraula Retail Beat',
+    status: 'active',
+    creditLimit: 75000,
+    currentOutstanding: 0,
+    creditDaysAllowed: 15,
+    creditEnabled: true
+  },
+  {
+    id: 'ret_utraula_01',
+    storeName: 'Maa Durga Kirana & General Store',
+    ownerName: 'Ram Kumar Gupta',
+    phone: '+91 98391 23456',
+    address: 'Main Market, Station Road, Utraula',
+    area: 'Utraula',
+    beatName: 'Utraula Retail Beat',
+    status: 'active',
+    creditLimit: 50000,
+    currentOutstanding: 0,
+    creditDaysAllowed: 15,
+    creditEnabled: true
+  },
+  {
+    id: 'ret_balrampur_02',
+    storeName: 'Shri Ram Traders & Provision',
+    ownerName: 'Anil Kumar',
+    phone: '+91 94520 67890',
+    address: 'Veer Vinay Chauraha, Balrampur',
+    area: 'Balrampur',
+    beatName: 'Balrampur Beat',
+    status: 'active',
+    creditLimit: 100000,
+    currentOutstanding: 0,
+    creditDaysAllowed: 21,
+    creditEnabled: true
+  }
+];
+
 const INITIAL_BANNERS: PromotionalBanner[] = [
   {
     id: 'banner_main',
@@ -48,9 +104,14 @@ const INITIAL_BANNERS: PromotionalBanner[] = [
     subtitle: 'Best Wholesale Rates • Maximum Retailer Margins',
     badgeText: 'केवल दुकानदारों के लिए (B2B)',
     ctaText: 'हर पेटी / कार्टन पर ₹20 से ₹60 तक का सीधा दुकानदार मुनाफा',
-    accentColor: "Lay's • Kurkure • Parle-G • Amul • Sunfeast",
-    imageUrl: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&auto=format&fit=crop&q=80',
-    isActive: true
+    accentColor: 'Pramod Snacks & Namkeen • Parle • Britannia',
+    imageUrl: getBannerMainImageUrl(),
+    isActive: true,
+    targetCategory: 'Snacks & Namkeen',
+    targetBrand: 'Pramod Snacks & Namkeen',
+    hideTextOverlay: true,
+    showBuyNow: true,
+    buyNowText: 'अभी खरीदें (Buy Now)'
   },
   {
     id: 'banner_offers',
@@ -71,7 +132,7 @@ const INITIAL_BANNERS: PromotionalBanner[] = [
     badgeText: 'दुकान तक सीधी डिलीवरी',
     ctaText: '100% Genuine Direct Supply Chain Guarantee with GST Bill',
     accentColor: 'Depot Fleet • Utraula • Balrampur • Gonda • Tulsipur',
-    imageUrl: 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=500&auto=format&fit=crop&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&auto=format&fit=crop&q=80',
     isActive: true
   },
   {
@@ -533,7 +594,7 @@ const INITIAL_DATA: DatabaseSchema = {
       ]
     }
   ],
-  retailers: [],
+  retailers: INITIAL_RETAILERS,
   salesmen: [
     {
       id: 'slm_1',
@@ -541,7 +602,7 @@ const INITIAL_DATA: DatabaseSchema = {
       name: 'Rajesh Kumar',
       phone: '+91 98860 34567',
       email: 'rajesh.sales@aryanagency.in',
-      assignedBeats: ['Indiranagar Retail Beat', 'MG Road Commercial Beat'],
+      assignedBeats: ['Utraula Retail Beat', 'Balrampur Central Beat'],
       dailyTargetAmount: 75000,
       monthlyTargetAmount: 1800000,
       currentMonthAchieved: 1420000,
@@ -556,7 +617,7 @@ const INITIAL_DATA: DatabaseSchema = {
       name: 'Vikram Singh',
       phone: '+91 99001 56789',
       email: 'vikram.sales@aryanagency.in',
-      assignedBeats: ['Koramangala Daily Beat', 'Jayanagar Provision Beat'],
+      assignedBeats: ['Jarwa Rural Beat', 'Tulsipur Provision Beat'],
       dailyTargetAmount: 65000,
       monthlyTargetAmount: 1600000,
       currentMonthAchieved: 1180000,
@@ -571,7 +632,7 @@ const INITIAL_DATA: DatabaseSchema = {
       name: 'Karthik Nambiar',
       phone: '+91 97412 88441',
       email: 'karthik.sales@aryanagency.in',
-      assignedBeats: ['Whitefield Supermarket Beat'],
+      assignedBeats: ['Pachperwa Market Beat', 'Rehra Bazar Beat'],
       dailyTargetAmount: 90000,
       monthlyTargetAmount: 2200000,
       currentMonthAchieved: 1950000,
@@ -617,26 +678,54 @@ class Database {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
-        // Sanitize out any legacy dummy/sample retailers, orders, payments, or users
-        const dummyRetailerIds = ['ret_1', 'ret_2', 'ret_3', 'ret_4', 'ret_5', 'ret_6'];
         let modified = false;
 
         if (Array.isArray(parsed.retailers)) {
           const originalLen = parsed.retailers.length;
-          parsed.retailers = parsed.retailers.filter((r: any) => 
-            !dummyRetailerIds.includes(r.id) &&
-            !r.storeName?.toLowerCase().includes('laxmi supermarket') &&
-            !r.storeName?.toLowerCase().includes('ganesh provision') &&
-            !r.storeName?.toLowerCase().includes('ganesh daily')
-          );
+          const isDummyRetailer = (r: any) => {
+            const name = (r.storeName || '').toLowerCase();
+            return (
+              name.includes('laxmi supermarket') ||
+              name.includes('ganesh daily') ||
+              name.includes('ganesh provision') ||
+              name.includes('sapthagiri')
+            );
+          };
+          parsed.retailers = parsed.retailers.filter((r: any) => !isDummyRetailer(r));
           if (parsed.retailers.length !== originalLen) modified = true;
+
+          if (parsed.retailers.length === 0) {
+            parsed.retailers = [...INITIAL_RETAILERS];
+            modified = true;
+          }
+        } else {
+          parsed.retailers = [...INITIAL_RETAILERS];
+          modified = true;
+        }
+
+        if (Array.isArray(parsed.salesmen)) {
+          const bangaloreBeats = ['Indiranagar Retail Beat', 'MG Road Commercial Beat', 'Koramangala Daily Beat', 'Whitefield Supermarket Beat', 'Jayanagar Provision Beat'];
+          parsed.salesmen.forEach((s: any) => {
+            if (Array.isArray(s.assignedBeats)) {
+              const prevLen = s.assignedBeats.length;
+              s.assignedBeats = s.assignedBeats.filter((b: string) => !bangaloreBeats.includes(b));
+              if (s.assignedBeats.length === 0) {
+                if (s.id === 'slm_1') s.assignedBeats = ['Utraula Retail Beat', 'Balrampur Central Beat'];
+                else if (s.id === 'slm_2') s.assignedBeats = ['Jarwa Rural Beat', 'Tulsipur Provision Beat'];
+                else if (s.id === 'slm_3') s.assignedBeats = ['Pachperwa Market Beat', 'Rehra Bazar Beat'];
+                else s.assignedBeats = ['Utraula Retail Beat'];
+                modified = true;
+              } else if (s.assignedBeats.length !== prevLen) {
+                modified = true;
+              }
+            }
+          });
         }
 
         if (Array.isArray(parsed.orders)) {
           const originalLen = parsed.orders.length;
           parsed.orders = parsed.orders.filter((o: any) => 
-            !['ord_1001', 'ord_1002', 'ord_1003', 'ord_1004'].includes(o.id) &&
-            !dummyRetailerIds.includes(o.retailerId)
+            !['ord_1001', 'ord_1002', 'ord_1003', 'ord_1004'].includes(o.id)
           );
           if (parsed.orders.length !== originalLen) modified = true;
         }
@@ -644,8 +733,7 @@ class Database {
         if (Array.isArray(parsed.payments)) {
           const originalLen = parsed.payments.length;
           parsed.payments = parsed.payments.filter((p: any) => 
-            !['pay_501', 'pay_502'].includes(p.id) &&
-            !dummyRetailerIds.includes(p.retailerId)
+            !['pay_501', 'pay_502'].includes(p.id)
           );
           if (parsed.payments.length !== originalLen) modified = true;
         }
@@ -768,6 +856,10 @@ class Database {
 
   // Retailers
   public getRetailers(): Retailer[] {
+    if (!Array.isArray(this.data.retailers) || this.data.retailers.length === 0) {
+      this.data.retailers = [...INITIAL_RETAILERS];
+      this.saveData(this.data);
+    }
     return this.data.retailers;
   }
 
@@ -787,15 +879,12 @@ class Database {
   }
 
   public deleteRetailer(id: string): boolean {
-    const retailer = this.data.retailers.find(r => r.id === id);
-    if (retailer) {
-      retailer.status = 'inactive';
-      (retailer as any).isActive = false;
-      (retailer as any).is_active = false;
+    const idx = this.data.retailers.findIndex(r => r.id === id);
+    if (idx >= 0) {
+      this.data.retailers.splice(idx, 1);
       this.saveData(this.data);
-      return true;
     }
-    return false;
+    return true;
   }
 
   public updateRetailerOutstanding(id: string, delta: number) {
@@ -836,9 +925,8 @@ class Database {
     this.data.salesmen = this.data.salesmen.filter(s => s.id !== id);
     if (this.data.salesmen.length !== initLen) {
       this.saveData(this.data);
-      return true;
     }
-    return false;
+    return true;
   }
 
   // Orders
@@ -1012,12 +1100,36 @@ class Database {
   }
 
   // Promotional Banners
+  private syncBannersJson(banners: PromotionalBanner[]): void {
+    try {
+      const publicPath = path.join(process.cwd(), 'public', 'download', 'banners.json');
+      fs.mkdirSync(path.dirname(publicPath), { recursive: true });
+      fs.writeFileSync(publicPath, JSON.stringify(banners, null, 2), 'utf8');
+
+      const distPath = path.join(process.cwd(), 'dist', 'download', 'banners.json');
+      if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
+        fs.mkdirSync(path.dirname(distPath), { recursive: true });
+        fs.writeFileSync(distPath, JSON.stringify(banners, null, 2), 'utf8');
+      }
+    } catch (e) {
+      console.warn('[db] Could not sync banners.json:', e);
+    }
+  }
+
   public getBanners(): PromotionalBanner[] {
     if (!Array.isArray(this.data.banners) || this.data.banners.length === 0) {
       this.data.banners = [...INITIAL_BANNERS];
       this.saveData(this.data);
     }
-    return this.data.banners;
+    const freshImage = getBannerMainImageUrl();
+    const updated = this.data.banners.map(b => {
+      if (b.id === 'banner_main' && (!b.imageUrl || b.imageUrl === '/download/banner_main.jpg' || b.imageUrl.startsWith('/download/'))) {
+        return { ...b, imageUrl: freshImage };
+      }
+      return b;
+    });
+    this.syncBannersJson(updated);
+    return updated;
   }
 
   public saveBanner(banner: PromotionalBanner): PromotionalBanner {
@@ -1031,6 +1143,7 @@ class Database {
       this.data.banners.unshift(banner);
     }
     this.saveData(this.data);
+    this.syncBannersJson(this.data.banners);
     return banner;
   }
 
@@ -1042,6 +1155,7 @@ class Database {
     this.data.banners = this.data.banners.filter(b => b.id !== id);
     if (this.data.banners.length !== lenBefore) {
       this.saveData(this.data);
+      this.syncBannersJson(this.data.banners);
       return true;
     }
     return false;
@@ -1056,11 +1170,11 @@ class Database {
         this.data.appVersionConfig = {
           version: parsed.version || '1.3.2',
           versionCode: Number(parsed.versionCode) || 132,
-          downloadUrl: parsed.downloadUrl || '/download/aryan-agency-app.apk',
-          apkUrl: parsed.apkUrl || parsed.downloadUrl || '/download/aryan-agency-app.apk',
+          downloadUrl: parsed.downloadUrl || 'https://aryanagency.in/download/aryan-agency-app.apk',
+          apkUrl: parsed.apkUrl || parsed.downloadUrl || 'https://aryanagency.in/download/aryan-agency-app.apk',
           updatedAt: parsed.updatedAt || new Date().toISOString(),
           releaseNotes: parsed.releaseNotes || 'Aryan Agency v1.3.2: बारकोड स्कैनर और ऑटो-फिल',
-          fileSize: parsed.fileSize || '8.2 MB',
+          fileSize: parsed.fileSize || '7.7 MB',
           minAndroidVersion: parsed.minAndroidVersion || 'Android 8.0+'
         };
         return this.data.appVersionConfig;
@@ -1073,11 +1187,11 @@ class Database {
       this.data.appVersionConfig = {
         version: '1.3.2',
         versionCode: 132,
-        downloadUrl: '/download/aryan-agency-app.apk',
-        apkUrl: '/download/aryan-agency-app.apk',
+        downloadUrl: 'https://aryanagency.in/download/aryan-agency-app.apk',
+        apkUrl: 'https://aryanagency.in/download/aryan-agency-app.apk',
         updatedAt: new Date().toISOString(),
         releaseNotes: 'Aryan Agency Retailer & Distributor App v1.3.2',
-        fileSize: '8.2 MB',
+        fileSize: '7.7 MB',
         minAndroidVersion: 'Android 8.0+'
       };
     }

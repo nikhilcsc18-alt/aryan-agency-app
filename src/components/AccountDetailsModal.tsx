@@ -106,13 +106,13 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
       setName(currentUser.name || '');
       setEmail(currentUser.email || '');
       setPhone(currentUser.phone || linkedRetailer?.phone || '');
-      setAvatarUrl(currentUser.avatarUrl || linkedRetailer?.photoUrl || '');
+      setAvatarUrl(currentUser.avatarUrl || linkedRetailer?.shopPhotoUrl || linkedRetailer?.photoUrl || '');
       setBusinessName(
         currentUser.businessName || 
         linkedRetailer?.storeName || 
         (currentUser.role === 'admin' ? 'Aryan Agency FMCG Distribution' : '')
       );
-      setBusinessLogoUrl(currentUser.businessLogoUrl || linkedRetailer?.logoUrl || '');
+      setBusinessLogoUrl(currentUser.businessLogoUrl || linkedRetailer?.shopPhotoUrl || linkedRetailer?.logoUrl || '');
       setAddress(currentUser.address || linkedRetailer?.address || '');
       setCity(currentUser.city || 'Balrampur');
       setState(currentUser.state || 'Uttar Pradesh');

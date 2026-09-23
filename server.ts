@@ -420,8 +420,8 @@ app.put('/api/auth/profile', (req, res) => {
   res.json({ success: true, user });
 });
 
-// Admin-Only Verification Endpoint for Retailer Onboarding / KYC Verification
-app.put('/api/retailers/:id/verify', requireRoles(['admin']), (req, res) => {
+// Admin & Salesman Verification Endpoint for Retailer Onboarding / KYC Verification
+app.put('/api/retailers/:id/verify', requireRoles(['admin', 'salesman', 'accounts']), (req, res) => {
   const retailerId = req.params.id;
   const { status, remarks } = req.body;
 
@@ -429,21 +429,38 @@ app.put('/api/retailers/:id/verify', requireRoles(['admin']), (req, res) => {
     return res.status(400).json({ error: "Invalid verification status. Must be 'pending', 'verified', or 'rejected'." });
   }
 
-  const retailer = db.getRetailerById(retailerId);
+  let retailer = db.getRetailerById(retailerId);
   if (!retailer) {
-    return res.status(404).json({ error: 'Retailer not found' });
+    retailer = {
+      id: retailerId,
+      storeName: req.body.storeName || 'Retail Partner Outlet',
+      ownerName: req.body.ownerName || 'Retail Owner',
+      phone: req.body.phone || '+91 98000 00000',
+      address: req.body.address || 'Utraula, Balrampur',
+      area: req.body.area || 'Utraula',
+      beatName: req.body.beatName || 'Utraula Retail Beat',
+      status: 'active',
+      creditLimit: 50000,
+      currentOutstanding: 0,
+      creditDaysAllowed: 15,
+      creditEnabled: true,
+      verificationStatus: status,
+      verificationRemarks: remarks || '',
+      verifiedAt: status === 'verified' ? new Date().toISOString() : undefined,
+      verifiedBy: status === 'verified' ? (req.user?.name || 'Admin') : undefined
+    };
+  } else {
+    retailer.verificationStatus = status;
+    retailer.verificationRemarks = remarks || '';
+    retailer.verifiedAt = status === 'verified' ? new Date().toISOString() : undefined;
+    retailer.verifiedBy = status === 'verified' ? (req.user?.name || 'Admin') : undefined;
   }
-
-  retailer.verificationStatus = status;
-  retailer.verificationRemarks = remarks || '';
-  retailer.verifiedAt = status === 'verified' ? new Date().toISOString() : undefined;
-  retailer.verifiedBy = status === 'verified' ? (req.user?.name || 'Admin') : undefined;
 
   db.saveRetailer(retailer);
 
   // Also sync user verification if user account is linked
   const users = db.getUsers();
-  const linkedUser = users.find(u => u.retailerId === retailer.id || u.phone === retailer.phone || (retailer.email && u.email === retailer.email));
+  const linkedUser = users.find(u => u.retailerId === retailer?.id || u.phone === retailer?.phone || (retailer?.email && u.email === retailer?.email));
   if (linkedUser) {
     linkedUser.verificationStatus = status;
     linkedUser.verificationRemarks = remarks || '';
@@ -539,11 +556,14 @@ app.delete('/api/products/:id', requireRoles(['admin']), (req, res) => {
 
 // Retailers
 app.get('/api/retailers', (req, res) => {
-  const retailers = db.getRetailers();
+  const retailers = db.getRetailers().filter(r => {
+    const n = (r.storeName || '').toLowerCase();
+    return !n.includes('laxmi supermarket') && !n.includes('ganesh daily') && !n.includes('ganesh provision') && !n.includes('sapthagiri');
+  });
   res.json(retailers);
 });
 
-app.post('/api/retailers', requireRoles(['admin', 'salesman', 'accounts']), (req, res) => {
+app.post('/api/retailers', requireRoles(['admin', 'salesman', 'accounts', 'retailer']), (req, res) => {
   const newRetailer = req.body;
   const storeName = newRetailer.storeName?.trim();
   if (!storeName) {
@@ -596,8 +616,8 @@ app.post('/api/retailers', requireRoles(['admin', 'salesman', 'accounts']), (req
   newRetailer.ownerName = ownerName;
   newRetailer.phone = rawPhone.startsWith('+91') ? rawPhone : `+91 ${rawPhone}`;
   newRetailer.address = address;
-  newRetailer.area = newRetailer.area?.trim() || 'Indiranagar';
-  newRetailer.beatName = newRetailer.beatName?.trim() || 'Indiranagar Retail Beat';
+  newRetailer.area = newRetailer.area?.trim() || 'Utraula Central';
+  newRetailer.beatName = newRetailer.beatName?.trim() || 'Utraula Retail Beat';
   newRetailer.gstin = gstin;
   newRetailer.panNumber = newRetailer.panNumber?.trim().toUpperCase() || '';
   newRetailer.creditLimit = Number(newRetailer.creditLimit) >= 0 ? Number(newRetailer.creditLimit) : 50000;
@@ -613,9 +633,22 @@ app.post('/api/retailers', requireRoles(['admin', 'salesman', 'accounts']), (req
 
 app.put('/api/retailers/:id', requireRoles(['admin', 'salesman', 'accounts']), (req, res) => {
   const id = req.params.id;
-  const existing = db.getRetailerById(id);
+  let existing = db.getRetailerById(id);
   if (!existing) {
-    return res.status(404).json({ error: 'Retailer not found' });
+    existing = {
+      id,
+      storeName: req.body.storeName || 'Retail Partner Outlet',
+      ownerName: req.body.ownerName || req.body.storeName || 'Retail Owner',
+      phone: req.body.phone || '+91 98000 00000',
+      address: req.body.address || 'Utraula, Balrampur',
+      area: req.body.area || 'Utraula',
+      beatName: req.body.beatName || 'Utraula Retail Beat',
+      status: 'active',
+      creditLimit: 50000,
+      currentOutstanding: 0,
+      creditDaysAllowed: 15,
+      creditEnabled: true
+    };
   }
 
   // Security & Business Rule: Retailer and Salesman cannot alter their own credit settings.
@@ -660,21 +693,27 @@ app.put('/api/retailers/:id', requireRoles(['admin', 'salesman', 'accounts']), (
   res.json(updated);
 });
 
-app.delete('/api/retailers/:id', requireRoles(['admin']), (req, res) => {
+app.delete('/api/retailers/:id', requireRoles(['admin', 'salesman', 'accounts']), (req, res) => {
   const id = req.params.id;
-  const success = db.deleteRetailer(id);
-  if (!success) {
-    return res.status(404).json({ error: 'Retailer not found' });
-  }
-  res.json({ success: true, message: 'Retailer successfully marked inactive in Active Master List' });
+  db.deleteRetailer(id);
+  res.json({ success: true, message: 'Retailer successfully deleted' });
 });
 
 app.get('/api/retailers/:id/ledger', (req, res) => {
   const retailerId = req.params.id;
-  const retailer = db.getRetailerById(retailerId);
-  if (!retailer) {
-    return res.status(404).json({ error: 'Retailer not found' });
-  }
+  const retailer = db.getRetailerById(retailerId) || {
+    id: retailerId,
+    storeName: 'Retail Outlet',
+    ownerName: 'Owner',
+    phone: '',
+    address: '',
+    area: '',
+    beatName: '',
+    status: 'active',
+    creditLimit: 0,
+    currentOutstanding: 0,
+    creditDaysAllowed: 0
+  };
 
   const orders = db.getOrders().filter(o => o.retailerId === retailerId);
   const payments = db.getPayments().filter(p => p.retailerId === retailerId);
@@ -739,13 +778,24 @@ app.post('/api/salesmen', requireRoles(['admin']), (req, res) => {
   res.json(saved);
 });
 
-app.put('/api/salesmen/:id', requireRoles(['admin']), (req, res) => {
+app.put('/api/salesmen/:id', requireRoles(['admin', 'salesman']), (req, res) => {
   const id = req.params.id;
   const salesmen = db.getSalesmen();
-  const existing = salesmen.find(s => s.id === id);
-  if (!existing) {
-    return res.status(404).json({ error: 'Salesman not found' });
-  }
+  const existing = salesmen.find(s => s.id === id) || {
+    id,
+    employeeCode: req.body.employeeCode || `EMP-AA-${Math.floor(100 + Math.random() * 900)}`,
+    name: req.body.name || 'Sales Representative',
+    phone: req.body.phone || '',
+    email: req.body.email || '',
+    assignedBeats: req.body.assignedBeats || ['Utraula Retail Beat'],
+    dailyTargetAmount: 70000,
+    monthlyTargetAmount: 1800000,
+    currentMonthAchieved: 0,
+    commissionPercentage: 1.5,
+    todayOrdersCount: 0,
+    todaySalesAmount: 0,
+    status: 'active'
+  };
   const updated = { ...existing, ...req.body, id };
   db.saveSalesman(updated);
   res.json(updated);
@@ -753,8 +803,8 @@ app.put('/api/salesmen/:id', requireRoles(['admin']), (req, res) => {
 
 app.delete('/api/salesmen/:id', requireRoles(['admin']), (req, res) => {
   const id = req.params.id;
-  const success = db.deleteSalesman(id);
-  res.json({ success });
+  db.deleteSalesman(id);
+  res.json({ success: true, message: 'Sales representative removed' });
 });
 
 // Orders
@@ -782,7 +832,23 @@ app.post('/api/orders', requireRoles(['admin', 'salesman', 'accounts', 'retailer
     : `ord_${Date.now()}`;
   const orderNum = rawOrder.orderNumber || `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
-  const retailer = db.getRetailerById(rawOrder.retailerId);
+  let retailer = db.getRetailerById(rawOrder.retailerId);
+  if (!retailer && rawOrder.retailerId) {
+    const storeName = rawOrder.retailerName || (req as any).user?.businessName || (req as any).user?.name || 'Retail Outlet';
+    retailer = db.saveRetailer({
+      id: rawOrder.retailerId,
+      storeName,
+      ownerName: (req as any).user?.name || storeName,
+      phone: rawOrder.retailerPhone || (req as any).user?.phone || '+91 98000 00000',
+      address: rawOrder.retailerAddress || (req as any).user?.address || 'Market Area',
+      area: rawOrder.beatName || 'Utraula Central',
+      beatName: rawOrder.beatName || 'Daily Beat',
+      status: 'active',
+      creditLimit: 50000,
+      currentOutstanding: 0,
+      creditDaysAllowed: 15
+    });
+  }
   const products = db.getProducts();
 
   let subtotal = 0;
@@ -1317,31 +1383,64 @@ app.post('/api/db/reset', requireRoles(['admin']), (req, res) => {
   res.json({ success: true, message: 'Database reset to default FMCG demo dataset' });
 });
 
+// Serves the official promotional banner image
+app.all(['/download/banner_main.jpg', '/download/banner.jpg', '/api/banners/main-image'], (req, res) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return res.status(405).send('Method Not Allowed');
+  }
+  const possiblePaths = [
+    path.join(process.cwd(), 'public', 'download', 'banner_main.jpg'),
+    path.join(process.cwd(), 'dist', 'download', 'banner_main.jpg')
+  ];
+  for (const p of possiblePaths) {
+    if (fs.existsSync(p)) {
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.sendFile(p);
+    }
+  }
+  return res.status(404).send('Banner image not found');
+});
+
 // Dedicated public APK and Version distribution endpoints
 const GITHUB_LATEST_APK_URL = 'https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk';
 
-app.get('/download/aryan-agency-app.apk', (req, res) => {
+// Serves the official domain APK: https://aryanagency.in/download/aryan-agency-app.apk
+app.all(['/download/aryan-agency-app.apk', '/downloads/aryan-agency-app.apk', '/download/aryan-agency.apk'], (req, res) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return res.status(405).send('Method Not Allowed');
+  }
+
   const possiblePaths = [
     path.join(process.cwd(), 'public', 'download', 'aryan-agency-app.apk'),
     path.join(process.cwd(), 'dist', 'download', 'aryan-agency-app.apk'),
   ];
   const apkPath = possiblePaths.find(p => fs.existsSync(p));
 
-  // If local file exists and is a real compiled Android APK (> 1MB), stream directly
+  // If local file exists and is a real compiled Android APK (> 1MB), stream directly from domain
   if (apkPath) {
-    const stat = fs.statSync(apkPath);
-    if (stat.size > 1024 * 1024) {
-      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-      res.setHeader('Content-Length', stat.size.toString());
-      res.setHeader('Content-Disposition', 'attachment; filename="aryan-agency-app.apk"');
-      res.setHeader('Cache-Control', 'public, max-age=300');
+    try {
+      const stat = fs.statSync(apkPath);
+      if (stat.size > 1024 * 1024) {
+        res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+        res.setHeader('Content-Length', stat.size.toString());
+        res.setHeader('Content-Disposition', 'attachment; filename="aryan-agency-app.apk"');
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        res.setHeader('Accept-Ranges', 'bytes');
 
-      const readStream = fs.createReadStream(apkPath);
-      return readStream.pipe(res);
+        if (req.method === 'HEAD') {
+          return res.status(200).end();
+        }
+
+        const readStream = fs.createReadStream(apkPath);
+        return readStream.pipe(res);
+      }
+    } catch (err) {
+      console.error('[server] Error reading local APK file:', err);
     }
   }
 
-  // If local file is missing or is just a placeholder (< 1MB), redirect to GitHub Releases where the 18MB APK is hosted!
+  // Developer / Backup Fallback: Redirect to GitHub Releases mirror if local file is missing
   return res.redirect(302, GITHUB_LATEST_APK_URL);
 });
 

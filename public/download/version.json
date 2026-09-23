@@ -1,6 +1,10 @@
 {
   "version": "1.3.2",
-  "downloadUrl": "https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk",
-  "updatedAt": "2026-09-22T08:44:01Z",
-  "releaseNotes": "Aryan Agency App v1.3.2 release build."
+  "versionCode": 132,
+  "downloadUrl": "https://aryanagency.in/download/aryan-agency-app.apk",
+  "apkUrl": "https://aryanagency.in/download/aryan-agency-app.apk",
+  "githubMirrorUrl": "https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk",
+  "fileSize": "7.7 MB",
+  "updatedAt": "2026-09-22T08:23:10Z",
+  "releaseNotes": "Aryan Agency App v1.3.2 release build with barcode scanning and auto-update."
 }

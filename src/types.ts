@@ -29,6 +29,7 @@ export interface User {
   verificationRemarks?: string;
   verifiedAt?: string;
   verifiedBy?: string;
+  shopPhotoUrl?: string;
 }
 
 export interface Category {
@@ -145,11 +146,12 @@ export interface Retailer {
   lng?: number;
   status: 'active' | 'overdue' | 'blocked' | 'inactive';
   isActive?: boolean;
-  createdAt: string;
+  createdAt?: string;
   creditEnabled?: boolean; // Admin-controlled toggle for Credit/Udhar access
   // Profile, Logo and KYC verification fields
   logoUrl?: string; // Store front or retailer logo
   photoUrl?: string; // Owner photo
+  shopPhotoUrl?: string; // Shop front photo captured during onboarding
   verificationStatus?: 'pending' | 'verified' | 'rejected';
   verificationRemarks?: string;
   verifiedAt?: string;

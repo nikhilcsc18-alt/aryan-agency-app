@@ -27,7 +27,9 @@ import {
   ChevronDown,
   ChevronUp,
   Percent,
-  Truck
+  Truck,
+  Loader2,
+  ShieldAlert
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { CartItem, Retailer, Product } from '../types';
@@ -96,6 +98,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   }, [isOpen]);
 
   const selectedRetailer = retailers.find(r => r.id === selectedRetailerId) || retailers[0];
+  const isRetailerUnverified = isRetailer && (
+    (currentUser?.verificationStatus && currentUser.verificationStatus !== 'verified') ||
+    (selectedRetailer && selectedRetailer.verificationStatus !== 'verified')
+  );
   const isCreditAllowed = Boolean(selectedRetailer && isCreditEnabledForRetailer(selectedRetailer));
 
   // Sync default payment mode with COD availability and retailer credit permissions
@@ -212,21 +218,30 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   }, [isOpen, selectedPaymentMode, grandTotal, upiUri]);
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleCopyUPI = () => {
     navigator.clipboard.writeText(upiVpa);
     setCopiedUpi(true);
     setTimeout(() => setCopiedUpi(false), 2000);
   };
 
-  const handleBookNow = () => {
-    onCheckout(selectedRetailer?.id || '', cartItems, {
-      paymentMode: selectedPaymentMode,
-      upiRefNumber: upiRefNumber.trim() || undefined,
-      isPaidNow: selectedPaymentMode === 'qr' || selectedPaymentMode === 'upi',
-      deliveryCharge,
-      mdrCharge,
-      grandTotal
-    });
+  const handleBookNow = async () => {
+    if (isSubmitting || isRetailerUnverified) return;
+    setIsSubmitting(true);
+    try {
+      const effectiveRetailerId = selectedRetailer?.id || currentUser?.retailerId || (currentUser?.id ? `ret_${currentUser.id.replace(/^usr_/, '')}` : '');
+      await onCheckout(effectiveRetailerId, cartItems, {
+        paymentMode: selectedPaymentMode,
+        upiRefNumber: upiRefNumber.trim() || undefined,
+        isPaidNow: selectedPaymentMode === 'qr' || selectedPaymentMode === 'upi',
+        deliveryCharge,
+        mdrCharge,
+        grandTotal
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -942,17 +957,46 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
               {/* Step 2 Fixed Bottom Order Place Button */}
               <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200 shrink-0 space-y-2">
+                {isRetailerUnverified && (
+                  <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-start space-x-2">
+                    <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-bold block">सत्यापन लंबित है (Verification Pending)</span>
+                      <span className="text-[11px] text-amber-800">
+                        आपकी दुकान का खाता अभी एडमिन द्वारा सत्यापित नहीं हुआ है। वेरिफिकेशन के बिना ऑर्डर नहीं दिया जा सकता।
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 <button
                   type="button"
+                  disabled={isSubmitting || isRetailerUnverified}
                   onClick={handleBookNow}
-                  className={`w-full py-3 px-4 font-bold text-xs sm:text-sm rounded-xl shadow-xs transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-98 ${
-                    isRetailer
+                  className={`w-full py-3 px-4 font-bold text-xs sm:text-sm rounded-xl shadow-xs transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-98 disabled:opacity-60 disabled:cursor-not-allowed ${
+                    isRetailerUnverified
+                      ? 'bg-slate-400 text-white cursor-not-allowed'
+                      : isRetailer
                       ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                       : 'bg-blue-600 hover:bg-blue-700 text-white'
                   }`}
                 >
-                  <CheckCircle2 className="w-4 h-4 text-white" />
-                  <span>Confirm & Place Order ({formatINR(grandTotal)})</span>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 text-white animate-spin" />
+                      <span>Order Punch Ho Raha Hai...</span>
+                    </>
+                  ) : isRetailerUnverified ? (
+                    <>
+                      <ShieldAlert className="w-4 h-4 text-white" />
+                      <span>सत्यापन लंबित है (Verification Pending)</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 text-white" />
+                      <span>Confirm & Place Order ({formatINR(grandTotal)})</span>
+                    </>
+                  )}
                 </button>
               </div>
             </>

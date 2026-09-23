@@ -12,7 +12,8 @@ import {
   CheckCircle2, 
   Zap,
   ArrowRight,
-  HelpCircle
+  HelpCircle,
+  AlertCircle
 } from 'lucide-react';
 import { Browser } from '@capacitor/browser';
 import { 
@@ -45,7 +46,11 @@ const APP_BASE_URL: string = (() => {
   return '';
 })();
 
-const DEFAULT_APK_DOWNLOAD_URL = 'https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk';
+export const OFFICIAL_LIVE_DOMAIN = 'https://aryanagency.in';
+export const OFFICIAL_APK_DOWNLOAD_URL = 'https://aryanagency.in/download/aryan-agency-app.apk';
+export const GITHUB_FALLBACK_APK_URL = 'https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk';
+export const DEFAULT_APK_DOWNLOAD_URL = OFFICIAL_APK_DOWNLOAD_URL;
+
 const SESSION_STORAGE_DISMISS_KEY = 'aryan_agency_update_dismissed';
 
 interface AppVersionInfo {
@@ -59,7 +64,7 @@ interface AppVersionInfo {
  * Triggers APK download using all available native and web methods
  */
 export async function downloadAndOpenApk(url: string): Promise<boolean> {
-  const targetUrl = (url && url.trim()) ? url.trim() : DEFAULT_APK_DOWNLOAD_URL;
+  const targetUrl = (url && url.trim()) ? url.trim() : OFFICIAL_APK_DOWNLOAD_URL;
   let opened = false;
 
   // 1. Try Capacitor Browser plugin (opens Chrome Custom Tab or default Android browser)
@@ -158,6 +163,8 @@ export const AppUpdateChecker: React.FC = () => {
   const [updateStatusText, setUpdateStatusText] = useState<string>('Ready');
   const [autoUpdateChecked, setAutoUpdateChecked] = useState<boolean>(isAutoUpdateEnabled());
   const [isCheckingManual, setIsCheckingManual] = useState<boolean>(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [showFallbackMirror, setShowFallbackMirror] = useState<boolean>(false);
   const [upToDateNotice, setUpToDateNotice] = useState<{ show: boolean; version: string } | null>(null);
   const hasCheckedRef = useRef<boolean>(false);
 
@@ -169,6 +176,8 @@ export const AppUpdateChecker: React.FC = () => {
 
     // Multiple fallback endpoints so Android phone APK, Web preview, and GitHub always find the latest version
     const endpoints = [
+      `${OFFICIAL_LIVE_DOMAIN}/api/app/version?t=${Date.now()}`,
+      `${OFFICIAL_LIVE_DOMAIN}/download/version.json?t=${Date.now()}`,
       `/api/app/version?t=${Date.now()}`,
       `/download/version.json?t=${Date.now()}`,
       ...(APP_BASE_URL ? [`${APP_BASE_URL}/api/app/version?t=${Date.now()}`, `${APP_BASE_URL}/download/version.json?t=${Date.now()}`] : []),
@@ -213,9 +222,16 @@ export const AppUpdateChecker: React.FC = () => {
 
         if (isNewerVersion(remoteVersion, CURRENT_APP_VERSION)) {
           setLatestVersion(`v${remoteVersion}`);
-          const resolvedDownload = rawDownload
-            ? (rawDownload.startsWith('http') ? rawDownload : `${APP_BASE_URL}${rawDownload.startsWith('/') ? '' : '/'}${rawDownload}`)
-            : DEFAULT_APK_DOWNLOAD_URL;
+          // Always prioritize the official domain APK URL: https://aryanagency.in/download/aryan-agency-app.apk
+          let resolvedDownload = OFFICIAL_APK_DOWNLOAD_URL;
+          if (rawDownload) {
+            if (rawDownload.startsWith('http')) {
+              // Prefer official domain APK over raw GitHub release URLs
+              resolvedDownload = rawDownload.includes('github.com') ? OFFICIAL_APK_DOWNLOAD_URL : rawDownload;
+            } else {
+              resolvedDownload = `${OFFICIAL_LIVE_DOMAIN}${rawDownload.startsWith('/') ? '' : '/'}${rawDownload}`;
+            }
+          }
           setDownloadUrl(resolvedDownload);
 
           const notes = data.releaseNotes || data.notes || data.body || '';
@@ -280,13 +296,24 @@ export const AppUpdateChecker: React.FC = () => {
     }
     setIsUpdateModalOpen(false);
     setModalStep('prompt');
+    setDownloadError(null);
+    setShowFallbackMirror(false);
   };
 
-  const handleStartApkUpdate = async () => {
+  const handleStartApkUpdate = async (useFallbackMirror = false) => {
     // Switch to clear download-in-progress guidance screen immediately
     setModalStep('download_started');
-    // Launch download via Browser plugin or fallback
-    await downloadAndOpenApk(downloadUrl || DEFAULT_APK_DOWNLOAD_URL);
+    setDownloadError(null);
+    const targetUrl = useFallbackMirror ? GITHUB_FALLBACK_APK_URL : (downloadUrl || OFFICIAL_APK_DOWNLOAD_URL);
+    try {
+      const ok = await downloadAndOpenApk(targetUrl);
+      if (!ok) {
+        throw new Error('Could not initiate APK download');
+      }
+    } catch (err) {
+      console.error('[AppUpdateChecker] Download error:', err);
+      setDownloadError('मुख्य डोमेन (aryanagency.in) से APK डाउनलोड शुरू नहीं हो सका। कृपया बैकअप मिरर का उपयोग करें।');
+    }
   };
 
   const handleReloadWebAssets = async () => {
@@ -471,10 +498,31 @@ export const AppUpdateChecker: React.FC = () => {
                     APK डाउनलोड शुरू हो गया है!
                   </h4>
                   <p className="text-[11px] text-blue-700">
-                    File: <span className="font-mono font-semibold">aryan-agency-app.apk</span> (~7.9 MB)
+                    File: <span className="font-mono font-semibold">aryan-agency-app.apk</span> (~7.7 MB)
                   </p>
                 </div>
               </div>
+
+              {/* Error Alert Box if download fails */}
+              {downloadError && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-2 text-xs animate-in fade-in duration-150">
+                  <div className="flex items-start space-x-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <strong className="block font-bold text-amber-950">डाउनलोड में समस्या (Download Error)</strong>
+                      <span className="text-[11px] text-amber-800">{downloadError}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleStartApkUpdate(true)}
+                    className="w-full py-2 px-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Use Backup Release Mirror (वैकल्पिक बैकअप से डाउनलोड करें)</span>
+                  </button>
+                </div>
+              )}
 
               {/* 3 Step Installation Guide */}
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-2.5">
@@ -511,6 +559,30 @@ export const AppUpdateChecker: React.FC = () => {
                 <HelpCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 <span>यदि डाउनलोड पॉपअप नहीं आया, तो नीचे &quot;फिर से डाउनलोड करें&quot; पर टैप करें।</span>
               </div>
+
+              {/* Subtle backup mirror toggle for users who need it */}
+              {!showFallbackMirror && !downloadError ? (
+                <div className="text-center pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowFallbackMirror(true)}
+                    className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer inline-flex items-center space-x-1"
+                  >
+                    <span>डाउनलोड में परेशानी होने पर वैकल्पिक बैकअप लिंक देखें</span>
+                  </button>
+                </div>
+              ) : !downloadError && (
+                <div className="pt-1 animate-in fade-in duration-150">
+                  <button
+                    type="button"
+                    onClick={() => handleStartApkUpdate(true)}
+                    className="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition-all flex items-center justify-center space-x-2 text-[11px] border border-slate-200 cursor-pointer"
+                  >
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                    <span>Alternative Backup Mirror (वैकल्पिक डाउनलोड लिंक)</span>
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

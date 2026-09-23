@@ -22,14 +22,18 @@ export interface AppDownloadConfig {
 const STORAGE_KEY = 'aryan_app_download_config';
 const EVENT_NAME = 'aryan_app_download_config_updated';
 
+export const OFFICIAL_DOMAIN = 'https://aryanagency.in';
+export const OFFICIAL_APK_DOWNLOAD_URL = 'https://aryanagency.in/download/aryan-agency-app.apk';
+export const GITHUB_RELEASE_MIRROR_URL = 'https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk';
+
 export const DEFAULT_APP_CONFIG: AppDownloadConfig = {
-  apkUrl: '/download/aryan-agency-app.apk',
+  apkUrl: OFFICIAL_APK_DOWNLOAD_URL,
   version: 'v1.3.2',
-  fileSize: '8.2 MB',
+  fileSize: '7.7 MB',
   releaseDate: 'September 2026',
   minAndroidVersion: 'Android 8.0 (Oreo) or later',
   appName: 'Aryan Agency FMCG Distribution',
-  packageName: 'com.aryanagency.app',
+  packageName: 'com.aryanagency.fmcg',
   isAvailable: true,
   notes: 'Aryan Agency B2B App v1.3.2 with live barcode scanning, internet product auto-fill, and live cloud sync.'
 };
@@ -39,9 +43,11 @@ export function getAppDownloadConfig(): AppDownloadConfig {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_APP_CONFIG;
     const parsed = JSON.parse(raw);
-    // If the cached URL was any previous mock or outdated URL, keep the permanent APK route
+    // If the cached URL was any previous mock or outdated URL, keep the permanent official domain APK route
     if (
+      !parsed.apkUrl ||
       parsed.apkUrl === '/downloads/aryan-agency-fmcg.apk' ||
+      parsed.apkUrl === '/download/aryan-agency-app.apk' ||
       parsed.apkUrl?.includes('releases/latest/download') ||
       parsed.apkUrl?.includes('github.com')
     ) {
@@ -52,7 +58,7 @@ export function getAppDownloadConfig(): AppDownloadConfig {
       parsed.version = DEFAULT_APP_CONFIG.version;
       parsed.notes = DEFAULT_APP_CONFIG.notes;
     }
-    return { ...DEFAULT_APP_CONFIG, ...parsed };
+    return { ...DEFAULT_APP_CONFIG, ...parsed, apkUrl: DEFAULT_APP_CONFIG.apkUrl };
   } catch (err) {
     console.warn('[appDownloadConfig] Error reading config:', err);
     return DEFAULT_APP_CONFIG;

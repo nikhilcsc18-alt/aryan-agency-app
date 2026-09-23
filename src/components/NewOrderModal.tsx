@@ -73,6 +73,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
   if (!isOpen) return null;
 
   const currentRetailer = retailers.find(r => r.id === selectedRetailerId);
+  const isRetailerUnverified = Boolean(currentRetailer && currentRetailer.verificationStatus !== 'verified');
   const currentSalesman = salesmen.find(s => s.id === selectedSalesmanId);
 
   // Credit calculation
@@ -194,6 +195,9 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentRetailer) return;
+    if (isRetailer && isRetailerUnverified) {
+      return;
+    }
 
     // Build fully calculated line items
     const calculatedItems = itemBreakdowns.map((b: any) => {
@@ -663,6 +667,14 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
 
           </div>
 
+          {/* Unverified Warning Banner */}
+          {isRetailer && isRetailerUnverified && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-xs flex items-center space-x-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>सत्यापन लंबित है: जब तक एडमिन द्वारा वेरिफिकेशन पूरा नहीं होता, तब तक ऑर्डर नहीं दिया जा सकता।</span>
+            </div>
+          )}
+
           {/* Modal Footer */}
           <div className="pt-3 border-t border-slate-200 flex items-center justify-end space-x-2">
             <button
@@ -674,10 +686,15 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold rounded-lg shadow-sm flex items-center space-x-1.5 cursor-pointer transition-colors"
+              disabled={Boolean(isRetailer && isRetailerUnverified)}
+              className={`px-5 py-2 text-white font-bold rounded-lg shadow-sm flex items-center space-x-1.5 transition-colors ${
+                isRetailer && isRetailerUnverified
+                  ? 'bg-slate-400 cursor-not-allowed opacity-60'
+                  : 'bg-[#2563eb] hover:bg-[#1d4ed8] cursor-pointer'
+              }`}
             >
               <Check className="w-4 h-4" />
-              <span>{isRetailer ? 'Confirm & Place Order' : 'Confirm & Punch FMCG Order'}</span>
+              <span>{isRetailer && isRetailerUnverified ? 'Verification Pending (सत्यापन लंबित)' : isRetailer ? 'Confirm & Place Order' : 'Confirm & Punch FMCG Order'}</span>
             </button>
           </div>
 

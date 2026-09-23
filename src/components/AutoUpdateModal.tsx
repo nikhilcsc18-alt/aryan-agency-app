@@ -214,7 +214,7 @@ export const AutoUpdateModal: React.FC<AutoUpdateModalProps> = ({
                   )}
 
                   <a
-                    href="/download/aryan-agency-app.apk"
+                    href="https://aryanagency.in/download/aryan-agency-app.apk"
                     download="aryan-agency-app.apk"
                     className="text-[11px] text-blue-600 hover:text-blue-800 font-medium inline-flex items-center space-x-1 cursor-pointer ml-auto"
                     title="Download standalone APK file for offline sharing"

@@ -23,6 +23,7 @@ import { AccountDetailsModal } from './components/AccountDetailsModal';
 import { AppUpdateChecker } from './components/AppUpdateChecker';
 import { NotificationPanel } from './components/NotificationPanel';
 import { BarcodeScannerModal } from './components/BarcodeScannerModal';
+import { RetailerVerificationPendingModal } from './components/RetailerVerificationPendingModal';
 import { 
   buildLiveNotifications, 
   saveReadNotificationId, 
@@ -166,6 +167,22 @@ function MainApp() {
     }
   };
 
+  // Check if current user is a retailer and has pending verification
+  const linkedRetailer = currentUser?.role === 'retailer' ? retailers.find(r => 
+    (currentUser.retailerId && r.id === currentUser.retailerId) ||
+    (currentUser.phone && r.phone && r.phone.replace(/\D/g, '').slice(-10) === currentUser.phone.replace(/\D/g, '').slice(-10)) ||
+    (currentUser.email && r.email && r.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+    (currentUser.name && r.storeName && (
+      r.storeName.toLowerCase() === currentUser.name.toLowerCase() ||
+      r.ownerName.toLowerCase() === currentUser.name.toLowerCase()
+    ))
+  ) : undefined;
+
+  const isRetailerPendingVerification = currentUser?.role === 'retailer' && (
+    currentUser.verificationStatus === 'rejected' ||
+    (linkedRetailer ? linkedRetailer.verificationStatus !== 'verified' : (currentUser.verificationStatus !== 'verified'))
+  );
+
   // Sync active tab with user role permissions
   const getRoleHomeTab = (): NavTab => {
     if (currentRole === 'delivery') return 'deliveries';
@@ -241,11 +258,47 @@ function MainApp() {
     paymentDetails?: CheckoutPaymentDetails
   ) => {
     if (itemsToCheckout.length === 0) return;
-    const targetRetailer = retailers.find(r => r.id === retailerId) || retailers[0];
-    if (!targetRetailer) {
-      showToast('Please select a valid retailer store', 'error');
-      return;
+    let targetRetailer = retailers.find(r => r.id === retailerId);
+    if (!targetRetailer && currentUser?.retailerId) {
+      targetRetailer = retailers.find(r => r.id === currentUser.retailerId);
     }
+    if (!targetRetailer && retailers.length > 0 && (!currentUser || currentUser.role !== 'retailer')) {
+      targetRetailer = retailers[0];
+    }
+    if (!targetRetailer) {
+      const storeName = currentUser?.businessName || currentUser?.name || 'Retail Partner Store';
+      const phone = currentUser?.phone || '+91 98000 00000';
+      const address = currentUser?.address || 'Main Road, Utraula, Balrampur';
+      const rId = currentUser?.retailerId || (currentUser?.id ? `ret_${currentUser.id.replace(/^usr_/, '')}` : `ret_${Date.now()}`);
+
+      targetRetailer = {
+        id: rId,
+        storeName,
+        ownerName: currentUser?.name || storeName,
+        phone,
+        address,
+        area: 'Utraula Central',
+        beatName: 'Utraula Retail Beat',
+        status: 'active',
+        creditLimit: 50000,
+        currentOutstanding: 0,
+        creditDaysAllowed: 15,
+        creditEnabled: true
+      };
+
+      api.saveRetailer(targetRetailer).catch((e) => console.warn('Auto-save retailer warning:', e));
+      setRetailers(prev => [targetRetailer!, ...prev]);
+    }
+
+    // Block order booking if retailer verification is not verified
+    if (currentUser?.role === 'retailer') {
+      const isVerified = (targetRetailer && targetRetailer.verificationStatus === 'verified') || currentUser.verificationStatus === 'verified';
+      if (!isVerified) {
+        showToast('सत्यापन लंबित है! जब तक एडमिन द्वारा वेरिफिकेशन पूरा नहीं होता, तब तक ऑर्डर नहीं दिया जा सकता।', 'error');
+        return;
+      }
+    }
+
     const defaultSalesman = salesmen[0] || { id: 'SAL-01', name: 'Ramesh Kumar (Balrampur / Utraula Beat)' };
 
     // Build OrderItem array from CartItem array respecting ApnaClub packing tiers
@@ -429,8 +482,9 @@ function MainApp() {
       setIsCartOpen(false);
       await loadData();
       setActiveInvoiceOrder(created);
-    } catch (err) {
-      showToast('Failed to checkout cart order', 'error');
+    } catch (err: any) {
+      console.error('Checkout error:', err);
+      showToast(err?.message || 'Failed to checkout cart order', 'error');
     }
   };
 
@@ -544,11 +598,31 @@ function MainApp() {
 
   const handleDeleteRetailer = async (retailerId: string) => {
     try {
+      setRetailers(prev => prev.filter(r => r.id !== retailerId));
       await api.deleteRetailer(retailerId);
-      showToast('Retailer removed from active master list', 'info');
+      showToast('Retailer store deleted successfully!', 'info');
       await loadData();
-    } catch (err) {
-      showToast('Failed to delete retailer', 'error');
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to delete retailer', 'error');
+      await loadData();
+    }
+  };
+
+  const handleVerifyRetailer = async (retailerId: string, status: 'verified' | 'rejected', remarks?: string) => {
+    try {
+      setRetailers(prev => prev.map(r => r.id === retailerId ? {
+        ...r,
+        verificationStatus: status,
+        verificationRemarks: remarks || (status === 'verified' ? 'Approved by Admin / Salesman' : 'Rejected'),
+        verifiedAt: status === 'verified' ? new Date().toISOString() : undefined,
+        verifiedBy: currentUser?.name || 'Admin'
+      } : r));
+      await api.verifyRetailer(retailerId, status, remarks);
+      showToast(`Retailer ${status === 'verified' ? 'verified & approved' : 'rejected'} successfully!`, 'success');
+      await loadData();
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to update retailer verification status', 'error');
+      await loadData();
     }
   };
 
@@ -871,6 +945,7 @@ function MainApp() {
             <RetailersView
               retailers={retailers}
               onSaveRetailer={handleSaveRetailer}
+              onVerifyRetailer={handleVerifyRetailer}
               onDeleteRetailer={handleDeleteRetailer}
               onOpenNewOrderForRetailer={openNewOrderForRetailer}
               onRecordPaymentForRetailer={openPaymentForRetailer}
@@ -1031,6 +1106,16 @@ function MainApp() {
           onClose={() => setIsBarcodeScannerOpen(false)}
           products={products}
           onProductFound={handleProductScanned}
+        />
+      )}
+
+      {/* Retailer Verification Blocking Full-Screen Modal */}
+      {isRetailerPendingVerification && currentUser && (
+        <RetailerVerificationPendingModal
+          currentUser={currentUser}
+          linkedRetailer={linkedRetailer}
+          onRefresh={loadData}
+          onLogout={logout}
         />
       )}
 

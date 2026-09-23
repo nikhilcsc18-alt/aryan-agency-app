@@ -342,9 +342,16 @@ function mapDbRetailer(row: any): Retailer {
     lat: row.lat ? Number(row.lat) : undefined,
     lng: row.lng ? Number(row.lng) : undefined,
     status: row.status || 'active',
-    isActive: row.is_active !== undefined ? Boolean(row.is_active) : (row.status !== 'inactive'),
+    isActive: row.is_active !== undefined ? Boolean(row.is_active) : (row.status !== 'inactive' && row.status !== 'deleted'),
     createdAt: row.created_at || new Date().toISOString(),
-    creditEnabled: row.credit_enabled !== undefined ? Boolean(row.credit_enabled) : undefined
+    creditEnabled: row.credit_enabled !== undefined ? Boolean(row.credit_enabled) : undefined,
+    verificationStatus: row.verification_status || (row.is_verified ? 'verified' : 'pending'),
+    verificationRemarks: row.verification_remarks || '',
+    verifiedAt: row.verified_at,
+    verifiedBy: row.verified_by,
+    shopPhotoUrl: row.shop_photo_url || row.shop_photo || row.photo_url || row.store_photo || row.logo_url,
+    logoUrl: row.logo_url,
+    photoUrl: row.photo_url
   };
   const creditSettings = getRetailerCreditSettings(base);
   return {
@@ -373,6 +380,13 @@ function retailerToDb(r: Partial<Retailer>): any {
   if (r.creditEnabled !== undefined) out.credit_enabled = Boolean(r.creditEnabled);
   if (r.status !== undefined) out.status = r.status;
   if ((r as any).isActive !== undefined) out.is_active = Boolean((r as any).isActive);
+  if (r.verificationStatus !== undefined) out.verification_status = r.verificationStatus;
+  if (r.verificationRemarks !== undefined) out.verification_remarks = r.verificationRemarks;
+  if (r.verifiedAt !== undefined) out.verified_at = r.verifiedAt;
+  if (r.verifiedBy !== undefined) out.verified_by = r.verifiedBy;
+  if (r.shopPhotoUrl !== undefined) out.shop_photo_url = r.shopPhotoUrl;
+  if (r.logoUrl !== undefined) out.logo_url = r.logoUrl;
+  if (r.photoUrl !== undefined) out.photo_url = r.photoUrl;
   return out;
 }
 
@@ -465,33 +479,23 @@ function orderToDb(o: any): any {
   out.id = safeId;
   out.order_number = o.orderNumber || o.order_number || `ORD-2026-${Math.floor(1000 + Math.random() * 9000)}`;
   
-  if (o.retailerId !== undefined || o.retailer_id !== undefined) {
-    out.retailer_id = o.retailerId || o.retailer_id;
-  }
-  if (o.retailerName !== undefined || o.retailer_name !== undefined) {
-    out.retailer_name = o.retailerName || o.retailer_name;
-  }
-  if (o.retailerPhone !== undefined || o.retailer_phone !== undefined) {
-    out.retailer_phone = o.retailerPhone || o.retailer_phone || '';
-  }
-  if (o.retailerAddress !== undefined || o.retailer_address !== undefined) {
-    out.retailer_address = o.retailerAddress || o.retailer_address || '';
-  }
-  if (o.retailerGstin !== undefined || o.retailer_gstin !== undefined) {
+  out.retailer_id = o.retailerId || o.retailer_id || `ret_${Date.now()}`;
+  out.retailer_name = o.retailerName || o.retailer_name || 'Retail Store';
+  out.retailer_phone = o.retailerPhone || o.retailer_phone || '+91 98000 00000';
+  out.retailer_address = o.retailerAddress || o.retailer_address || 'Utraula / Balrampur Market';
+  if (o.retailerGstin || o.retailer_gstin) {
     out.retailer_gstin = o.retailerGstin || o.retailer_gstin;
   }
-  if (o.beatName !== undefined || o.beat_name !== undefined) {
-    out.beat_name = o.beatName || o.beat_name;
-  }
-  if (o.salesmanId !== undefined || o.salesman_id !== undefined) {
+  out.beat_name = o.beatName || o.beat_name || 'Utraula Retail Beat';
+  if (o.salesmanId || o.salesman_id) {
     out.salesman_id = o.salesmanId || o.salesman_id;
   }
-  if (o.salesmanName !== undefined || o.salesman_name !== undefined) {
+  if (o.salesmanName || o.salesman_name) {
     out.salesman_name = o.salesmanName || o.salesman_name;
   }
 
   out.order_date = o.orderDate || o.order_date || new Date().toISOString();
-  out.expected_delivery_date = o.expectedDeliveryDate || o.expected_delivery_date || new Date().toISOString().split('T')[0];
+  out.expected_delivery_date = o.expectedDeliveryDate || o.expected_delivery_date || new Date(Date.now() + 86400000).toISOString().split('T')[0];
 
   const items = Array.isArray(o.items) ? o.items : [];
   out.items = items;
@@ -1044,7 +1048,28 @@ export const supabaseService = {
     if (!supabase) return null;
     const { data, error } = await supabase.from('retailers').select('*').order('store_name');
     if (error) throw error;
-    const list = (data || []).map(mapDbRetailer);
+
+    const isPurged = (r: any) => {
+      const name = (r.store_name || r.name || '').toLowerCase();
+      return (
+        name.includes('laxmi supermarket') ||
+        name.includes('ganesh daily') ||
+        name.includes('ganesh provision') ||
+        name.includes('sapthagiri')
+      );
+    };
+
+    // Cascade purge unwanted demo stores from Supabase permanently
+    const purgedRows = (data || []).filter(isPurged);
+    if (purgedRows.length > 0) {
+      for (const p of purgedRows) {
+        this.deleteRetailer(p.id).catch(() => {});
+      }
+    }
+
+    const list = (data || [])
+      .filter(r => r.status !== 'deleted' && !isPurged(r))
+      .map(mapDbRetailer);
     return applyCreditControlsToRetailers(list);
   },
 
@@ -1070,8 +1095,8 @@ export const supabaseService = {
       throw new Error('Shop address is required for delivery routing.');
     }
 
-    const area = retailer.area?.trim() || 'Indiranagar';
-    const beatName = retailer.beatName?.trim() || 'Indiranagar Retail Beat';
+    const area = retailer.area?.trim() || 'Utraula Central';
+    const beatName = retailer.beatName?.trim() || 'Utraula Retail Beat';
     const gstin = retailer.gstin?.trim().toUpperCase() || '';
     const panNumber = retailer.panNumber?.trim().toUpperCase() || '';
 
@@ -1181,21 +1206,52 @@ export const supabaseService = {
 
   async deleteRetailer(id: string): Promise<boolean | null> {
     if (!supabase) return null;
-    // Do NOT delete the retailer from database to preserve orders & ledger integrity!
-    // Instead, update status to 'inactive' and is_active to false
-    let { error } = await supabase
-      .from('retailers')
-      .update({ status: 'inactive', is_active: false })
-      .eq('id', id);
-    if (error) {
-      // If is_active column doesn't exist in Supabase schema, retry with status only
-      const retry = await supabase
-        .from('retailers')
-        .update({ status: 'inactive' })
-        .eq('id', id);
-      if (retry.error) throw retry.error;
+    try {
+      // 1. Delete order_items of orders belonging to this retailer
+      const { data: ords } = await supabase.from('orders').select('id').eq('retailer_id', id);
+      if (ords && ords.length > 0) {
+        const ordIds = ords.map(o => o.id);
+        await supabase.from('order_items').delete().in('order_id', ordIds);
+        await supabase.from('orders').delete().eq('retailer_id', id);
+      }
+      // 2. Delete payments belonging to this retailer
+      await supabase.from('payments').delete().eq('retailer_id', id);
+      // 3. Delete retailer row
+      const { error } = await supabase.from('retailers').delete().eq('id', id);
+      if (!error) return true;
+    } catch (e) {
+      console.warn('Supabase cascade delete failed, falling back:', e);
     }
+    try {
+      await supabase
+        .from('retailers')
+        .update({ status: 'deleted', is_active: false })
+        .eq('id', id);
+    } catch {}
     return true;
+  },
+
+  async verifyRetailer(id: string, status: 'pending' | 'verified' | 'rejected', remarks?: string): Promise<Retailer | null> {
+    if (!supabase) return null;
+    try {
+      const payload: any = {
+        verification_status: status,
+        verification_remarks: remarks || '',
+        verified_at: status === 'verified' ? new Date().toISOString() : null
+      };
+      const { data, error } = await supabase
+        .from('retailers')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single();
+      if (!error && data) {
+        return mapDbRetailer(data);
+      }
+    } catch (e) {
+      console.warn('[Supabase verifyRetailer notice]:', e);
+    }
+    return null;
   },
 
   // 6. Salesmen
@@ -1209,15 +1265,31 @@ export const supabaseService = {
   async saveSalesman(salesman: Partial<Salesman>): Promise<Salesman | null> {
     if (!supabase) return null;
     const dbPayload = salesmanToDb(salesman);
-    const { data, error } = await supabase.from('salesmen').upsert(dbPayload).select().single();
+    let { data, error } = await supabase.from('salesmen').upsert(dbPayload).select().single();
+    if (error && (error.message?.includes('assigned_beats') || error.code === 'PGRST204')) {
+      delete dbPayload.assigned_beats;
+      const retry = await supabase.from('salesmen').upsert(dbPayload).select().single();
+      data = retry.data;
+      error = retry.error;
+    }
     if (error) throw error;
     return mapDbSalesman(data);
   },
 
   async deleteSalesman(id: string): Promise<boolean | null> {
     if (!supabase) return null;
-    const { error } = await supabase.from('salesmen').delete().eq('id', id);
-    if (error) throw error;
+    try {
+      await supabase.from('orders').update({ salesman_id: null }).eq('salesman_id', id);
+    } catch {}
+    try {
+      const { error } = await supabase.from('salesmen').delete().eq('id', id);
+      if (!error) return true;
+    } catch (e) {
+      console.warn('Supabase deleteSalesman notice:', e);
+    }
+    try {
+      await supabase.from('salesmen').update({ status: 'inactive' }).eq('id', id);
+    } catch {}
     return true;
   },
 
@@ -1237,6 +1309,36 @@ export const supabaseService = {
     if (!dbPayload.id || dbPayload.id === 'null') {
       dbPayload.id = `ord_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     }
+
+    // Ensure retailer exists in Supabase to satisfy foreign key constraint 'orders_retailer_id_fkey'
+    if (dbPayload.retailer_id) {
+      try {
+        const { data: existingRet } = await supabase
+          .from('retailers')
+          .select('id')
+          .eq('id', dbPayload.retailer_id)
+          .maybeSingle();
+
+        if (!existingRet) {
+          await supabase.from('retailers').upsert({
+            id: dbPayload.retailer_id,
+            store_name: dbPayload.retailer_name || 'Retail Partner Store',
+            owner_name: dbPayload.retailer_name || 'Retail Partner',
+            phone: dbPayload.retailer_phone || '+91 98000 00000',
+            address: dbPayload.retailer_address || 'Utraula / Balrampur Market',
+            area: dbPayload.beat_name || 'Utraula Central',
+            beat_name: dbPayload.beat_name || 'Daily Beat',
+            credit_limit: 50000,
+            current_outstanding: 0,
+            credit_days_allowed: 15,
+            status: 'active'
+          });
+        }
+      } catch (retailerUpsertErr) {
+        console.warn('[Supabase Warning] Pre-order retailer verification/upsert error:', retailerUpsertErr);
+      }
+    }
+
     const { data, error } = await supabase.from('orders').insert(dbPayload).select().single();
     if (error) throw error;
 
