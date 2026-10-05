@@ -25,20 +25,37 @@ import {
   Camera,
   Image as ImageIcon,
   Map,
-  Eye
+  Eye,
+  Archive,
+  CheckSquare,
+  Square,
+  Sparkles,
+  RefreshCw,
+  Layers
 } from 'lucide-react';
-import { Retailer } from '../types';
+import { Retailer, Order } from '../types';
 import { formatINR, formatINRDecimals, api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { setRetailerCreditControl, isCreditEnabledForRetailer } from '../lib/retailerCredit';
 
 interface RetailersViewProps {
   retailers: Retailer[];
+  orders?: Order[];
   onSaveRetailer: (retailer: Partial<Retailer>) => Promise<void>;
-  onVerifyRetailer?: (id: string, status: 'verified' | 'rejected', remarks?: string) => Promise<void>;
-  onDeleteRetailer?: (id: string) => Promise<void>;
+  onVerifyRetailer?: (
+    id: string, 
+    status: 'verified' | 'rejected', 
+    remarks?: string,
+    reasonCode?: string,
+    options?: { creditLimit?: number; creditEnabled?: boolean; creditDaysAllowed?: number; beatName?: string }
+  ) => Promise<void>;
+  onDeleteRetailer?: (id: string, handleOrders?: 'delete' | 'archive') => Promise<void>;
+  onCleanupRetailers?: (ids: string[], handleOrders: 'delete' | 'archive') => Promise<void>;
+  onDeleteBeat?: (beatName: string) => Promise<void>;
   onOpenNewOrderForRetailer: (retailerId: string) => void;
   onRecordPaymentForRetailer: (retailer: Retailer) => void;
+  onNavigateToVerifications?: () => void;
+  pendingVerificationsCount?: number;
 }
 
 const DEFAULT_BEAT_ROUTES = [
@@ -46,27 +63,102 @@ const DEFAULT_BEAT_ROUTES = [
   'Balrampur Central Beat',
   'Jarwa Rural Beat',
   'Tulsipur Provision Beat',
-  'Indiranagar Retail Beat',
-  'MG Road Commercial Beat',
-  'Koramangala Daily Beat',
-  'Whitefield Supermarket Beat',
-  'Jayanagar Provision Beat'
+  'Pachperwa Market Beat',
+  'Rehra Bazar Beat',
+  'Gaindas Bujurg Beat',
+  'Mankapur Road Beat'
 ];
+
+// Target test accounts explicitly requested for cleanup
+export const SPECIFIC_TARGET_TEST_STORES = [
+  {
+    id: 'ret_4',
+    storeName: 'Ganesh Daily Needs',
+    ownerName: 'Ganesh Kumar',
+    phone: '+91 98450 12345',
+    area: 'Indiranagar',
+    beatName: 'Indiranagar Retail Beat',
+    label: 'Ganesh Daily Needs'
+  },
+  {
+    id: 'ret_3',
+    storeName: 'Laxmi Supermarket',
+    ownerName: 'Suresh Patil',
+    phone: '+91 98451 23456',
+    area: 'Jayanagar',
+    beatName: 'Jayanagar Provision Beat',
+    label: 'Laxmi Supermarket'
+  },
+  {
+    id: 'ret_2',
+    storeName: 'Sapthagiri Super Mart',
+    ownerName: 'Sapthagiri Store',
+    phone: '+91 98452 34567',
+    area: 'Koramangala',
+    beatName: 'Koramangala Daily Beat',
+    label: 'Sapthagiri Super Mart'
+  }
+];
+
+// Helper to identify candidate test or duplicate stores
+export const isCandidateTestAccount = (r: Retailer) => {
+  const name = (r.storeName || '').toLowerCase();
+  const owner = (r.ownerName || '').toLowerCase();
+  const phone = (r.phone || '').replace(/\D/g, '');
+  return (
+    name.includes('ganesh daily') ||
+    name.includes('ganesh provision') ||
+    name.includes('laxmi supermarket') ||
+    name.includes('sapthagiri') ||
+    name.includes('test') ||
+    name.includes('sample') ||
+    name.includes('dummy') ||
+    name.includes('demo') ||
+    owner.includes('ganesh daily') ||
+    owner.includes('laxmi supermarket') ||
+    owner.includes('sapthagiri') ||
+    owner.includes('test') ||
+    owner.includes('dummy') ||
+    phone === '9800000000' ||
+    phone === '9999999999' ||
+    phone.endsWith('000000')
+  );
+};
+
+const isPurgedStore = (r: Retailer) => {
+  const name = (r.storeName || '').toLowerCase();
+  const owner = (r.ownerName || '').toLowerCase();
+  return (
+    name.includes('laxmi supermarket') ||
+    name.includes('ganesh daily') ||
+    name.includes('ganesh provision') ||
+    name.includes('sapthagiri') ||
+    owner.includes('laxmi supermarket') ||
+    owner.includes('ganesh daily') ||
+    owner.includes('ganesh provision') ||
+    owner.includes('sapthagiri')
+  );
+};
 
 export const RetailersView: React.FC<RetailersViewProps> = ({
   retailers,
+  orders = [],
   onSaveRetailer,
   onVerifyRetailer,
   onDeleteRetailer,
+  onCleanupRetailers,
+  onDeleteBeat,
   onOpenNewOrderForRetailer,
-  onRecordPaymentForRetailer
+  onRecordPaymentForRetailer,
+  onNavigateToVerifications,
+  pendingVerificationsCount
 }) => {
   const { isAdmin, isSalesman, isAccounts, isRetailer, currentUser } = useAuth();
   
   // Local retailers state for instant optimistic updates
-  const [localRetailers, setLocalRetailers] = useState<Retailer[]>(retailers);
+  const [localRetailers, setLocalRetailers] = useState<Retailer[]>(() => retailers.filter(r => !isPurgedStore(r)));
   useEffect(() => {
-    setLocalRetailers(retailers);
+    setLocalRetailers(retailers.filter(r => !isPurgedStore(r)));
   }, [retailers]);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,6 +169,84 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   const [togglingCreditId, setTogglingCreditId] = useState<string | null>(null);
   const [verifyingRetailerId, setVerifyingRetailerId] = useState<string | null>(null);
 
+  // Cleanup Modal State
+  const [isCleanupModalOpen, setIsCleanupModalOpen] = useState(false);
+  const [selectedCleanupIds, setSelectedCleanupIds] = useState<string[]>([]);
+  const [cleanupOrderHandling, setCleanupOrderHandling] = useState<'delete' | 'archive'>('delete');
+  const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [cleanupSearchQuery, setCleanupSearchQuery] = useState('');
+  const [singleDeleteOrderHandling, setSingleDeleteOrderHandling] = useState<'delete' | 'archive'>('delete');
+  const [cleanupNotification, setCleanupNotification] = useState<string | null>(null);
+
+  // Detect candidate test / duplicate stores in active data
+  const detectedTestStores = (retailers || []).filter(isCandidateTestAccount);
+
+  // Compile all candidate stores for cleanup
+  const getCleanupCandidateStores = () => {
+    const candidates: Array<{
+      id: string;
+      storeName: string;
+      ownerName: string;
+      phone: string;
+      area: string;
+      beatName: string;
+      isSpecificTarget: boolean;
+      existsInDb: boolean;
+      ordersCount: number;
+      ordersTotal: number;
+    }> = [];
+
+    // 1. Target stores explicitly named in requirement
+    SPECIFIC_TARGET_TEST_STORES.forEach(target => {
+      const match = (retailers || []).find(r => 
+        r.id === target.id ||
+        r.storeName.toLowerCase().includes(target.storeName.toLowerCase()) ||
+        (r.phone && r.phone.replace(/\D/g, '').endsWith(target.phone.replace(/\D/g, '').slice(-6)))
+      );
+
+      const storeId = match ? match.id : target.id;
+      const storeOrders = (orders || []).filter(o => o.retailerId === storeId || (match && o.retailerId === match.id));
+      const ordersTotal = storeOrders.reduce((sum, o) => sum + (o.grandTotal || o.totalAmount || 0), 0);
+
+      candidates.push({
+        id: storeId,
+        storeName: match?.storeName || target.storeName,
+        ownerName: match?.ownerName || target.ownerName,
+        phone: match?.phone || target.phone,
+        area: match?.area || target.area,
+        beatName: match?.beatName || target.beatName,
+        isSpecificTarget: true,
+        existsInDb: Boolean(match),
+        ordersCount: storeOrders.length,
+        ordersTotal
+      });
+    });
+
+    // 2. Add other candidate test accounts found in retailers
+    (retailers || []).forEach(r => {
+      if (isCandidateTestAccount(r) && !candidates.some(c => c.id === r.id || c.storeName.toLowerCase() === r.storeName.toLowerCase())) {
+        const storeOrders = (orders || []).filter(o => o.retailerId === r.id);
+        const ordersTotal = storeOrders.reduce((sum, o) => sum + (o.grandTotal || o.totalAmount || 0), 0);
+        candidates.push({
+          id: r.id,
+          storeName: r.storeName,
+          ownerName: r.ownerName,
+          phone: r.phone,
+          area: r.area || 'General',
+          beatName: r.beatName || 'Unassigned',
+          isSpecificTarget: false,
+          existsInDb: true,
+          ordersCount: storeOrders.length,
+          ordersTotal
+        });
+      }
+    });
+
+    return candidates;
+  };
+
+  const cleanupCandidates = getCleanupCandidateStores();
+
   // Beat Management State
   const [customBeats, setCustomBeats] = useState<string[]>(() => {
     try {
@@ -86,11 +256,35 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
       return [];
     }
   });
+
+  const [deletedBeats, setDeletedBeats] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('fmcg_deleted_beats');
+      return saved ? JSON.parse(saved) : [
+        'Indiranagar Retail Beat',
+        'MG Road Commercial Beat',
+        'Koramangala Daily Beat',
+        'Whitefield Supermarket Beat',
+        'Jayanagar Provision Beat'
+      ];
+    } catch {
+      return [
+        'Indiranagar Retail Beat',
+        'MG Road Commercial Beat',
+        'Koramangala Daily Beat',
+        'Whitefield Supermarket Beat',
+        'Jayanagar Provision Beat'
+      ];
+    }
+  });
+
   const [isBeatModalOpen, setIsBeatModalOpen] = useState(false);
   const [newBeatName, setNewBeatName] = useState('');
   const [newBeatDescription, setNewBeatDescription] = useState('');
   const [isAddingBeatInline, setIsAddingBeatInline] = useState(false);
   const [inlineBeatInput, setInlineBeatInput] = useState('');
+  const [deletingBeatName, setDeletingBeatName] = useState<string | null>(null);
+  const [isDeletingBeat, setIsDeletingBeat] = useState(false);
 
   // Edit / Add Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -106,16 +300,22 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   const [ledgerData, setLedgerData] = useState<{ retailer: Retailer; entries: any[]; finalBalance: number } | null>(null);
   const [isLoadingLedger, setIsLoadingLedger] = useState(false);
 
-  // Aggregate all beats
+  // Aggregate all beats, excluding any explicitly deleted beats (case-insensitive)
   const beats = Array.from(new Set([
     ...DEFAULT_BEAT_ROUTES,
     ...localRetailers.map(r => r.beatName),
     ...customBeats
-  ])).filter(Boolean);
+  ])).filter(b => Boolean(b) && !deletedBeats.some(db => db.toLowerCase() === b.toLowerCase()));
 
   const handleCreateBeat = (beatNameToAdd: string) => {
     const trimmed = beatNameToAdd.trim();
     if (!trimmed) return;
+    const updatedDeleted = deletedBeats.filter(b => b.toLowerCase() !== trimmed.toLowerCase());
+    setDeletedBeats(updatedDeleted);
+    try {
+      localStorage.setItem('fmcg_deleted_beats', JSON.stringify(updatedDeleted));
+    } catch {}
+
     if (!customBeats.includes(trimmed)) {
       const updated = [...customBeats, trimmed];
       setCustomBeats(updated);
@@ -126,6 +326,59 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
     setIsBeatModalOpen(false);
     setNewBeatName('');
     setNewBeatDescription('');
+  };
+
+  const handleDeleteBeat = (beatToDelete: string) => {
+    setDeletingBeatName(beatToDelete);
+  };
+
+  const handleConfirmDeleteBeat = async () => {
+    if (!deletingBeatName) return;
+    const targetBeat = deletingBeatName;
+    try {
+      setIsDeletingBeat(true);
+      const targetLower = targetBeat.toLowerCase();
+
+      // 1. Update deleted beats state and local storage
+      const updatedDeleted = Array.from(new Set([...deletedBeats, targetBeat]));
+      setDeletedBeats(updatedDeleted);
+      try {
+        localStorage.setItem('fmcg_deleted_beats', JSON.stringify(updatedDeleted));
+      } catch {}
+
+      // 2. Remove from custom beats
+      const updatedCustom = customBeats.filter(b => b.toLowerCase() !== targetLower);
+      setCustomBeats(updatedCustom);
+      try {
+        localStorage.setItem('fmcg_custom_beats', JSON.stringify(updatedCustom));
+      } catch {}
+
+      // 3. Reassign retailers in state immediately
+      setLocalRetailers(prev => prev.map(r => {
+        if (r.beatName && r.beatName.toLowerCase() === targetLower) {
+          const updated = { ...r, beatName: 'Utraula Retail Beat' };
+          if (onSaveRetailer) {
+            onSaveRetailer(updated).catch(err => console.warn('Failed to update retailer beat on server:', err));
+          }
+          return updated;
+        }
+        return r;
+      }));
+
+      if (selectedBeat && selectedBeat.toLowerCase() === targetLower) {
+        setSelectedBeat('all');
+      }
+
+      // 4. Call server endpoint to remove from database
+      if (onDeleteBeat) {
+        await onDeleteBeat(targetBeat);
+      }
+    } catch (e) {
+      console.warn('Failed to delete beat:', e);
+    } finally {
+      setIsDeletingBeat(false);
+      setDeletingBeatName(null);
+    }
   };
 
   const visibleRetailers = currentUser?.role === 'retailer'
@@ -373,6 +626,7 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   const handleDeleteConfirmed = async () => {
     if (!deletingRetailerId) return;
     const targetId = deletingRetailerId;
+    const handling = singleDeleteOrderHandling;
     
     // Instant optimistic removal from UI
     setLocalRetailers(prev => prev.filter(r => r.id !== targetId));
@@ -380,10 +634,37 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
 
     if (onDeleteRetailer) {
       try {
-        await onDeleteRetailer(targetId);
+        await onDeleteRetailer(targetId, handling);
       } catch (err) {
         console.error('Failed to delete retailer:', err);
       }
+    }
+  };
+
+  const handleExecuteCleanup = async () => {
+    if (selectedCleanupIds.length === 0) return;
+    try {
+      setIsCleaningUp(true);
+      const idsToClean = [...selectedCleanupIds];
+
+      // Optimistic removal from UI
+      setLocalRetailers(prev => prev.filter(r => !idsToClean.includes(r.id)));
+
+      if (onCleanupRetailers) {
+        await onCleanupRetailers(idsToClean, cleanupOrderHandling);
+      } else {
+        await api.cleanupRetailers(idsToClean, cleanupOrderHandling);
+      }
+
+      setCleanupNotification(`Successfully purged ${idsToClean.length} retailer account(s) and handled associated order data.`);
+      setIsCleanupModalOpen(false);
+      setSelectedCleanupIds([]);
+      setTimeout(() => setCleanupNotification(null), 6000);
+    } catch (err: any) {
+      console.error('Failed to cleanup retailers:', err);
+      alert(err?.message || 'Failed to clean up retailer accounts');
+    } finally {
+      setIsCleaningUp(false);
     }
   };
 
@@ -409,31 +690,121 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
           <p className="text-xs text-slate-500">Retail store directory, credit lines, shop photos, and beat route management</p>
         </div>
 
-        {(isAdmin || isSalesman) && (
-          <div className="flex items-center space-x-2.5">
-            {/* Beat Creation Button */}
+        <div className="flex items-center space-x-2.5 flex-wrap gap-y-2">
+          {/* Verification Dashboard Quick Link */}
+          {onNavigateToVerifications && (
             <button
               type="button"
-              onClick={() => setIsBeatModalOpen(true)}
-              className="px-3.5 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shrink-0"
-              title="Add a new Beat Delivery Route"
+              onClick={onNavigateToVerifications}
+              className="px-3.5 py-2 text-xs font-bold rounded-lg bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shrink-0"
+              title="Open Retailer Verification & KYC Dashboard"
             >
-              <Map className="w-4 h-4" />
-              <span>+ Create Beat (नई बीट)</span>
+              <ShieldCheck className="w-4 h-4 text-white" />
+              <span>Verification Pipeline</span>
+              {pendingVerificationsCount !== undefined && pendingVerificationsCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.2 bg-white text-amber-900 rounded-full text-[10px] font-black">
+                  {pendingVerificationsCount}
+                </span>
+              )}
             </button>
+          )}
 
-            {/* Onboard Retailer Button */}
+          {/* Admin Dedicated Cleanup Button */}
+          {isAdmin && (
             <button
               type="button"
-              onClick={handleOpenAdd}
-              className="px-4 py-2 text-xs font-bold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shrink-0"
+              onClick={() => {
+                // Preselect target candidate IDs by default
+                const detectedIds = cleanupCandidates.map(c => c.id);
+                setSelectedCleanupIds(detectedIds.length > 0 ? detectedIds : ['ret_4', 'ret_3', 'ret_2']);
+                setIsCleanupModalOpen(true);
+              }}
+              className="px-3.5 py-2 text-xs font-bold rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shrink-0"
+              title="Clean up test, sample, and duplicate retailer accounts and their orders"
             >
-              <Plus className="w-4 h-4" />
-              <span>+ Onboard New Retailer</span>
+              <Trash2 className="w-4 h-4 text-rose-600" />
+              <span>Cleanup</span>
+              {cleanupCandidates.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 bg-rose-600 text-white rounded-full text-[10px] font-bold">
+                  {cleanupCandidates.length}
+                </span>
+              )}
             </button>
-          </div>
-        )}
+          )}
+
+          {(isAdmin || isSalesman) && (
+            <>
+              {/* Beat Creation / Delete Management Button */}
+              <button
+                type="button"
+                onClick={() => setIsBeatModalOpen(true)}
+                className="px-3.5 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shrink-0"
+                title="Manage, create, or delete Beat Delivery Routes"
+              >
+                <Map className="w-4 h-4" />
+                <span>Manage Beats</span>
+              </button>
+
+              {/* Onboard Retailer Button */}
+              <button
+                type="button"
+                onClick={handleOpenAdd}
+                className="px-4 py-2 text-xs font-bold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Onboard New Retailer</span>
+              </button>
+            </>
+          )}
+        </div>
       </div>
+
+      {/* Success Banner if cleanup just happened */}
+      {cleanupNotification && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg p-3.5 flex items-center justify-between text-xs animate-in fade-in duration-200">
+          <div className="flex items-center space-x-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-semibold">{cleanupNotification}</span>
+          </div>
+          <button 
+            type="button" 
+            onClick={() => setCleanupNotification(null)}
+            className="text-emerald-600 hover:text-emerald-900 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Detected Test Accounts Banner for Admin */}
+      {isAdmin && detectedTestStores.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-4 h-4 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-900">
+                {detectedTestStores.length} Test / Duplicate Retailer Account(s) Detected
+              </p>
+              <p className="text-[11px] text-amber-700">
+                Found accounts like {detectedTestStores.slice(0, 3).map(s => `"${s.storeName}"`).join(', ')}. Use the Cleanup tool to permanently purge them and handle associated orders.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedCleanupIds(detectedTestStores.map(s => s.id));
+              setIsCleanupModalOpen(true);
+            }}
+            className="px-3.5 py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors cursor-pointer shrink-0 shadow-xs flex items-center space-x-1.5"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Review & Clean Up</span>
+          </button>
+        </div>
+      )}
 
       {/* Filters Bar */}
       <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-xs space-y-3">
@@ -716,10 +1087,11 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setDeletingRetailerId(retailer.id)}
-                      className="p-1 text-slate-400 hover:text-rose-600 rounded-md cursor-pointer"
-                      title="Delete Retailer"
+                      className="px-2 py-1 text-xs font-semibold rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors flex items-center space-x-1 cursor-pointer"
+                      title="Delete this Retailer"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Delete</span>
                     </button>
                   )}
 
@@ -761,7 +1133,7 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">Create New Beat Route</h3>
-                  <p className="text-[11px] text-slate-500">नई बीट डिलीवरी मार्ग जोड़ें</p>
+                  <p className="text-[11px] text-slate-500">Add a new delivery beat route</p>
                 </div>
               </div>
               <button 
@@ -775,7 +1147,7 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
 
             <form onSubmit={(e) => { e.preventDefault(); handleCreateBeat(newBeatName); }} className="space-y-3.5">
               <div>
-                <label className="block text-slate-700 font-semibold text-xs mb-1">Beat Name / बीट का नाम *</label>
+                <label className="block text-slate-700 font-semibold text-xs mb-1">Beat Name *</label>
                 <input
                   type="text"
                   required
@@ -809,10 +1181,36 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                   type="submit"
                   className="px-4 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-xs cursor-pointer"
                 >
-                  Save New Beat (बीट सुरक्षित करें)
+                  Save New Beat
                 </button>
               </div>
             </form>
+
+            {/* List of Existing Beats with Delete Option */}
+            <div className="pt-3 border-t border-slate-100 space-y-2">
+              <h4 className="text-xs font-bold text-slate-700">Existing Beat Routes ({beats.length}) / Remove Beats:</h4>
+              <div className="max-h-48 overflow-y-auto space-y-1.5 divide-y divide-slate-100">
+                {beats.map(b => {
+                  const count = localRetailers.filter(r => r.beatName === b).length;
+                  return (
+                    <div key={b} className="flex items-center justify-between py-1.5 text-xs">
+                      <div>
+                        <span className="font-semibold text-slate-800">{b}</span>
+                        <span className="text-[11px] text-slate-400 ml-2">({count} outlets)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBeat(b)}
+                        className="px-2 py-0.5 text-[11px] text-rose-600 hover:bg-rose-50 border border-rose-200 rounded font-medium transition-colors"
+                        title="Delete Beat"
+                      >
+                        Delete Beat
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -860,9 +1258,9 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                 <div className="flex items-center justify-between">
                   <label className="block text-slate-800 font-bold text-xs flex items-center space-x-1.5">
                     <Camera className="w-4 h-4 text-[#2563eb]" />
-                    <span>Shop Front Photo / दुकान की फोटो (Capture / Upload)</span>
+                    <span>Shop Front Photo (Capture / Upload)</span>
                   </label>
-                  <span className="text-[10px] text-slate-500">दुकान के बोर्ड की साफ फोटो लें</span>
+                  <span className="text-[10px] text-slate-500">Take a clear photo of the store signboard</span>
                 </div>
 
                 {editingRetailer.shopPhotoUrl ? (
@@ -875,15 +1273,15 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                     <div className="space-y-1.5 flex-1">
                       <div className="flex items-center space-x-1 text-emerald-700 font-bold text-xs">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>फोटो सुरक्षित है (Photo Uploaded)</span>
+                        <span>Photo Uploaded</span>
                       </div>
                       <p className="text-[10px] text-slate-500">
-                        यह फोटो दुकान सत्यापन व ऑर्डर डिलीवरी में प्रदर्शित होगी।
+                        This photo will be displayed in retailer verification and order delivery dispatch.
                       </p>
                       <div className="flex items-center space-x-2 pt-1">
                         <label className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-md cursor-pointer flex items-center space-x-1">
                           <Camera className="w-3 h-3 text-[#2563eb]" />
-                          <span>Retake (दोबारा लें)</span>
+                          <span>Retake Photo</span>
                           <input
                             type="file"
                             accept="image/*"
@@ -907,8 +1305,8 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                     <div className="p-2.5 bg-blue-50 text-[#2563eb] rounded-full mb-1.5">
                       <Camera className="w-5 h-5" />
                     </div>
-                    <span className="font-bold text-slate-800 text-xs">कैमरा से दुकान की फोटो खींचें (Capture Shop Photo)</span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">या गैलरी से दुकान की इमेज अपलोड करें</span>
+                    <span className="font-bold text-slate-800 text-xs">Capture Shop Photo</span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">or upload store front image from device</span>
                     <input
                       type="file"
                       accept="image/*"
@@ -930,7 +1328,7 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                     value={editingRetailer.storeName || ''}
                     onChange={(e) => setEditingRetailer({ ...editingRetailer, storeName: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
-                    placeholder="e.g. Laxmi Supermarket"
+                    placeholder="e.g. Maa Durga Kirana Store"
                   />
                 </div>
                 <div>
@@ -981,7 +1379,7 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                       onClick={() => setIsAddingBeatInline(!isAddingBeatInline)}
                       className="text-[10px] font-bold text-[#2563eb] hover:underline cursor-pointer"
                     >
-                      {isAddingBeatInline ? '← Choose Existing' : '+ New Beat (नई बीट)'}
+                      {isAddingBeatInline ? '← Choose Existing' : '+ New Beat'}
                     </button>
                   </div>
                   
@@ -1102,9 +1500,9 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                         onChange={(e) => setEditingRetailer({ ...editingRetailer, verificationStatus: e.target.value as any })}
                         className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs font-semibold"
                       >
-                        <option value="verified">✓ Verified & Approved (ऑर्डर चालू)</option>
-                        <option value="pending">⏳ Pending Review (सत्यापन लंबित)</option>
-                        <option value="rejected">✕ Rejected (अस्वीकृत)</option>
+                        <option value="verified">✓ Verified & Approved</option>
+                        <option value="pending">⏳ Pending Review</option>
+                        <option value="rejected">✕ Rejected</option>
                       </select>
                     </div>
 
@@ -1198,23 +1596,41 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
               </div>
 
               {/* Submit Buttons */}
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
-                <button
-                  type="button"
-                  disabled={isSaving}
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-semibold rounded-lg shadow-xs cursor-pointer flex items-center space-x-1.5 disabled:opacity-75"
-                >
-                  {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                  <span>{isSaving ? 'Saving Outlet...' : 'Save Retail Outlet'}</span>
-                </button>
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between space-x-2">
+                {editingRetailer.id && (isAdmin || isSalesman) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const id = editingRetailer.id;
+                      setIsModalOpen(false);
+                      setDeletingRetailerId(id);
+                    }}
+                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-lg flex items-center space-x-1.5 cursor-pointer transition-colors"
+                    title="Permanently remove this retail outlet"
+                  >
+                    <Trash2 className="w-4 h-4 text-rose-600" />
+                    <span>Delete Outlet</span>
+                  </button>
+                )}
+
+                <div className="flex items-center space-x-2 ml-auto">
+                  <button
+                    type="button"
+                    disabled={isSaving}
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer disabled:opacity-50 text-xs font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-semibold rounded-lg shadow-xs cursor-pointer flex items-center space-x-1.5 disabled:opacity-75 text-xs"
+                  >
+                    {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>{isSaving ? 'Saving Outlet...' : 'Save Retail Outlet'}</span>
+                  </button>
+                </div>
               </div>
 
             </form>
@@ -1342,42 +1758,460 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
       {/* ========================================================================= */}
       {/* DELETE CONFIRMATION MODAL                                                 */}
       {/* ========================================================================= */}
-      {deletingRetailerId && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-sm w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center space-x-3 text-rose-600">
-              <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
-                <AlertCircle className="w-5 h-5" />
+      {deletingRetailerId && (() => {
+        const targetRetailer = localRetailers.find(r => r.id === deletingRetailerId) || retailers.find(r => r.id === deletingRetailerId);
+        const storeOrders = (orders || []).filter(o => o.retailerId === deletingRetailerId);
+        const storeOrdersTotal = storeOrders.reduce((sum, o) => sum + (o.grandTotal || o.totalAmount || 0), 0);
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center space-x-3 text-rose-600">
+                <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+                  <Trash2 className="w-5 h-5 text-rose-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Delete Retailer Store</h3>
+                  <p className="text-[11px] text-slate-500">Remove outlet from beat routing and database</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Delete Retailer?</h3>
-                <p className="text-[11px] text-slate-500">This will remove the store from active beat routing.</p>
+              
+              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1">
+                <p className="font-bold text-slate-900">{targetRetailer?.storeName || 'Selected Store'}</p>
+                <p className="text-slate-500">Owner: {targetRetailer?.ownerName || '-'} • Beat: {targetRetailer?.beatName || '-'}</p>
+                {storeOrders.length > 0 && (
+                  <p className="text-amber-800 font-semibold pt-1 border-t border-slate-200">
+                    ⚠️ Found {storeOrders.length} associated order(s) totaling {formatINR(storeOrdersTotal)}.
+                  </p>
+                )}
+              </div>
+
+              {storeOrders.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-slate-700">How should associated order data be handled?</p>
+                  <label className="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50">
+                    <input
+                      type="radio"
+                      name="singleDeleteOrderHandling"
+                      checked={singleDeleteOrderHandling === 'delete'}
+                      onChange={() => setSingleDeleteOrderHandling('delete')}
+                      className="mt-0.5 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="font-bold text-slate-900">Cascade delete associated orders & payments</span>
+                      <p className="text-[11px] text-slate-500">Completely purge test orders so sales figures stay clean.</p>
+                    </div>
+                  </label>
+                  <label className="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50">
+                    <input
+                      type="radio"
+                      name="singleDeleteOrderHandling"
+                      checked={singleDeleteOrderHandling === 'archive'}
+                      onChange={() => setSingleDeleteOrderHandling('archive')}
+                      className="mt-0.5 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="font-bold text-slate-900">Cancel & archive orders</span>
+                      <p className="text-[11px] text-slate-500">Mark orders as Cancelled [Account Purged] to preserve history.</p>
+                    </div>
+                  </label>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setDeletingRetailerId(null)}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteConfirmed}
+                  className="px-3.5 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer flex items-center space-x-1.5"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Confirm Permanent Delete</span>
+                </button>
               </div>
             </div>
-            
-            <p className="text-xs text-slate-600">
-              Are you sure you want to delete <strong>{localRetailers.find(r => r.id === deletingRetailerId)?.storeName}</strong>?
-            </p>
+          </div>
+        );
+      })()}
 
-            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+      {/* ========================================================================= */}
+      {/* BEAT ROUTE DELETE CONFIRMATION MODAL                                      */}
+      {/* ========================================================================= */}
+      {deletingBeatName && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center space-x-3 text-rose-600">
+              <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Delete Beat Route?</h3>
+                <p className="text-[11px] text-slate-500">Remove beat delivery route from system</p>
+              </div>
+            </div>
+
+            <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs space-y-1.5">
+              <p className="font-bold text-slate-900 flex items-center space-x-1">
+                <span>Beat Name:</span>
+                <span className="text-rose-700 font-extrabold">{deletingBeatName}</span>
+              </p>
+              <p className="text-slate-600 text-[11px]">
+                Are you sure you want to delete this beat route? Any retailers or salesmen assigned to this route will be automatically moved to the default beat.
+              </p>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
               <button
                 type="button"
-                onClick={() => setDeletingRetailerId(null)}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                disabled={isDeletingBeat}
+                onClick={() => setDeletingBeatName(null)}
+                className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 type="button"
-                onClick={handleDeleteConfirmed}
-                className="px-3.5 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer"
+                disabled={isDeletingBeat}
+                onClick={handleConfirmDeleteBeat}
+                className="px-4 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer flex items-center space-x-1.5 disabled:opacity-75"
               >
-                Yes, Delete Retailer
+                {isDeletingBeat ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>{isDeletingBeat ? 'Deleting Beat...' : 'Confirm Delete Beat'}</span>
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* DATA CLEANUP MODAL (ADMIN ONLY)                                           */}
+      {/* ========================================================================= */}
+      {isCleanupModalOpen && (() => {
+        // Calculate cumulative impact of selected cleanup accounts
+        const selectedStoresData = cleanupCandidates.filter(c => selectedCleanupIds.includes(c.id));
+        const totalAffectedOrders = selectedStoresData.reduce((sum, s) => sum + s.ordersCount, 0);
+        const totalAffectedOrdersValue = selectedStoresData.reduce((sum, s) => sum + s.ordersTotal, 0);
+
+        // Search candidate list or other non-candidate retailers that admin might want to clean up
+        const otherRetailers = localRetailers.filter(r => 
+          !cleanupCandidates.some(c => c.id === r.id) &&
+          (
+            !cleanupSearchQuery ||
+            r.storeName.toLowerCase().includes(cleanupSearchQuery.toLowerCase()) ||
+            r.ownerName.toLowerCase().includes(cleanupSearchQuery.toLowerCase()) ||
+            r.phone.includes(cleanupSearchQuery)
+          )
+        );
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+              
+              {/* Modal Header */}
+              <div className="p-4 sm:p-5 border-b border-slate-100 bg-slate-50/70 flex items-start justify-between gap-3">
+                <div className="flex items-start space-x-3">
+                  <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 shadow-xs">
+                    <Trash2 className="w-5 h-5 text-rose-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Retailer Network & Test Account Cleanup</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Permanently delete test, sample, or duplicate retailer accounts and safely handle associated order records.
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => setIsCleanupModalOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer shrink-0"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-4 sm:p-5 overflow-y-auto space-y-5 text-xs text-slate-700 flex-1">
+                
+                {/* Section 1: Target Test Accounts */}
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-xs flex items-center space-x-1.5">
+                        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+                        <span>Specific Target Accounts for Permanent Deletion</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-500">
+                        Target test outlets like Ganesh Daily Needs, Laxmi Supermarket, and Sapthagiri Super Mart.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const allCandidateIds = cleanupCandidates.map(c => c.id);
+                        const isAllSelected = allCandidateIds.every(id => selectedCleanupIds.includes(id));
+                        if (isAllSelected) {
+                          setSelectedCleanupIds([]);
+                        } else {
+                          setSelectedCleanupIds(allCandidateIds);
+                        }
+                      }}
+                      className="text-[11px] font-semibold text-[#2563eb] hover:text-[#1d4ed8] cursor-pointer"
+                    >
+                      {cleanupCandidates.every(c => selectedCleanupIds.includes(c.id)) ? 'Deselect All' : 'Select All'}
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {cleanupCandidates.map(store => {
+                      const isSelected = selectedCleanupIds.includes(store.id);
+                      return (
+                        <div
+                          key={store.id}
+                          onClick={() => {
+                            setSelectedCleanupIds(prev => 
+                              prev.includes(store.id) 
+                                ? prev.filter(id => id !== store.id) 
+                                : [...prev, store.id]
+                            );
+                          }}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                            isSelected 
+                              ? 'bg-rose-50/70 border-rose-300 ring-1 ring-rose-200' 
+                              : 'bg-white border-slate-200 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3 min-w-0">
+                            <div className="shrink-0 text-slate-400">
+                              {isSelected ? (
+                                <CheckSquare className="w-4 h-4 text-rose-600" />
+                              ) : (
+                                <Square className="w-4 h-4 text-slate-400" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center space-x-2">
+                                <span className="font-bold text-slate-900 truncate">{store.storeName}</span>
+                                {store.isSpecificTarget && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-700">
+                                    Target Test Outlet
+                                  </span>
+                                )}
+                                {!store.existsInDb && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800">
+                                    Target ID: {store.id}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-slate-500 truncate">
+                                Prop: {store.ownerName} • Beat: {store.beatName} • Phone: {store.phone}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="text-right shrink-0 text-[11px]">
+                            {store.ordersCount > 0 ? (
+                              <span className="font-bold text-amber-700 block">
+                                {store.ordersCount} Order(s) • {formatINR(store.ordersTotal)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 block">0 Orders</span>
+                            )}
+                            <span className="text-[10px] text-slate-400">Will be purged</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Section 2: Order Data Handling Strategy (Crucial) */}
+                <div className="space-y-2.5 pt-3 border-t border-slate-100">
+                  <h4 className="font-bold text-slate-900 text-xs flex items-center space-x-1.5">
+                    <Archive className="w-3.5 h-3.5 text-blue-600" />
+                    <span>How Should Associated Order Data Be Handled?</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Choose how orders, invoices, and transactions linked to these accounts will be processed.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Option 1: Cascade Delete */}
+                    <div
+                      onClick={() => setCleanupOrderHandling('delete')}
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer space-y-1.5 ${
+                        cleanupOrderHandling === 'delete'
+                          ? 'bg-rose-50/70 border-rose-300 ring-1 ring-rose-200'
+                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="cleanupOrderHandling"
+                          checked={cleanupOrderHandling === 'delete'}
+                          onChange={() => setCleanupOrderHandling('delete')}
+                          className="text-rose-600 focus:ring-rose-500 cursor-pointer"
+                        />
+                        <span className="font-bold text-slate-900">Cascade Delete (Recommended)</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 pl-5 leading-relaxed">
+                        Permanently deletes all orders, line items, and payment receipts. Keeps revenue, GMV, and inventory logs completely clean of test numbers.
+                      </p>
+                    </div>
+
+                    {/* Option 2: Cancel & Archive */}
+                    <div
+                      onClick={() => setCleanupOrderHandling('archive')}
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer space-y-1.5 ${
+                        cleanupOrderHandling === 'archive'
+                          ? 'bg-blue-50/70 border-blue-300 ring-1 ring-blue-200'
+                          : 'bg-white border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          name="cleanupOrderHandling"
+                          checked={cleanupOrderHandling === 'archive'}
+                          onChange={() => setCleanupOrderHandling('archive')}
+                          className="text-blue-600 focus:ring-blue-500 cursor-pointer"
+                        />
+                        <span className="font-bold text-slate-900">Cancel & Archive Orders</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 pl-5 leading-relaxed">
+                        Retains order history with status updated to 'Cancelled' and note [Retailer Account Cleaned Up], zeroing out ledger balances.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Add other retailers if needed */}
+                <div className="space-y-2 pt-3 border-t border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-bold text-slate-900 text-xs">
+                      Clean Up Other Retailers (Optional)
+                    </h4>
+                    <span className="text-[10px] text-slate-400">Search active stores to add</span>
+                  </div>
+                  
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search any store to add to this cleanup batch..."
+                      value={cleanupSearchQuery}
+                      onChange={e => setCleanupSearchQuery(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {cleanupSearchQuery && (
+                    <div className="max-h-32 overflow-y-auto divide-y divide-slate-100 border border-slate-200 rounded-lg">
+                      {otherRetailers.map(r => {
+                        const isAdded = selectedCleanupIds.includes(r.id);
+                        return (
+                          <div key={r.id} className="p-2 flex items-center justify-between hover:bg-slate-50 text-[11px]">
+                            <div>
+                              <span className="font-bold text-slate-800">{r.storeName}</span>
+                              <span className="text-slate-400 ml-1.5">({r.beatName})</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedCleanupIds(prev => 
+                                  isAdded ? prev.filter(id => id !== r.id) : [...prev, r.id]
+                                );
+                              }}
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-colors ${
+                                isAdded 
+                                  ? 'bg-rose-100 text-rose-700' 
+                                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                              }`}
+                            >
+                              {isAdded ? 'Selected ✓' : '+ Add to Cleanup'}
+                            </button>
+                          </div>
+                        );
+                      })}
+                      {otherRetailers.length === 0 && (
+                        <p className="p-2 text-center text-slate-400 text-[11px]">No matching stores found</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Section 4: Summary Impact Box */}
+                <div className="p-3 bg-slate-100 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div>
+                    <span className="text-slate-500 block text-[10px] font-semibold uppercase">Accounts to Delete</span>
+                    <span className="font-bold text-slate-900 text-sm">{selectedCleanupIds.length} Outlet(s)</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] font-semibold uppercase">Associated Orders</span>
+                    <span className="font-bold text-slate-900 text-sm">
+                      {totalAffectedOrders} Order(s)
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] font-semibold uppercase">Total Order Value</span>
+                    <span className="font-bold text-rose-700 text-sm font-mono">
+                      {formatINR(totalAffectedOrdersValue)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[10px] font-semibold uppercase">Order Handling</span>
+                    <span className="font-bold text-blue-700 text-xs">
+                      {cleanupOrderHandling === 'delete' ? 'Cascade Delete' : 'Archive History'}
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-slate-100 bg-slate-50/70 flex items-center justify-end space-x-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsCleanupModalOpen(false)}
+                  disabled={isCleaningUp}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteCleanup}
+                  disabled={selectedCleanupIds.length === 0 || isCleaningUp}
+                  className={`px-4 py-2 text-xs font-bold rounded-xl text-white shadow-xs transition-all flex items-center space-x-1.5 cursor-pointer ${
+                    selectedCleanupIds.length === 0 || isCleaningUp
+                      ? 'bg-slate-300 cursor-not-allowed text-slate-500'
+                      : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
+                >
+                  {isCleaningUp ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Executing Permanent Cleanup...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      <span>Permanently Clean Up ({selectedCleanupIds.length}) Outlets</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );

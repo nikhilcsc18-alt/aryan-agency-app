@@ -15,6 +15,7 @@ import {
   Brand
 } from '../types';
 import { getRetailerCreditSettings, setRetailerCreditControl, applyCreditControlsToRetailers } from './retailerCredit';
+import { getRetailerVerificationOverride, setRetailerVerificationOverride, applyVerificationOverrides } from './retailerVerification';
 
 // Read Supabase environment credentials from client or server environment with multiple alias fallbacks
 const env = (import.meta as any).env || {};
@@ -182,10 +183,23 @@ function mapDbUser(row: any): User {
     email: row.email,
     phone: row.phone,
     role: row.role,
-    avatarUrl: row.avatar_url,
-    salesmanId: row.salesman_id,
-    retailerId: row.retailer_id,
-    deliveryId: row.delivery_id
+    avatarUrl: row.avatar_url || row.avatarUrl,
+    salesmanId: row.salesman_id || row.salesmanId,
+    retailerId: row.retailer_id || row.retailerId,
+    deliveryId: row.delivery_id || row.deliveryId,
+    businessName: row.business_name || row.businessName,
+    businessLogoUrl: row.business_logo_url || row.businessLogoUrl,
+    address: row.address,
+    city: row.city,
+    state: row.state,
+    pincode: row.pincode,
+    gstin: row.gstin || row.gst_number || row.gstin_number,
+    panNumber: row.pan_number || row.panNumber,
+    locationCoordinates: row.location_coordinates || (row.lat && row.lng ? { lat: row.lat, lng: row.lng } : undefined),
+    verificationStatus: row.verification_status || (row.role === 'admin' ? 'verified' : (row.is_verified ? 'verified' : undefined)),
+    verificationRemarks: row.verification_remarks || undefined,
+    verifiedAt: row.verified_at || undefined,
+    verifiedBy: row.verified_by || undefined
   };
 }
 
@@ -200,6 +214,14 @@ function userToDb(u: Partial<User>): any {
   if (u.salesmanId !== undefined) out.salesman_id = u.salesmanId;
   if (u.retailerId !== undefined) out.retailer_id = u.retailerId;
   if (u.deliveryId !== undefined) out.delivery_id = u.deliveryId;
+  if (u.businessName !== undefined) out.business_name = u.businessName;
+  if (u.businessLogoUrl !== undefined) out.business_logo_url = u.businessLogoUrl;
+  if (u.address !== undefined) out.address = u.address;
+  if (u.city !== undefined) out.city = u.city;
+  if (u.state !== undefined) out.state = u.state;
+  if (u.pincode !== undefined) out.pincode = u.pincode;
+  if (u.gstin !== undefined) out.gstin = u.gstin;
+  if (u.panNumber !== undefined) out.pan_number = u.panNumber;
   return out;
 }
 
@@ -354,11 +376,16 @@ function mapDbRetailer(row: any): Retailer {
     photoUrl: row.photo_url
   };
   const creditSettings = getRetailerCreditSettings(base);
+  const verificationOverride = getRetailerVerificationOverride(row.id);
   return {
     ...base as Retailer,
     creditEnabled: creditSettings.creditEnabled,
     creditLimit: creditSettings.creditLimit !== undefined ? creditSettings.creditLimit : Number(row.credit_limit || 50000),
-    creditDaysAllowed: creditSettings.creditDaysAllowed !== undefined ? creditSettings.creditDaysAllowed : Number(row.credit_days_allowed || 14)
+    creditDaysAllowed: creditSettings.creditDaysAllowed !== undefined ? creditSettings.creditDaysAllowed : Number(row.credit_days_allowed || 14),
+    verificationStatus: verificationOverride ? verificationOverride.verificationStatus : (base.verificationStatus || 'pending'),
+    verificationRemarks: verificationOverride?.verificationRemarks !== undefined ? verificationOverride.verificationRemarks : base.verificationRemarks,
+    verifiedAt: verificationOverride?.verifiedAt !== undefined ? verificationOverride.verifiedAt : base.verifiedAt,
+    verifiedBy: verificationOverride?.verifiedBy !== undefined ? verificationOverride.verifiedBy : base.verifiedBy
   };
 }
 
@@ -821,6 +848,17 @@ export const supabaseService = {
     return data.session;
   },
 
+  async updateUserMetadata(attributes: Record<string, any>) {
+    if (!supabase) return null;
+    const { data, error } = await supabase.auth.updateUser({
+      data: attributes
+    });
+    if (error) {
+      console.warn('[Supabase updateUserMetadata error]:', error.message);
+    }
+    return data?.user || null;
+  },
+
   onAuthStateChange(callback: (event: string, session: any) => void) {
     if (!supabase) return { data: { subscription: { unsubscribe: () => {} } } };
     return supabase.auth.onAuthStateChange(callback);
@@ -1076,6 +1114,21 @@ export const supabaseService = {
   async saveRetailer(retailer: Partial<Retailer>): Promise<Retailer | null> {
     if (!supabase) throw new Error('Supabase client is not configured.');
 
+    // If partial update for an existing retailer, fetch existing record to merge
+    if (retailer.id && (!retailer.storeName || !retailer.phone || !retailer.ownerName || !retailer.address)) {
+      try {
+        const { data: existing } = await supabase.from('retailers').select('*').eq('id', retailer.id).single();
+        if (existing) {
+          retailer = {
+            ...mapDbRetailer(existing),
+            ...retailer
+          };
+        }
+      } catch (e) {
+        console.warn('Could not fetch existing retailer for partial merge:', e);
+      }
+    }
+
     // 1. Validate required fields for FMCG business workflow
     const storeName = retailer.storeName?.trim();
     if (!storeName) {
@@ -1179,10 +1232,14 @@ export const supabaseService = {
       .select()
       .single();
 
-    // If column credit_enabled is not yet in Supabase schema cache, strip it and retry safely
-    if (error && (error.message?.includes('credit_enabled') || error.code === 'PGRST204')) {
-      console.warn('[Supabase saveRetailer] Column credit_enabled not yet in database schema cache. Retrying without it.');
+    // If columns like credit_enabled, verification_status, etc. are not yet in Supabase schema cache, strip them and retry safely
+    if (error && (error.message?.includes('credit_enabled') || error.message?.includes('verification') || error.message?.includes('verified') || error.code === 'PGRST204')) {
+      console.warn('[Supabase saveRetailer] Custom columns not yet in database schema cache. Retrying with basic columns.');
       delete dbPayload.credit_enabled;
+      delete dbPayload.verification_status;
+      delete dbPayload.verification_remarks;
+      delete dbPayload.verified_at;
+      delete dbPayload.verified_by;
       const retryResult = await supabase
         .from('retailers')
         .upsert(dbPayload)
@@ -1204,18 +1261,26 @@ export const supabaseService = {
     return mapped;
   },
 
-  async deleteRetailer(id: string): Promise<boolean | null> {
+  async deleteRetailer(id: string, handleOrders: 'delete' | 'archive' = 'delete'): Promise<boolean | null> {
     if (!supabase) return null;
     try {
-      // 1. Delete order_items of orders belonging to this retailer
-      const { data: ords } = await supabase.from('orders').select('id').eq('retailer_id', id);
-      if (ords && ords.length > 0) {
-        const ordIds = ords.map(o => o.id);
-        await supabase.from('order_items').delete().in('order_id', ordIds);
-        await supabase.from('orders').delete().eq('retailer_id', id);
+      if (handleOrders === 'delete') {
+        // 1. Delete order_items of orders belonging to this retailer
+        const { data: ords } = await supabase.from('orders').select('id').eq('retailer_id', id);
+        if (ords && ords.length > 0) {
+          const ordIds = ords.map(o => o.id);
+          await supabase.from('order_items').delete().in('order_id', ordIds);
+          await supabase.from('orders').delete().eq('retailer_id', id);
+        }
+        // 2. Delete payments belonging to this retailer
+        await supabase.from('payments').delete().eq('retailer_id', id);
+      } else {
+        // Archive orders
+        await supabase
+          .from('orders')
+          .update({ status: 'cancelled', notes: '[Retailer Account Cleaned Up]' })
+          .eq('retailer_id', id);
       }
-      // 2. Delete payments belonging to this retailer
-      await supabase.from('payments').delete().eq('retailer_id', id);
       // 3. Delete retailer row
       const { error } = await supabase.from('retailers').delete().eq('id', id);
       if (!error) return true;
@@ -1231,7 +1296,24 @@ export const supabaseService = {
     return true;
   },
 
+  async cleanupRetailers(ids: string[], handleOrders: 'delete' | 'archive' = 'delete'): Promise<number> {
+    if (!supabase) return 0;
+    let count = 0;
+    for (const id of ids) {
+      const res = await this.deleteRetailer(id, handleOrders);
+      if (res) count++;
+    }
+    return count;
+  },
+
   async verifyRetailer(id: string, status: 'pending' | 'verified' | 'rejected', remarks?: string): Promise<Retailer | null> {
+    // 1. Immediately store persistent local override
+    setRetailerVerificationOverride(id, {
+      verificationStatus: status,
+      verificationRemarks: remarks || '',
+      verifiedAt: status === 'verified' ? new Date().toISOString() : undefined
+    });
+
     if (!supabase) return null;
     try {
       const payload: any = {
@@ -1247,6 +1329,22 @@ export const supabaseService = {
         .single();
       if (!error && data) {
         return mapDbRetailer(data);
+      }
+      // If verification_status column doesn't exist, update standard status to 'active' or 'inactive'
+      if (error && error.code === 'PGRST204') {
+        const fallbackPayload: any = {
+          status: status === 'rejected' ? 'inactive' : 'active',
+          updated_at: new Date().toISOString()
+        };
+        const fallbackResult = await supabase
+          .from('retailers')
+          .update(fallbackPayload)
+          .eq('id', id)
+          .select()
+          .single();
+        if (fallbackResult.data) {
+          return mapDbRetailer(fallbackResult.data);
+        }
       }
     } catch (e) {
       console.warn('[Supabase verifyRetailer notice]:', e);

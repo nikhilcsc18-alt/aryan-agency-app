@@ -6,7 +6,24 @@ import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { db } from './server/db';
 import { parseNaturalLanguageOrder, generateFMCGInsights, lookupProductByBarcode } from './server/gemini';
-import { Order, OrderItem, PaymentRecord, DeliveryRunSheet } from './src/types';
+import { User, Order, OrderItem, PaymentRecord, DeliveryRunSheet, Retailer, ReportFilterOptions, ReportType, ReportPeriod, GstSubReportType } from './src/types';
+import { 
+  generateSalesReportData, 
+  generateCustomerLedgerData, 
+  generateGstReportData, 
+  generateProductSalesReportData, 
+  generateBrandSalesReportData, 
+  generateCategorySalesReportData, 
+  generateSalesmanReportData, 
+  generateOutstandingReportData, 
+  generatePaymentCollectionReportData, 
+  generateCustomerSalesReportData, 
+  generateDeliveryReportData, 
+  generateReturnsReportData, 
+  generateProfitMarginReportData, 
+  generatePurchaseReportData,
+  getDateRangeForPeriod
+} from './src/lib/reportUtils';
 
 declare global {
   namespace Express {
@@ -328,17 +345,33 @@ app.put('/api/auth/profile', (req, res) => {
     role
   } = req.body;
 
-  // Search by ID, or email, or phone
-  let user = users.find(u => 
-    u.id === currentUserId || 
-    (bodyId && u.id === bodyId) ||
-    (email && u.email && u.email.toLowerCase() === email.trim().toLowerCase()) ||
-    (phone && u.phone && u.phone.trim() === phone.trim())
-  );
+  // Priority 1: Match by explicit bodyId if provided
+  // Priority 2: Match by authenticated req.user?.id or headerUserId
+  // Priority 3: Match by email
+  // Priority 4: Match by phone
+  // Priority 5: Fallback to currentActiveUserId
+  let user: User | undefined;
+  if (bodyId) {
+    user = users.find(u => u.id === bodyId);
+  }
+  if (!user && (req.user?.id || headerUserId)) {
+    const authId = req.user?.id || headerUserId;
+    user = users.find(u => u.id === authId);
+  }
+  if (!user && email) {
+    user = users.find(u => u.email && u.email.toLowerCase() === email.trim().toLowerCase());
+  }
+  if (!user && phone) {
+    const cleanPhone = phone.replace(/\D/g, '');
+    user = users.find(u => (u.phone || '').replace(/\D/g, '') === cleanPhone);
+  }
+  if (!user) {
+    user = users.find(u => u.id === currentActiveUserId) || users[0];
+  }
 
   // If user still not found, create a new persistent user record so retailer profile updates never fail!
   if (!user) {
-    const assignedId = currentUserId || bodyId || `usr_${Date.now()}`;
+    const assignedId = bodyId || currentUserId || `usr_${Date.now()}`;
     const userRole = (role || headerUserRole || req.userRole || 'retailer') as any;
     user = {
       id: assignedId,
@@ -347,31 +380,43 @@ app.put('/api/auth/profile', (req, res) => {
       phone: (phone || '+91 98000 00000').trim(),
       role: userRole,
       avatarUrl: avatarUrl || undefined,
-      businessName: businessName || undefined,
+      businessName: businessName || (userRole === 'admin' ? 'Aryan Agency FMCG Distribution' : undefined),
       businessLogoUrl: businessLogoUrl || undefined,
       address: address || undefined,
-      city: city || 'Bengaluru',
-      state: state || 'Karnataka',
-      pincode: pincode || '560022',
-      gstin: gstin ? gstin.trim().toUpperCase() : undefined,
-      panNumber: panNumber ? panNumber.trim().toUpperCase() : undefined,
+      city: city || 'Utraula',
+      state: state || 'Uttar Pradesh',
+      pincode: pincode || '271604',
+      gstin: gstin ? gstin.trim().toUpperCase() : (userRole === 'admin' ? '09BOGPG2620P1ZQ' : ''),
+      panNumber: panNumber ? panNumber.trim().toUpperCase() : (userRole === 'admin' ? 'BOGPG2620P' : ''),
       locationCoordinates: locationCoordinates || undefined,
-      verificationStatus: 'pending'
+      verificationStatus: userRole === 'admin' ? 'verified' : 'pending'
     };
   } else {
     if (name !== undefined) user.name = name.trim();
     if (email !== undefined) user.email = email.trim().toLowerCase();
     if (phone !== undefined) user.phone = phone.trim();
     if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
-    if (businessName !== undefined) user.businessName = businessName;
+    if (businessName !== undefined) user.businessName = businessName.trim();
     if (businessLogoUrl !== undefined) user.businessLogoUrl = businessLogoUrl;
-    if (address !== undefined) user.address = address;
-    if (city !== undefined) user.city = city;
-    if (state !== undefined) user.state = state;
-    if (pincode !== undefined) user.pincode = pincode;
+    if (address !== undefined) user.address = address.trim();
+    if (city !== undefined) user.city = city.trim();
+    if (state !== undefined) user.state = state.trim();
+    if (pincode !== undefined) user.pincode = pincode.trim();
     if (gstin !== undefined) user.gstin = gstin.trim().toUpperCase();
     if (panNumber !== undefined) user.panNumber = panNumber.trim().toUpperCase();
     if (locationCoordinates !== undefined) user.locationCoordinates = locationCoordinates;
+  }
+
+  // If this user is an admin, keep other admin profiles (e.g. usr_admin) in sync with agency GST details
+  if (user.role === 'admin') {
+    const otherAdmins = users.filter(u => u.role === 'admin' && u.id !== user!.id);
+    for (const admin of otherAdmins) {
+      if (gstin !== undefined) admin.gstin = user.gstin;
+      if (panNumber !== undefined) admin.panNumber = user.panNumber;
+      if (businessName !== undefined) admin.businessName = user.businessName;
+      if (address !== undefined) admin.address = user.address;
+      db.saveUser(admin);
+    }
   }
 
   // If this user is a retailer and has a linked retailer record, sync changes
@@ -388,8 +433,8 @@ app.put('/api/auth/profile', (req, res) => {
       if (phone) existingRetailer.phone = phone;
       if (email) existingRetailer.email = email;
       if (address) existingRetailer.address = address;
-      if (gstin) existingRetailer.gstin = gstin;
-      if (panNumber) existingRetailer.panNumber = panNumber;
+      if (gstin !== undefined) existingRetailer.gstin = user.gstin;
+      if (panNumber !== undefined) existingRetailer.panNumber = user.panNumber;
       if (businessLogoUrl) existingRetailer.logoUrl = businessLogoUrl;
       if (avatarUrl) existingRetailer.photoUrl = avatarUrl;
       if (locationCoordinates?.lat && locationCoordinates?.lng) {
@@ -420,56 +465,482 @@ app.put('/api/auth/profile', (req, res) => {
   res.json({ success: true, user });
 });
 
+// ============================================================================
+// Server-Side Geolocation & Geocoding Endpoints (Bypasses Browser CORS / Adblock)
+// ============================================================================
+
+// 1. IP Geolocation Proxy
+app.get('/api/geo/ip', async (req, res) => {
+  try {
+    const forwarded = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim();
+    const clientIp = forwarded || req.socket.remoteAddress || '';
+    const isLocal = !clientIp || clientIp === '127.0.0.1' || clientIp === '::1' || clientIp.startsWith('192.168.') || clientIp.startsWith('10.');
+
+    let geoData: any = null;
+
+    // If client IP is public, query with IP, otherwise query current public network IP
+    const url = isLocal ? 'https://ipapi.co/json/' : `https://ipapi.co/${clientIp}/json/`;
+    try {
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'AryanAgency-ERP/2.0 (dispatch@aryanagency.in)' },
+        signal: AbortSignal.timeout(4000)
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.latitude && data.longitude) {
+          geoData = {
+            lat: Number(data.latitude),
+            lng: Number(data.longitude),
+            city: data.city || 'Balrampur',
+            state: data.region || 'Uttar Pradesh',
+            postal: data.postal || '271604',
+            country: data.country_name || 'India',
+            source: 'ip'
+          };
+        }
+      }
+    } catch (e1) {
+      // Fallback to ipwho.is
+      try {
+        const response2 = await fetch(isLocal ? 'https://ipwho.is/' : `https://ipwho.is/${clientIp}`, {
+          signal: AbortSignal.timeout(4000)
+        });
+        if (response2.ok) {
+          const data2 = await response2.json();
+          if (data2 && data2.success && data2.latitude && data2.longitude) {
+            geoData = {
+              lat: Number(data2.latitude),
+              lng: Number(data2.longitude),
+              city: data2.city || 'Balrampur',
+              state: data2.region || 'Uttar Pradesh',
+              postal: data2.postal || '271604',
+              country: data2.country || 'India',
+              source: 'ip'
+            };
+          }
+        }
+      } catch (e2) {}
+    }
+
+    if (!geoData) {
+      // Default to Aryan Agency Regional Hub (Utraula / Balrampur Depot)
+      geoData = {
+        lat: 27.3167,
+        lng: 82.4167,
+        city: 'Balrampur',
+        state: 'Uttar Pradesh',
+        postal: '271604',
+        country: 'India',
+        source: 'regional_default'
+      };
+    }
+
+    return res.json({ success: true, data: geoData });
+  } catch (err: any) {
+    return res.json({
+      success: true,
+      data: {
+        lat: 27.3167,
+        lng: 82.4167,
+        city: 'Balrampur',
+        state: 'Uttar Pradesh',
+        postal: '271604',
+        country: 'India',
+        source: 'fallback'
+      }
+    });
+  }
+});
+
+// 2. Forward Geocoding: Search GPS Coordinates from Address or City query
+app.get('/api/geo/search', async (req, res) => {
+  const query = (req.query.q as string || '').trim();
+  if (!query) {
+    return res.status(400).json({ success: false, error: 'Query parameter q is required' });
+  }
+
+  try {
+    const encoded = encodeURIComponent(query);
+    const nominatimUrl = `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=5&addressdetails=1`;
+    const response = await fetch(nominatimUrl, {
+      headers: { 
+        'User-Agent': 'AryanAgency-ERP/2.0 (contact@aryanagency.in)',
+        'Accept': 'application/json'
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({ success: false, error: 'Geocoding service unavailable' });
+    }
+
+    const items = await response.json();
+    const results = (items || []).map((item: any) => {
+      const addr = item.address || {};
+      return {
+        lat: parseFloat(item.lat),
+        lng: parseFloat(item.lon),
+        displayName: item.display_name,
+        city: addr.city || addr.town || addr.village || addr.county || addr.state_district || '',
+        state: addr.state || '',
+        pincode: addr.postcode || ''
+      };
+    });
+
+    return res.json({ success: true, results });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Geocoding failed' });
+  }
+});
+
+// 3. Reverse Geocoding: Lat/Lng -> Address Details
+app.get('/api/geo/reverse', async (req, res) => {
+  const lat = req.query.lat as string;
+  const lng = req.query.lng as string;
+  if (!lat || !lng) {
+    return res.status(400).json({ success: false, error: 'Parameters lat and lng are required' });
+  }
+
+  try {
+    const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&format=json&addressdetails=1`;
+    const response = await fetch(nominatimUrl, {
+      headers: { 
+        'User-Agent': 'AryanAgency-ERP/2.0 (contact@aryanagency.in)',
+        'Accept': 'application/json'
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+
+    if (!response.ok) {
+      return res.status(response.status).json({ success: false, error: 'Reverse geocode service unavailable' });
+    }
+
+    const data = await response.json();
+    const addr = data.address || {};
+    const detectedCity = addr.city || addr.town || addr.village || addr.county || addr.state_district || '';
+    const detectedState = addr.state || '';
+    const detectedPincode = addr.postcode || '';
+    const detectedRoad = [addr.road, addr.suburb, addr.neighbourhood].filter(Boolean).join(', ');
+
+    return res.json({
+      success: true,
+      data: {
+        displayName: data.display_name,
+        road: detectedRoad,
+        city: detectedCity,
+        state: detectedState,
+        pincode: detectedPincode
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Reverse geocoding failed' });
+  }
+});
+
+// ============================================================================
+// Distributor Settings & UPI Connect API Endpoints
+// ============================================================================
+
+app.get('/api/settings', (req, res) => {
+  const settings = db.getSettings();
+  res.json({
+    success: true,
+    settings
+  });
+});
+
+app.put('/api/settings', requireRoles(['admin', 'accounts']), (req, res) => {
+  const updated = db.updateSettings(req.body);
+  res.json({
+    success: true,
+    settings: updated,
+    message: 'Distributor & UPI Connect settings updated successfully'
+  });
+});
+
+// UPI VPA Verification & Bank Handshake Simulation Endpoint
+app.post('/api/upi/verify-vpa', (req, res) => {
+  const { vpa, payeeName, bankName } = req.body;
+  if (!vpa || typeof vpa !== 'string' || !vpa.includes('@')) {
+    return res.status(400).json({ 
+      success: false, 
+      error: 'Invalid UPI VPA format. Must be in the format username@bank (e.g. aryanagency@upi)' 
+    });
+  }
+
+  const [username, handle] = vpa.toLowerCase().trim().split('@');
+  if (!username || !handle) {
+    return res.status(400).json({ success: false, error: 'Invalid UPI VPA format. Missing handle.' });
+  }
+
+  // Latency simulation (20-45ms standard NPCI lookup)
+  const latencyMs = Math.floor(20 + Math.random() * 25);
+  const detectedBank = bankName || (
+    handle.includes('sbi') ? 'State Bank of India' :
+    handle.includes('icici') ? 'ICICI Bank Ltd' :
+    handle.includes('hdfc') ? 'HDFC Bank Ltd' :
+    handle.includes('axis') || handle.includes('axl') ? 'Axis Bank Ltd' :
+    handle.includes('paytm') ? 'Paytm Payments Bank' :
+    handle.includes('ybl') || handle.includes('ibl') ? 'Yes Bank / IndusInd' :
+    handle.includes('baroda') ? 'Bank of Baroda' :
+    handle.includes('pnb') ? 'Punjab National Bank' :
+    'National Payments Corporation of India (NPCI) Node'
+  );
+
+  res.json({
+    success: true,
+    vpa: vpa.trim(),
+    isValid: true,
+    payeeName: payeeName || 'Aryan Agency FMCG Distribution',
+    bankName: detectedBank,
+    latencyMs,
+    settlementSupport: 'Instant Realtime T+0 Settlement (IMPS/UPI 2.0)',
+    verifiedAt: new Date().toISOString()
+  });
+});
+
 // Admin & Salesman Verification Endpoint for Retailer Onboarding / KYC Verification
 app.put('/api/retailers/:id/verify', requireRoles(['admin', 'salesman', 'accounts']), (req, res) => {
   const retailerId = req.params.id;
-  const { status, remarks } = req.body;
+  const { status, remarks, reasonCode, creditLimit, creditEnabled, creditDaysAllowed, beatName } = req.body;
 
   if (!['pending', 'verified', 'rejected'].includes(status)) {
     return res.status(400).json({ error: "Invalid verification status. Must be 'pending', 'verified', or 'rejected'." });
   }
 
+  const actorName = req.user?.name || (req.headers['x-user-name'] as string) || 'Admin';
+  const actorRole = req.userRole || 'admin';
+  const nowIso = new Date().toISOString();
+
   let retailer = db.getRetailerById(retailerId);
   if (!retailer) {
     retailer = {
       id: retailerId,
-      storeName: req.body.storeName || 'Retail Partner Outlet',
+      storeName: req.body.storeName || 'Registered Retail Outlet',
       ownerName: req.body.ownerName || 'Retail Owner',
-      phone: req.body.phone || '+91 98000 00000',
+      phone: req.body.phone || '',
       address: req.body.address || 'Utraula, Balrampur',
       area: req.body.area || 'Utraula',
-      beatName: req.body.beatName || 'Utraula Retail Beat',
+      beatName: beatName || req.body.beatName || 'Utraula Retail Beat',
       status: 'active',
-      creditLimit: 50000,
+      creditLimit: creditLimit !== undefined ? Number(creditLimit) : 50000,
       currentOutstanding: 0,
-      creditDaysAllowed: 15,
-      creditEnabled: true,
+      creditDaysAllowed: creditDaysAllowed !== undefined ? Number(creditDaysAllowed) : 15,
+      creditEnabled: creditEnabled !== undefined ? Boolean(creditEnabled) : true,
       verificationStatus: status,
       verificationRemarks: remarks || '',
-      verifiedAt: status === 'verified' ? new Date().toISOString() : undefined,
-      verifiedBy: status === 'verified' ? (req.user?.name || 'Admin') : undefined
+      verificationReasonCode: reasonCode || '',
+      verifiedAt: status === 'verified' ? nowIso : undefined,
+      verifiedBy: status === 'verified' ? actorName : undefined,
+      submittedAt: req.body.submittedAt || nowIso,
+      verificationTimeline: []
     };
   } else {
     retailer.verificationStatus = status;
     retailer.verificationRemarks = remarks || '';
-    retailer.verifiedAt = status === 'verified' ? new Date().toISOString() : undefined;
-    retailer.verifiedBy = status === 'verified' ? (req.user?.name || 'Admin') : undefined;
+    retailer.verificationReasonCode = reasonCode || retailer.verificationReasonCode || '';
+    retailer.verifiedAt = status === 'verified' ? nowIso : undefined;
+    retailer.verifiedBy = status === 'verified' ? actorName : undefined;
+    if (creditLimit !== undefined) retailer.creditLimit = Number(creditLimit);
+    if (creditEnabled !== undefined) retailer.creditEnabled = Boolean(creditEnabled);
+    if (creditDaysAllowed !== undefined) retailer.creditDaysAllowed = Number(creditDaysAllowed);
+    if (beatName) retailer.beatName = beatName;
   }
+
+  // Create timeline event
+  const timelineEvent = {
+    id: `vtl_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    timestamp: nowIso,
+    type: (status === 'verified' ? 'approved' : status === 'rejected' ? 'rejected' : 'reviewed') as 'approved' | 'rejected' | 'reviewed',
+    actorName,
+    actorRole,
+    title: status === 'verified'
+      ? `Verification Approved (${reasonCode || 'DOCS_VALIDATED'})`
+      : status === 'rejected'
+      ? `Verification Rejected (${reasonCode || 'DOCS_INVALID'})`
+      : 'Application Marked Pending Review',
+    description: remarks || (status === 'verified' ? 'Approved for wholesale order punch' : 'Account status updated'),
+    reasonCode: reasonCode || ''
+  };
+
+  retailer.verificationTimeline = [timelineEvent, ...(retailer.verificationTimeline || [])];
 
   db.saveRetailer(retailer);
 
   // Also sync user verification if user account is linked
   const users = db.getUsers();
-  const linkedUser = users.find(u => u.retailerId === retailer?.id || u.phone === retailer?.phone || (retailer?.email && u.email === retailer?.email));
+  const linkedUser = users.find(u => 
+    u.retailerId === retailer?.id || 
+    (u.phone && retailer?.phone && u.phone.replace(/\D/g, '').slice(-10) === retailer.phone.replace(/\D/g, '').slice(-10)) || 
+    (retailer?.email && u.email && u.email.toLowerCase() === retailer.email.toLowerCase()) ||
+    (retailer?.ownerName && u.name && u.name.toLowerCase() === retailer.ownerName.toLowerCase()) ||
+    (retailer?.storeName && u.name && u.name.toLowerCase() === retailer.storeName.toLowerCase())
+  );
   if (linkedUser) {
     linkedUser.verificationStatus = status;
     linkedUser.verificationRemarks = remarks || '';
     linkedUser.verifiedAt = retailer.verifiedAt;
     linkedUser.verifiedBy = retailer.verifiedBy;
+    if (!linkedUser.retailerId) {
+      linkedUser.retailerId = retailer.id;
+    }
     db.saveUser(linkedUser);
+
+    // Sync to Supabase users table if connected
+    if (supabaseServer) {
+      Promise.resolve(
+        supabaseServer
+          .from('users')
+          .update({ 
+            verification_status: status, 
+            verified_at: retailer.verifiedAt,
+            verified_by: retailer.verifiedBy,
+            retailer_id: retailer.id,
+            updated_at: nowIso 
+          })
+          .eq('id', linkedUser.id)
+      ).catch((err: any) => console.warn('[Supabase User Verification Sync Notice]:', err?.message));
+    }
+  }
+
+  // Also sync standard status to Supabase retailers table if connected
+  if (supabaseServer) {
+    Promise.resolve(
+      supabaseServer
+        .from('retailers')
+        .update({ 
+          status: status === 'rejected' ? 'inactive' : 'active',
+          updated_at: nowIso 
+        })
+        .eq('id', retailer.id)
+    ).catch(() => {});
   }
 
   res.json({ success: true, retailer, message: `Retailer verification status updated to ${status.toUpperCase()}` });
+});
+
+// ==========================================
+// FMCG Distribution Intelligence & Reports API
+// ==========================================
+app.get('/api/reports', requireRoles(['admin', 'accounts', 'salesman']), (req, res) => {
+  try {
+    const reportType = (req.query.reportType as ReportType) || 'sales';
+    const period = (req.query.period as ReportPeriod) || 'this_month';
+    const fromDate = req.query.fromDate as string;
+    const toDate = req.query.toDate as string;
+    const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
+    const limit = Math.max(1, Math.min(500, parseInt(req.query.limit as string, 10) || 50));
+
+    let orders = db.getOrders();
+    let retailers = db.getRetailers();
+    let products = db.getProducts();
+    let salesmen = db.getSalesmen();
+    let deliveries = db.getDeliveries();
+    let payments = db.getPayments();
+    let inventoryLogs = db.getInventoryLogs();
+
+    // Security: If current role is salesman, restrict data to assigned beats and salesman orders
+    if (req.userRole === 'salesman') {
+      const salesmanId = req.user?.salesmanId || req.user?.id;
+      const sm = salesmen.find(s => s.id === salesmanId || (req.user?.name && s.name.toLowerCase() === req.user.name.toLowerCase()));
+      const beats = sm?.assignedBeats || [];
+      orders = orders.filter(o => o.salesmanId === sm?.id || o.salesmanName === sm?.name || (o.beatName && beats.includes(o.beatName)));
+      retailers = retailers.filter(r => (r.beatName && beats.includes(r.beatName)));
+    }
+
+    const filterOptions: ReportFilterOptions = {
+      period,
+      fromDate,
+      toDate,
+      retailerId: req.query.retailerId as string,
+      salesmanId: req.query.salesmanId as string,
+      deliveryPersonId: req.query.deliveryPersonId as string,
+      productId: req.query.productId as string,
+      brand: req.query.brand as string,
+      category: req.query.category as string,
+      paymentStatus: req.query.paymentStatus as any,
+      orderStatus: req.query.orderStatus as any,
+      gstFilter: req.query.gstFilter as any,
+      paymentMode: req.query.paymentMode as any,
+      beatName: req.query.beatName as string,
+      onlyOverdue: req.query.onlyOverdue === 'true',
+      gstSubReport: (req.query.gstSubReport as GstSubReportType) || 'sales_register',
+      searchTerm: req.query.searchTerm as string
+    };
+
+    let result: any;
+    switch (reportType) {
+      case 'sales':
+        result = generateSalesReportData(orders, filterOptions);
+        break;
+      case 'customer_ledger': {
+        const targetId = (req.query.retailerId as string) || (retailers[0]?.id);
+        const targetRet = retailers.find(r => r.id === targetId) || retailers[0];
+        result = targetRet ? generateCustomerLedgerData(targetRet, orders, payments, period, fromDate, toDate) : { transactions: [] };
+        break;
+      }
+      case 'gst':
+        result = generateGstReportData(orders, filterOptions);
+        break;
+      case 'product_sales':
+        result = generateProductSalesReportData(orders, products, filterOptions);
+        break;
+      case 'brand_sales':
+        result = generateBrandSalesReportData(orders, products, filterOptions);
+        break;
+      case 'category_sales':
+        result = generateCategorySalesReportData(orders, products, filterOptions);
+        break;
+      case 'salesman_sales':
+        result = generateSalesmanReportData(orders, payments, salesmen, retailers, filterOptions);
+        break;
+      case 'outstanding':
+        result = generateOutstandingReportData(retailers, orders, payments, filterOptions);
+        break;
+      case 'payment_collection':
+        result = generatePaymentCollectionReportData(payments, orders, retailers, filterOptions);
+        break;
+      case 'customer_sales':
+        result = generateCustomerSalesReportData(orders, retailers, filterOptions);
+        break;
+      case 'delivery':
+        result = generateDeliveryReportData(deliveries, orders, filterOptions);
+        break;
+      case 'returns':
+        result = generateReturnsReportData(orders, inventoryLogs, filterOptions);
+        break;
+      case 'profit_margin':
+        result = generateProfitMarginReportData(orders, products, filterOptions);
+        break;
+      case 'purchase':
+        result = generatePurchaseReportData(inventoryLogs, products, filterOptions);
+        break;
+      default:
+        result = generateSalesReportData(orders, filterOptions);
+    }
+
+    const rows = result.tableRows || result.rows || result.transactions || [];
+    const totalCount = rows.length;
+    const paginatedRows = rows.slice((page - 1) * limit, page * limit);
+    const dateRange = getDateRangeForPeriod(period, fromDate, toDate);
+
+    res.json({
+      success: true,
+      reportType,
+      dateRange,
+      summary: result.summary || {},
+      pagination: {
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(totalCount / limit))
+      },
+      data: paginatedRows
+    });
+  } catch (err: any) {
+    console.error('Error generating report:', err);
+    res.status(500).json({ error: err?.message || 'Failed to generate distribution report' });
+  }
 });
 
 // Products
@@ -556,11 +1027,81 @@ app.delete('/api/products/:id', requireRoles(['admin']), (req, res) => {
 
 // Retailers
 app.get('/api/retailers', (req, res) => {
-  const retailers = db.getRetailers().filter(r => {
+  const isCandidateTest = (r: Retailer) => {
+    const name = (r.storeName || '').toLowerCase();
+    const phone = (r.phone || '').replace(/\D/g, '');
+    return (
+      phone === '9800000000' ||
+      phone === '9999999999' ||
+      name.includes('dummy') ||
+      name.includes('sample') ||
+      r.id === 'ret_1' ||
+      r.id === 'ret_usr_usr_admin'
+    );
+  };
+  const retailers = [...db.getRetailers()].filter(r => !isCandidateTest(r));
+  const users = db.getUsers().filter(u => u.role === 'retailer' && u.id !== 'usr_admin');
+
+  // Auto-link / populate retail outlets for any authentic registered user accounts with role 'retailer'
+  users.forEach(u => {
+    if (!u.phone || u.phone.includes('00000') || u.name?.toLowerCase().includes('dummy')) return;
+    const matched = retailers.find(r => 
+      (u.retailerId && r.id === u.retailerId) ||
+      (u.phone && r.phone && u.phone.replace(/\D/g, '').slice(-10) === r.phone.replace(/\D/g, '').slice(-10)) ||
+      (u.email && r.email && u.email.toLowerCase() === r.email.toLowerCase()) ||
+      (u.name && r.storeName && u.name.toLowerCase() === r.storeName.toLowerCase()) ||
+      (u.name && r.ownerName && u.name.toLowerCase() === r.ownerName.toLowerCase())
+    );
+
+    if (!matched) {
+      const generatedRetailer: Retailer = {
+        id: u.retailerId || `ret_usr_${u.id.replace(/[^a-zA-Z0-9]/g, '_').slice(-16)}`,
+        storeName: u.businessName || u.name || 'Kirana Store',
+        ownerName: u.name || 'Proprietor',
+        phone: u.phone,
+        email: u.email || '',
+        address: u.address || 'Utraula, Balrampur, Uttar Pradesh',
+        area: u.city || 'Utraula Central',
+        beatName: 'Utraula Retail Beat',
+        status: 'active',
+        creditLimit: 50000,
+        currentOutstanding: 0,
+        creditDaysAllowed: 14,
+        creditEnabled: false,
+        verificationStatus: u.verificationStatus || 'pending',
+        verificationRemarks: u.verificationRemarks || 'New registration via mobile portal',
+        verifiedAt: u.verifiedAt,
+        verifiedBy: u.verifiedBy,
+        createdAt: new Date().toISOString()
+      };
+      db.saveRetailer(generatedRetailer);
+      retailers.push(generatedRetailer);
+
+      if (!u.retailerId) {
+        u.retailerId = generatedRetailer.id;
+        db.saveUser(u);
+      }
+    } else {
+      // Sync verification status between user and retailer
+      if (matched.verificationStatus === 'verified' && u.verificationStatus !== 'verified') {
+        u.verificationStatus = 'verified';
+        u.verifiedAt = matched.verifiedAt;
+        u.verifiedBy = matched.verifiedBy;
+        db.saveUser(u);
+      } else if (u.verificationStatus === 'verified' && matched.verificationStatus !== 'verified') {
+        matched.verificationStatus = 'verified';
+        matched.verifiedAt = u.verifiedAt;
+        matched.verifiedBy = u.verifiedBy;
+        db.saveRetailer(matched);
+      }
+    }
+  });
+
+  const filtered = retailers.filter(r => {
     const n = (r.storeName || '').toLowerCase();
     return !n.includes('laxmi supermarket') && !n.includes('ganesh daily') && !n.includes('ganesh provision') && !n.includes('sapthagiri');
   });
-  res.json(retailers);
+  res.json(filtered);
 });
 
 app.post('/api/retailers', requireRoles(['admin', 'salesman', 'accounts', 'retailer']), (req, res) => {
@@ -695,8 +1236,73 @@ app.put('/api/retailers/:id', requireRoles(['admin', 'salesman', 'accounts']), (
 
 app.delete('/api/retailers/:id', requireRoles(['admin', 'salesman', 'accounts']), (req, res) => {
   const id = req.params.id;
-  db.deleteRetailer(id);
+  const handleOrders = req.query.handleOrders === 'archive' ? 'archive' : 'delete';
+  db.deleteRetailer(id, { deleteOrders: handleOrders === 'delete', archiveOrders: handleOrders === 'archive' });
+  
+  if (supabaseServer) {
+    (async () => {
+      try {
+        if (handleOrders === 'delete') {
+          const { data: ords } = await supabaseServer.from('orders').select('id').eq('retailer_id', id);
+          if (ords && ords.length > 0) {
+            const ordIds = ords.map(o => o.id);
+            await supabaseServer.from('order_items').delete().in('order_id', ordIds);
+            await supabaseServer.from('orders').delete().eq('retailer_id', id);
+          }
+          await supabaseServer.from('payments').delete().eq('retailer_id', id);
+        } else {
+          await supabaseServer.from('orders').update({ status: 'cancelled', notes: '[Retailer Account Cleaned Up]' }).eq('retailer_id', id);
+        }
+        await supabaseServer.from('retailers').delete().eq('id', id);
+      } catch (err) {
+        console.warn('Supabase deleteRetailer notice:', err);
+      }
+    })();
+  }
   res.json({ success: true, message: 'Retailer successfully deleted' });
+});
+
+app.post('/api/retailers/cleanup', requireRoles(['admin']), async (req, res) => {
+  try {
+    const retailerIds = req.body.retailerIds || req.body.ids || [];
+    const handleOrders = req.body.handleOrders || 'delete';
+    if (!Array.isArray(retailerIds) || retailerIds.length === 0) {
+      return res.status(400).json({ error: 'retailerIds array is required' });
+    }
+
+    const { deletedCount, affectedOrders } = db.cleanupRetailers(retailerIds, handleOrders === 'archive' ? 'archive' : 'delete');
+
+    if (supabaseServer) {
+      for (const id of retailerIds) {
+        try {
+          if (handleOrders === 'delete') {
+            const { data: ords } = await supabaseServer.from('orders').select('id').eq('retailer_id', id);
+            if (ords && ords.length > 0) {
+              const ordIds = ords.map(o => o.id);
+              await supabaseServer.from('order_items').delete().in('order_id', ordIds);
+              await supabaseServer.from('orders').delete().eq('retailer_id', id);
+            }
+            await supabaseServer.from('payments').delete().eq('retailer_id', id);
+          } else {
+            await supabaseServer.from('orders').update({ status: 'cancelled', notes: '[Retailer Account Cleaned Up]' }).eq('retailer_id', id);
+          }
+          await supabaseServer.from('retailers').delete().eq('id', id);
+        } catch (supaErr) {
+          console.warn('Supabase cleanup notice for id', id, supaErr);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      deletedCount,
+      affectedOrders,
+      message: `Cleaned up ${deletedCount} retailer account(s) and handled ${affectedOrders} associated order(s).`
+    });
+  } catch (err: any) {
+    console.error('Retailer cleanup error:', err);
+    res.status(500).json({ error: err?.message || 'Failed to cleanup retailer accounts' });
+  }
 });
 
 app.get('/api/retailers/:id/ledger', (req, res) => {
@@ -805,6 +1411,35 @@ app.delete('/api/salesmen/:id', requireRoles(['admin']), (req, res) => {
   const id = req.params.id;
   db.deleteSalesman(id);
   res.json({ success: true, message: 'Sales representative removed' });
+});
+
+// Beat Routes Management
+app.get('/api/beats', (req, res) => {
+  res.json(db.getBeats());
+});
+
+app.post('/api/beats', requireRoles(['admin', 'salesman']), (req, res) => {
+  const name = req.body.name || req.body.beatName || '';
+  if (!name.trim()) {
+    return res.status(400).json({ error: 'Beat name is required' });
+  }
+  const updatedBeats = db.saveBeat(name);
+  res.json({ success: true, beats: updatedBeats });
+});
+
+app.delete('/api/beats/:beatName', requireRoles(['admin', 'salesman']), (req, res) => {
+  const beatName = decodeURIComponent(req.params.beatName || '');
+  if (!beatName) {
+    return res.status(400).json({ error: 'Beat name is required' });
+  }
+  const result = db.deleteBeat(beatName);
+  res.json({ 
+    success: true, 
+    message: `Beat "${beatName}" removed successfully`, 
+    affectedRetailers: result.affectedRetailers,
+    affectedSalesmen: result.affectedSalesmen,
+    beats: result.beats
+  });
 });
 
 // Orders
@@ -1311,7 +1946,7 @@ app.post('/api/banners', requireRoles(['admin', 'salesman']), (req, res) => {
     id: raw.id || `banner_${Date.now()}`,
     title: raw.title || 'Special Wholesale Offer',
     subtitle: raw.subtitle || '',
-    badgeText: raw.badgeText || 'विशेष ऑफर',
+    badgeText: raw.badgeText || 'Special Offer',
     ctaText: raw.ctaText || '',
     targetCategory: raw.targetCategory || '',
     targetBrand: raw.targetBrand || '',
@@ -1322,7 +1957,7 @@ app.post('/api/banners', requireRoles(['admin', 'salesman']), (req, res) => {
     hideTextOverlay: raw.hideTextOverlay !== undefined ? Boolean(raw.hideTextOverlay) : false,
     posterFit: raw.posterFit || 'cover',
     showBuyNow: raw.showBuyNow !== undefined ? Boolean(raw.showBuyNow) : true,
-    buyNowText: raw.buyNowText || 'अभी खरीदें (Buy Now)'
+    buyNowText: raw.buyNowText || 'Buy Now'
   };
   const saved = db.saveBanner(newBanner);
   res.json(saved);
@@ -1349,7 +1984,7 @@ app.put('/api/banners/:id', requireRoles(['admin', 'salesman']), (req, res) => {
         posterFit: req.body.posterFit || 'cover',
         targetBrand: req.body.targetBrand || '',
         showBuyNow: req.body.showBuyNow !== false,
-        buyNowText: req.body.buyNowText || 'अभी खरीदें (Buy Now)',
+        buyNowText: req.body.buyNowText || 'Buy Now',
         ...req.body
       };
   const saved = db.saveBanner(updated);

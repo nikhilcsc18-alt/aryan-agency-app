@@ -312,7 +312,7 @@ export const AppUpdateChecker: React.FC = () => {
       }
     } catch (err) {
       console.error('[AppUpdateChecker] Download error:', err);
-      setDownloadError('मुख्य डोमेन (aryanagency.in) से APK डाउनलोड शुरू नहीं हो सका। कृपया बैकअप मिरर का उपयोग करें।');
+      setDownloadError('Could not start APK download from primary server. Please try using the backup mirror.');
     }
   };
 
@@ -342,7 +342,7 @@ export const AppUpdateChecker: React.FC = () => {
         <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-3 duration-200">
           <div className="bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center space-x-3 text-xs font-semibold">
             <RefreshCw className="w-4 h-4 text-amber-400 animate-spin" />
-            <span>नवीनतम वर्शन चेक किया जा रहा है... (Checking updates)</span>
+            <span>Checking for latest updates...</span>
           </div>
         </div>
       )}
@@ -364,7 +364,7 @@ export const AppUpdateChecker: React.FC = () => {
               </button>
             </div>
             <p className="text-[11px] text-emerald-200">
-              आपके फ़ोन पर नवीनतम वर्शन सक्रिय है। अगर नया बदलाव नहीं दिख रहा, तो डेटा रीलोड करें।
+              You are running the latest version. If latest changes do not appear, reload the app data.
             </p>
             <button
               type="button"
@@ -372,7 +372,7 @@ export const AppUpdateChecker: React.FC = () => {
               className="mt-1 w-full py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] flex items-center justify-center space-x-1 shadow-xs cursor-pointer"
             >
               <RefreshCw className="w-3 h-3 mr-1" />
-              <span>Force Reload Latest Assets (डेटा रीलोड करें)</span>
+              <span>Force Reload Latest Assets</span>
             </button>
           </div>
         </div>
@@ -424,8 +424,8 @@ export const AppUpdateChecker: React.FC = () => {
 
           <p className="text-xs text-blue-100/90 mt-2 font-medium leading-relaxed">
             {modalStep === 'download_started'
-              ? 'APK फाइल डाउनलोड हो रही है। डाउनलोड होने पर नोटिफिकेशन से इंस्टॉल करें।'
-              : 'नया वर्शन उपलब्ध है। 1-टैप में नया APK डाउनलोड कर अपडेट करें। आपका सारा डेटा व लॉगिन सुरक्षित रहेगा।'
+              ? 'Downloading APK file. When download completes, tap the notification to install.'
+              : 'A new version is available. Download the updated APK with 1 tap. All your store data and cart are safe.'
             }
           </p>
         </div>
@@ -469,7 +469,7 @@ export const AppUpdateChecker: React.FC = () => {
                 <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 space-y-1.5">
                   <span className="text-[10.5px] font-bold text-blue-950 flex items-center space-x-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                    <span>What&apos;s New (नए फीचर्स):</span>
+                    <span>What&apos;s New:</span>
                   </span>
                   <div className="text-[11px] text-slate-700 max-h-24 overflow-y-auto whitespace-pre-line leading-relaxed font-sans pr-1">
                     {releaseNotes}
@@ -480,7 +480,7 @@ export const AppUpdateChecker: React.FC = () => {
               {/* Security & Data Safety Note */}
               <div className="flex items-center space-x-2 text-[11px] text-emerald-700 bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-200/60">
                 <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>आपका कार्ट, ऑर्डर हिस्ट्री और लॉगिन डेटा सुरक्षित रहेगा।</span>
+                <span>Your cart, order history, and account data remain completely secure.</span>
               </div>
             </>
           )}
@@ -495,7 +495,7 @@ export const AppUpdateChecker: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-blue-950">
-                    APK डाउनलोड शुरू हो गया है!
+                    APK Download Started!
                   </h4>
                   <p className="text-[11px] text-blue-700">
                     File: <span className="font-mono font-semibold">aryan-agency-app.apk</span> (~7.7 MB)
@@ -509,7 +509,7 @@ export const AppUpdateChecker: React.FC = () => {
                   <div className="flex items-start space-x-2">
                     <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <div>
-                      <strong className="block font-bold text-amber-950">डाउनलोड में समस्या (Download Error)</strong>
+                      <strong className="block font-bold text-amber-950">Download Issue</strong>
                       <span className="text-[11px] text-amber-800">{downloadError}</span>
                     </div>
                   </div>
@@ -519,7 +519,7 @@ export const AppUpdateChecker: React.FC = () => {
                     className="w-full py-2 px-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-xs"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Use Backup Release Mirror (वैकल्पिक बैकअप से डाउनलोड करें)</span>
+                    <span>Use Backup Release Mirror</span>
                   </button>
                 </div>
               )}
@@ -528,7 +528,7 @@ export const AppUpdateChecker: React.FC = () => {
               <div className="bg-slate-50 rounded-xl p-3 border border-slate-200 space-y-2.5">
                 <h5 className="text-[11px] font-bold text-slate-800 flex items-center space-x-1.5">
                   <Smartphone className="w-3.5 h-3.5 text-blue-600" />
-                  <span>इंस्टॉल करने के आसान 3 स्टेप्स:</span>
+                  <span>Easy 3-Step Installation:</span>
                 </h5>
 
                 <div className="space-y-2 text-[11px] text-slate-600">
@@ -536,28 +536,28 @@ export const AppUpdateChecker: React.FC = () => {
                     <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
                       1
                     </span>
-                    <span>अपने मोबाइल के ऊपर से <strong>नोटिफिकेशन बार (Notification Bar)</strong> को नीचे खींचें।</span>
+                    <span>Swipe down the <strong>Notification Bar</strong> from the top of your phone.</span>
                   </div>
 
                   <div className="flex items-start space-x-2">
                     <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
                       2
                     </span>
-                    <span><strong>aryan-agency-app.apk</strong> डाउनलोड पूरा होने पर उस पर टैप करें।</span>
+                    <span>Tap on <strong>aryan-agency-app.apk</strong> once download finishes.</span>
                   </div>
 
                   <div className="flex items-start space-x-2">
                     <span className="w-4 h-4 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
                       3
                     </span>
-                    <span>स्क्रीन पर <strong>&quot;Update&quot;</strong> या <strong>&quot;Install&quot;</strong> बटन दबाएं। नया वर्शन तुरंत चालू हो जाएगा!</span>
+                    <span>Tap <strong>&quot;Update&quot;</strong> or <strong>&quot;Install&quot;</strong> on screen. The new version will launch immediately!</span>
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center space-x-2 text-[10.5px] text-slate-500">
                 <HelpCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span>यदि डाउनलोड पॉपअप नहीं आया, तो नीचे &quot;फिर से डाउनलोड करें&quot; पर टैप करें।</span>
+                <span>If download prompt did not appear, tap &quot;Re-download&quot; below.</span>
               </div>
 
               {/* Subtle backup mirror toggle for users who need it */}
@@ -568,7 +568,7 @@ export const AppUpdateChecker: React.FC = () => {
                     onClick={() => setShowFallbackMirror(true)}
                     className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer inline-flex items-center space-x-1"
                   >
-                    <span>डाउनलोड में परेशानी होने पर वैकल्पिक बैकअप लिंक देखें</span>
+                    <span>Trouble downloading? View backup mirror links</span>
                   </button>
                 </div>
               ) : !downloadError && (
@@ -579,7 +579,7 @@ export const AppUpdateChecker: React.FC = () => {
                     className="w-full py-1.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium transition-all flex items-center justify-center space-x-2 text-[11px] border border-slate-200 cursor-pointer"
                   >
                     <ExternalLink className="w-3 h-3 text-slate-400" />
-                    <span>Alternative Backup Mirror (वैकल्पिक डाउनलोड लिंक)</span>
+                    <span>Alternative Backup Mirror</span>
                   </button>
                 </div>
               )}
@@ -619,7 +619,7 @@ export const AppUpdateChecker: React.FC = () => {
                 onClick={handleDismiss}
                 className="w-full sm:w-auto px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-200/80 text-xs font-semibold transition-colors cursor-pointer text-center"
               >
-                Later (बाद में)
+                Later
               </button>
 
               <div className="flex items-center space-x-2 w-full sm:w-auto">
@@ -651,7 +651,7 @@ export const AppUpdateChecker: React.FC = () => {
                 className="w-full sm:w-auto px-3.5 py-2 text-xs text-blue-700 hover:text-blue-800 border border-blue-200 bg-blue-50/60 rounded-xl hover:bg-blue-100/60 font-semibold transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>फिर से डाउनलोड करें (Re-download)</span>
+                <span>Re-download</span>
               </button>
 
               <button
@@ -660,7 +660,7 @@ export const AppUpdateChecker: React.FC = () => {
                 className="w-full sm:w-auto px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm active:scale-98 transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                <span>समझ गया (Done)</span>
+                <span>Done</span>
               </button>
             </>
           )}

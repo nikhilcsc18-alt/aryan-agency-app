@@ -37,6 +37,7 @@ interface HeaderProps {
   cartItemCount?: number;
   onOpenCart?: () => void;
   onOpenAccount?: () => void;
+  onOpenUpiConnect?: () => void;
   searchQuery?: string;
   onSearchChange?: (q: string) => void;
   notificationCount?: number;
@@ -51,6 +52,7 @@ export const Header: React.FC<HeaderProps> = ({
   cartItemCount = 0,
   onOpenCart,
   onOpenAccount,
+  onOpenUpiConnect,
   searchQuery = '',
   onSearchChange,
   notificationCount = 0,
@@ -167,6 +169,27 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <span className="text-[10px] px-1.5 py-0.2 bg-white rounded border border-slate-200 text-slate-600">
               COD / UPI
+            </span>
+          </button>
+        </div>
+      )}
+
+      {/* UPI Connect Quick Action in Dropdown */}
+      {onOpenUpiConnect && (
+        <div className="px-3 py-1">
+          <button
+            onClick={() => {
+              setShowRoleDropdown(false);
+              onOpenUpiConnect();
+            }}
+            className="w-full flex items-center justify-between px-3 py-2 text-xs font-semibold text-blue-950 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 hover:from-blue-100 hover:to-indigo-100 rounded-lg transition-colors cursor-pointer border border-blue-200/90 shadow-2xs"
+          >
+            <div className="flex items-center space-x-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-bold text-slate-900">UPI Connect & QR Standee</span>
+            </div>
+            <span className="text-[9.5px] px-1.5 py-0.2 bg-white text-blue-900 rounded font-black font-mono border border-blue-200">
+              UPI 2.0
             </span>
           </button>
         </div>
@@ -346,19 +369,33 @@ export const Header: React.FC<HeaderProps> = ({
             {onOpenBarcodeScanner && (
               <button
                 id="header-desktop-scan-btn"
-                onClick={onOpenBarcodeScanner}
+                onClick={() => onOpenBarcodeScanner && onOpenBarcodeScanner()}
                 className="inline-flex items-center px-2.5 py-1.5 text-xs font-bold rounded-lg bg-emerald-950/70 hover:bg-emerald-900 text-emerald-300 border border-emerald-600/70 shadow-xs transition-colors cursor-pointer"
-                title="बारकोड स्कैन करके प्रोडक्ट खोजें"
+                title="Scan barcode to find product"
               >
                 <ScanLine className="w-3.5 h-3.5 sm:mr-1.5 text-emerald-400" />
-                <span className="hidden sm:inline">बारकोड स्कैन</span>
+                <span className="hidden sm:inline">Scan Barcode</span>
+              </button>
+            )}
+
+            {/* UPI Connect Button (Desktop) */}
+            {onOpenUpiConnect && (
+              <button
+                id="header-desktop-upi-btn"
+                onClick={() => onOpenUpiConnect && onOpenUpiConnect()}
+                className="inline-flex items-center px-2.5 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-[#0B1E3F] via-[#13284c] to-[#1e3a8a] hover:from-blue-900 hover:to-indigo-900 text-amber-300 border border-blue-700/80 shadow-xs transition-colors cursor-pointer space-x-1.5"
+                title="Open UPI Connect & Instant Payments"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                <span className="font-black text-amber-300">UPI</span>
+                <span className="hidden xl:inline text-blue-100 font-semibold">Connect</span>
               </button>
             )}
 
             {/* AI Copilot Button */}
             <button
               id="ai-copilot-btn"
-              onClick={onOpenAICopilot}
+              onClick={() => onOpenAICopilot && onOpenAICopilot()}
               className="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg bg-[#13284c] hover:bg-[#1a3666] text-slate-200 border border-blue-800/80 shadow-xs transition-colors cursor-pointer"
               title="AI FMCG Demand & Order Assistant"
             >
@@ -370,7 +407,7 @@ export const Header: React.FC<HeaderProps> = ({
             {!isRetailer && (isSalesman || isAdmin) && (
               <button
                 id="header-punch-order-btn"
-                onClick={onOpenNewOrder}
+                onClick={() => onOpenNewOrder && onOpenNewOrder()}
                 className="inline-flex items-center px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-[#1A73E8] hover:bg-blue-700 text-white shadow-xs transition-colors cursor-pointer"
               >
                 <PlusCircle className="w-4 h-4 mr-1.5" />
@@ -438,13 +475,27 @@ export const Header: React.FC<HeaderProps> = ({
               />
             </div>
 
-            {/* Right: Notifications, Profile */}
-            <div className="flex items-center space-x-2 shrink-0">
+            {/* Right: Notifications, UPI, Profile */}
+            <div className="flex items-center space-x-1.5 shrink-0">
+              {/* UPI Connect Button (Mobile) */}
+              {onOpenUpiConnect && (
+                <button
+                  id="mobile-header-upi-btn"
+                  type="button"
+                  onClick={() => onOpenUpiConnect && onOpenUpiConnect()}
+                  className="h-9 px-2 rounded-lg bg-gradient-to-r from-blue-900 to-indigo-900 border border-blue-700/80 flex items-center space-x-1 text-white active:scale-95 transition-transform cursor-pointer font-bold text-[11px]"
+                  title="UPI Connect & Instant Payments"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                  <span className="font-black text-amber-300">UPI</span>
+                </button>
+              )}
+
               {/* Notification Icon */}
               <button
                 id="mobile-header-notification-btn"
                 type="button"
-                onClick={onOpenNotifications}
+                onClick={() => onOpenNotifications && onOpenNotifications()}
                 className="relative w-9 h-9 rounded-lg bg-[#13284c] border border-blue-800/80 flex items-center justify-center text-white active:scale-95 transition-transform cursor-pointer"
                 title="View Notifications & Alerts"
                 aria-label="View Notifications"
@@ -507,10 +558,10 @@ export const Header: React.FC<HeaderProps> = ({
                   type="button"
                   onClick={onOpenBarcodeScanner}
                   className="h-[34px] px-2.5 sm:px-3 rounded-full bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white flex items-center space-x-1 shadow-md active:scale-95 transition-all text-xs font-black shrink-0 border border-emerald-400/50 cursor-pointer"
-                  title="बारकोड स्कैन करके प्रोडक्ट खोजें"
+                  title="Scan barcode to find product"
                 >
                   <ScanLine className="w-3.5 h-3.5 text-emerald-200 animate-pulse" />
-                  <span className="text-[11px] tracking-wide">स्कैन</span>
+                  <span className="text-[11px] tracking-wide">Scan</span>
                 </button>
               )}
             </div>

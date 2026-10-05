@@ -57,7 +57,7 @@ export const RetailerVerificationPendingModal: React.FC<RetailerVerificationPend
             )}
           </div>
           <h2 className="text-xl sm:text-2xl font-black tracking-tight">
-            {isRejected ? 'वेरिफिकेशन अस्वीकृत (Verification Rejected)' : 'सत्यापन लंबित है (Verification Pending)'}
+            {isRejected ? 'Verification Rejected' : 'Verification Pending'}
           </h2>
           <p className="text-xs sm:text-sm text-white/90 mt-1 font-medium">
             Aryan Agency B2B Wholesale Distribution Network
@@ -73,13 +73,13 @@ export const RetailerVerificationPendingModal: React.FC<RetailerVerificationPend
               <div className="text-xs sm:text-sm space-y-1">
                 <p className="font-bold">
                   {isRejected 
-                    ? 'आपका रिटेलर आवेदन स्वीकृत नहीं हुआ है।'
-                    : 'थोक ऑर्डर बुकिंग सत्यापन के बाद ही चालू होगी (Orders Locked)'}
+                    ? 'Your retailer registration has not been approved.'
+                    : 'Wholesale order booking will be unlocked after KYC verification.'}
                 </p>
                 <p className="text-xs leading-relaxed opacity-90">
                   {isRejected 
-                    ? (linkedRetailer?.verificationRemarks || 'कृपया अपने बीट सेल्समैन या एजेंसी डिपो से संपर्क कर सही विवरण व दुकान की फोटो अपडेट करवाएं।')
-                    : 'आपकी दुकान का खाता अभी एजेंसी एडमिन / सेल्स ऑफिसर द्वारा सत्यापन (KYC Approval) के लिए प्रक्रिया में है। जब तक डिपो द्वारा पुष्टि नहीं हो जाती, तब तक नया ऑर्डर नहीं दिया जा सकता।'
+                    ? (linkedRetailer?.verificationRemarks || 'Please contact your beat sales representative or agency depot to update correct details and shop photo.')
+                    : 'Your store account is currently under verification by the Agency Admin / Sales Officer. Wholesale orders will be enabled once your account is verified.'
                   }
                 </p>
               </div>
@@ -104,15 +104,15 @@ export const RetailerVerificationPendingModal: React.FC<RetailerVerificationPend
 
             <div className="grid grid-cols-2 gap-2 text-slate-600">
               <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">दुकानदार / Owner</span>
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Store Owner</span>
                 <span className="font-medium text-slate-800">{ownerName}</span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">मोबाइल / Phone</span>
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Phone Number</span>
                 <span className="font-mono text-slate-800">{phone}</span>
               </div>
               <div className="col-span-2 pt-1 border-t border-slate-100">
-                <span className="text-slate-400 block text-[10px] uppercase font-bold">बीट रूट / Assigned Beat</span>
+                <span className="text-slate-400 block text-[10px] uppercase font-bold">Assigned Beat</span>
                 <span className="font-medium text-slate-800">{beat}</span>
               </div>
             </div>
@@ -127,7 +127,7 @@ export const RetailerVerificationPendingModal: React.FC<RetailerVerificationPend
               className="w-full py-3 px-4 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-98 disabled:opacity-60"
             >
               <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span>{isRefreshing ? 'जांच हो रही है...' : 'स्थिति जांचें (Refresh Status)'}</span>
+              <span>{isRefreshing ? 'Checking Status...' : 'Check Verification Status'}</span>
             </button>
 
             <div className="grid grid-cols-2 gap-2.5">
@@ -136,17 +136,17 @@ export const RetailerVerificationPendingModal: React.FC<RetailerVerificationPend
                 className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl flex items-center justify-center space-x-1.5 transition-colors text-center"
               >
                 <PhoneCall className="w-3.5 h-3.5 text-slate-600" />
-                <span>कॉल डिपो</span>
+                <span>Call Depot</span>
               </a>
 
               <a
-                href={`https://wa.me/919886034567?text=${encodeURIComponent(`नमस्ते Aryan Agency, मेरी दुकान ${storeName} (फोन: ${phone}) का रिटेलर वेरिफिकेशन पेंडिंग है। कृपया अप्रूव करें।`)}`}
+                href={`https://wa.me/919886034567?text=${encodeURIComponent(`Hello Aryan Agency, my store ${storeName} (Phone: ${phone}) verification is pending. Please approve.`)}`}
                 target="_blank"
                 rel="noreferrer"
                 className="py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-semibold text-xs rounded-xl flex items-center justify-center space-x-1.5 transition-colors text-center"
               >
                 <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                <span>व्हाट्सएप करें</span>
+                <span>WhatsApp Depot</span>
               </a>
             </div>
 
@@ -156,7 +156,7 @@ export const RetailerVerificationPendingModal: React.FC<RetailerVerificationPend
               className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 flex items-center justify-center space-x-1.5 cursor-pointer pt-1"
             >
               <LogOut className="w-3.5 h-3.5" />
-              <span>दूसरे खाते से लॉगिन करें (Log out)</span>
+              <span>Log out / Switch Account</span>
             </button>
           </div>
         </div>

@@ -111,7 +111,7 @@ export const AutoUpdateModal: React.FC<AutoUpdateModalProps> = ({
           </div>
 
           <p className="text-xs text-blue-100/90 mt-2 font-medium leading-relaxed">
-            बिना APK डाउनलोड किए 1-क्लिक में नया वर्शन अपडेट करें। आपको बार-बार ऐप अनइनस्टॉल या री-इन्स्टॉल करने की आवश्यकता नहीं है।
+            Update to the latest version in 1 click without re-downloading APK files. No need to uninstall or reinstall the app.
           </p>
         </div>
 
@@ -135,24 +135,24 @@ export const AutoUpdateModal: React.FC<AutoUpdateModalProps> = ({
           <div className="space-y-1.5">
             <h4 className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
               <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-              <span>What&apos;s New in v{targetVersion} (नए फीचर्स):</span>
+              <span>What&apos;s New in v{targetVersion}:</span>
             </h4>
             <div className="bg-slate-50/90 rounded-xl p-3 border border-slate-200/80 text-[11.5px] space-y-1.5 text-slate-600">
               <div className="flex items-start space-x-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                <span><strong>Aryan Agency Pricing &amp; Margin:</strong> Pack of 1, 2, 4 व Pack of 10 पैकिंग ऑप्शन्स और स्पष्ट मार्जिन %।</span>
+                <span><strong>Aryan Agency Pricing &amp; Margin:</strong> Pack of 1, 2, 4 and Pack of 10 packaging options with clear retailer margins.</span>
               </div>
               <div className="flex items-start space-x-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                <span><strong>2-Step Cart Screen:</strong> कार्ट में सभी प्रोडक्ट्स अलग स्क्रॉल करें, पेमेंट सेक्शन से व्यू लॉक नहीं होगा।</span>
+                <span><strong>2-Step Cart Screen:</strong> Dedicated scrollable product list with streamlined checkout and payment section.</span>
               </div>
               <div className="flex items-start space-x-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                <span><strong>Bulk Product Add:</strong> Admin पैनल में एक साथ कई प्रोडक्ट्स जोड़ें या Excel/WhatsApp से पेस्ट करें।</span>
+                <span><strong>Bulk Product Add:</strong> Add multiple FMCG items simultaneously with custom packings in the Admin panel.</span>
               </div>
               <div className="flex items-start space-x-2">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
-                <span><strong>Seamless Auto Update:</strong> नया अपडेट आने पर ऐप तुरंत स्वतः रीफ्रेश होकर चालू हो जाती है।</span>
+                <span><strong>Seamless Auto Update:</strong> Automatic instant asset refresh when new app versions are released.</span>
               </div>
             </div>
           </div>
@@ -198,7 +198,7 @@ export const AutoUpdateModal: React.FC<AutoUpdateModalProps> = ({
                   className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-sm transition-all cursor-pointer"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  <span>1-Click Auto Update Now (तुरंत अपडेट करें)</span>
+                  <span>1-Click Auto Update Now</span>
                 </button>
 
                 {/* Secondary: Raw APK download for sharing */}

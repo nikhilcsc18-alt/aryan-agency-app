@@ -35,11 +35,11 @@ export const AnimatedDeliveryRouteBanner: React.FC<AnimatedDeliveryRouteBannerPr
           </div>
 
           <h3 className="text-sm sm:text-base md:text-lg font-black text-white tracking-tight leading-snug drop-shadow-xs">
-            डिपो से दुकान तक सीधी डिलीवरी
+            Direct Delivery From Depot to Your Store
           </h3>
 
           <p className="text-[11px] sm:text-xs text-blue-200/95 font-medium mt-0.5 tracking-tight leading-relaxed">
-            किराना दुकानों के लिए 24 घंटे में डिलीवरी • 100% पक्का GST बिल • Order Tracking
+            24-Hour Delivery for Kirana Outlets • 100% Tax Paid GST Invoice • Live Order Tracking
           </p>
         </div>
 
@@ -81,7 +81,7 @@ export const AnimatedDeliveryRouteBanner: React.FC<AnimatedDeliveryRouteBannerPr
                 </span>
               </div>
               <span className="text-[9px] sm:text-[10px] font-semibold text-amber-300/90 block leading-tight">
-                डिपो (Utraula)
+                Utraula Central Hub
               </span>
             </div>
           </div>
@@ -187,7 +187,7 @@ export const AnimatedDeliveryRouteBanner: React.FC<AnimatedDeliveryRouteBannerPr
             {/* Mobile Route Label Under Track */}
             <div className="block xs:hidden text-center mt-1">
               <span className="text-[9px] font-bold text-amber-300/90">
-                डिपो से सीधे आपकी दुकान तक
+                Direct Dispatch from Depot to Your Store
               </span>
             </div>
           </div>
@@ -197,11 +197,11 @@ export const AnimatedDeliveryRouteBanner: React.FC<AnimatedDeliveryRouteBannerPr
             <div className="hidden xs:block text-right">
               <div className="flex items-center justify-end gap-1">
                 <span className="text-[11px] sm:text-xs font-black text-white leading-tight">
-                  Kirana Shop
+                  Kirana Store
                 </span>
               </div>
               <span className="text-[9px] sm:text-[10px] font-semibold text-emerald-300/90 block leading-tight">
-                किराना दुकान (Counter)
+                Verified Retail Counter
               </span>
             </div>
 

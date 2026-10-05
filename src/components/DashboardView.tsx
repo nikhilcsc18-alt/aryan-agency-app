@@ -11,7 +11,8 @@ import {
   ChevronRight, 
   Store,
   Sparkles,
-  Plus
+  Plus,
+  ShieldCheck
 } from 'lucide-react';
 import { Product, Order, Retailer, Salesman } from '../types';
 import { formatINR } from '../lib/api';
@@ -65,6 +66,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const pendingDispatches = displayOrders.filter(o => o.status === 'confirmed' || o.status === 'packed');
   const deliveredToday = displayOrders.filter(o => o.status === 'delivered' && o.orderDate.startsWith(todayDateStr));
+  const pendingVerificationsCount = retailers.filter(r => r.verificationStatus === 'pending').length;
 
   // Current salesman profile
   const mySalesmanProfile = salesmen.find(s => s.id === currentUser?.salesmanId || s.name === currentUser?.name);
@@ -118,6 +120,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* Retailer Verification Queue Alert Banner */}
+      {pendingVerificationsCount > 0 && (isAdmin || isSalesman) && (
+        <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 text-white rounded-xl p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in duration-200">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-5 h-5 text-white animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold tracking-tight">
+                {pendingVerificationsCount} Retailer Account{pendingVerificationsCount > 1 ? 's' : ''} Pending Verification & KYC Review
+              </h3>
+              <p className="text-xs text-white/90 mt-0.5">
+                New retail outlets are awaiting trade document authentication, credit limits, and delivery beat route mapping.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onNavigateTab('verifications')}
+            className="px-4 py-2 text-xs font-bold rounded-lg bg-white text-amber-900 hover:bg-amber-50 shadow-xs transition-colors shrink-0 flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95"
+          >
+            <span>Review Timeline</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Critical Operational Alerts (Stock buffer alerts only for Admin) */}
       {(isAdmin && lowStockProducts.length > 0) || overdueRetailers.length > 0 ? (

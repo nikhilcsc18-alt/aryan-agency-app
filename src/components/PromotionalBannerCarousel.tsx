@@ -258,7 +258,7 @@ export const PromotionalBannerCarousel: React.FC<PromotionalBannerCarouselProps>
                   }}
                   className="px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 shadow-md hover:shadow-lg transition-all flex items-center space-x-1.5 cursor-pointer active:scale-95"
                 >
-                  <span>{currentBanner.buyNowText || currentBanner.ctaText || 'अभी खरीदें (Buy Now)'}</span>
+                  <span>{currentBanner.buyNowText || currentBanner.ctaText || 'Buy Now'}</span>
                   <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
                 </button>
               )}
@@ -294,7 +294,7 @@ export const PromotionalBannerCarousel: React.FC<PromotionalBannerCarouselProps>
                   }}
                   className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-2xl active:scale-95 transition-all cursor-pointer border-2 border-amber-300"
                 >
-                  <span>{currentBanner.buyNowText || 'अभी खरीदें (Buy Now)'}</span>
+                  <span>{currentBanner.buyNowText || 'Buy Now'}</span>
                   <ArrowRight className="w-4 h-4 stroke-[3]" />
                 </button>
               </div>

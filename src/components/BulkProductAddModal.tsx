@@ -318,7 +318,7 @@ export const BulkProductAddModal: React.FC<BulkProductAddModalProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <h3 className="text-sm sm:text-base font-black">
-                  Multiple Product Add (एक साथ कई Products जोड़ें)
+                  Multiple Product Add
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
                   Aryan Agency Pricing & Margin
@@ -710,7 +710,7 @@ export const BulkProductAddModal: React.FC<BulkProductAddModalProps> = ({
             ) : (
               <>
                 <Save className="w-4 h-4" />
-                <span>Save All {rows.length} Products (सब जोड़ें)</span>
+                <span>Save All {rows.length} Products</span>
               </>
             )}
           </button>

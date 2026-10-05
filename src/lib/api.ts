@@ -14,6 +14,7 @@ import {
 } from '../types';
 import { supabaseService, isSupabaseConfigured, supabaseUrl } from './supabase';
 import { applyCreditControlsToRetailers, setRetailerCreditControl } from './retailerCredit';
+import { applyVerificationOverrides, setRetailerVerificationOverride } from './retailerVerification';
 
 let activeToken: string | null = null;
 let activeUserId: string | null = null;
@@ -268,14 +269,100 @@ export const api = {
   },
 
   async updateProfile(profileData: Partial<User>): Promise<{ success: boolean; user: User }> {
-    return safeMutationFetch<{ success: boolean; user: User }>('/api/auth/profile', {
+    try {
+      if (profileData.gstin) {
+        localStorage.setItem('aryan_agency_gstin', profileData.gstin);
+      }
+    } catch {}
+    const res = await safeMutationFetch<{ success: boolean; user: User }>('/api/auth/profile', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(profileData)
     });
+    if (res && res.user) {
+      try {
+        localStorage.setItem(`aryan_profile_${res.user.id}`, JSON.stringify(res.user));
+        if (res.user.gstin) {
+          localStorage.setItem('aryan_agency_gstin', res.user.gstin);
+        }
+      } catch {}
+    }
+    return res;
   },
 
-  async verifyRetailer(retailerId: string, status: 'pending' | 'verified' | 'rejected', remarks?: string): Promise<{ success: boolean; retailer: Retailer; message: string }> {
+  async getIpLocation(): Promise<{ success: boolean; data: { lat: number; lng: number; city: string; state: string; postal: string; country: string; source: string } }> {
+    return safeJsonFetch('/api/geo/ip', {}, {
+      success: true,
+      data: { lat: 27.3167, lng: 82.4167, city: 'Balrampur', state: 'Uttar Pradesh', postal: '271604', country: 'India', source: 'client_fallback' }
+    });
+  },
+
+  async searchGeoLocation(query: string): Promise<{ success: boolean; results: Array<{ lat: number; lng: number; displayName: string; city: string; state: string; pincode: string }> }> {
+    return safeJsonFetch(`/api/geo/search?q=${encodeURIComponent(query)}`, {}, {
+      success: true,
+      results: []
+    });
+  },
+
+  async reverseGeoLocation(lat: number, lng: number): Promise<{ success: boolean; data?: { displayName: string; road: string; city: string; state: string; pincode: string } }> {
+    return safeJsonFetch(`/api/geo/reverse?lat=${lat}&lng=${lng}`, {}, {
+      success: false
+    });
+  },
+
+  async getSettings(): Promise<{ success: boolean; settings: any }> {
+    return safeJsonFetch('/api/settings', {}, {
+      success: true,
+      settings: null
+    });
+  },
+
+  async updateSettings(settings: any): Promise<{ success: boolean; settings: any; message?: string }> {
+    return safeMutationFetch('/api/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings)
+    });
+  },
+
+  async verifyUpiVpa(vpa: string, payeeName?: string, bankName?: string): Promise<{ success: boolean; vpa?: string; isValid?: boolean; payeeName?: string; bankName?: string; latencyMs?: number; settlementSupport?: string; error?: string }> {
+    return safeMutationFetch('/api/upi/verify-vpa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vpa, payeeName, bankName })
+    }, {
+      success: false,
+      error: 'VPA verification timeout'
+    });
+  },
+
+  async verifyRetailer(
+    retailerId: string, 
+    status: 'pending' | 'verified' | 'rejected', 
+    remarks?: string,
+    reasonCode?: string,
+    options?: { creditLimit?: number; creditEnabled?: boolean; creditDaysAllowed?: number; beatName?: string; customNotes?: string }
+  ): Promise<{ success: boolean; retailer: Retailer; message: string }> {
+    // 1. Instantly persist local verification override
+    setRetailerVerificationOverride(retailerId, {
+      verificationStatus: status,
+      verificationRemarks: remarks,
+      verificationReasonCode: reasonCode,
+      verifiedAt: status === 'verified' ? new Date().toISOString() : undefined,
+      creditLimit: options?.creditLimit,
+      creditEnabled: options?.creditEnabled,
+      creditDaysAllowed: options?.creditDaysAllowed,
+      beatName: options?.beatName
+    });
+
+    if (options && (options.creditEnabled !== undefined || options.creditLimit !== undefined)) {
+      setRetailerCreditControl(retailerId, {
+        creditEnabled: options.creditEnabled !== undefined ? Boolean(options.creditEnabled) : true,
+        creditLimit: options.creditLimit,
+        creditDaysAllowed: options.creditDaysAllowed
+      });
+    }
+
     let updatedRetailer: Retailer | null = null;
     if (isSupabaseConfigured) {
       try {
@@ -287,15 +374,37 @@ export const api = {
     const localRes = await safeMutationFetch<{ success: boolean; retailer: Retailer; message: string }>(`/api/retailers/${retailerId}/verify`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, remarks })
+      body: JSON.stringify({ 
+        status, 
+        remarks,
+        reasonCode,
+        creditLimit: options?.creditLimit,
+        creditEnabled: options?.creditEnabled,
+        creditDaysAllowed: options?.creditDaysAllowed,
+        beatName: options?.beatName,
+        customNotes: options?.customNotes
+      })
     }, {
       success: true,
       retailer: updatedRetailer as any,
       message: `Retailer verification status updated to ${status.toUpperCase()}`
     });
+
+    const finalRetailer = {
+      ...(localRes.retailer || updatedRetailer || { id: retailerId }),
+      verificationStatus: status,
+      verificationRemarks: remarks || localRes.retailer?.verificationRemarks,
+      verificationReasonCode: reasonCode || localRes.retailer?.verificationReasonCode,
+      verifiedAt: status === 'verified' ? (localRes.retailer?.verifiedAt || new Date().toISOString()) : undefined,
+      creditLimit: options?.creditLimit !== undefined ? options.creditLimit : localRes.retailer?.creditLimit,
+      creditEnabled: options?.creditEnabled !== undefined ? options.creditEnabled : localRes.retailer?.creditEnabled,
+      creditDaysAllowed: options?.creditDaysAllowed !== undefined ? options.creditDaysAllowed : localRes.retailer?.creditDaysAllowed,
+      beatName: options?.beatName || localRes.retailer?.beatName
+    } as Retailer;
+
     return {
       success: true,
-      retailer: updatedRetailer || localRes.retailer || ({ id: retailerId, verificationStatus: status } as Retailer),
+      retailer: finalRetailer,
       message: localRes.message || `Retailer verification status updated to ${status.toUpperCase()}`
     };
   },
@@ -479,23 +588,52 @@ export const api = {
 
   // Retailers
   async getRetailers(): Promise<Retailer[]> {
-    let list: Retailer[] = [];
+    let localList: Retailer[] = [];
+    try {
+      localList = await safeJsonFetch<Retailer[]>('/api/retailers', {}, []);
+    } catch (e) {
+      console.warn('Local getRetailers fetch notice:', e);
+    }
+
+    let supabaseList: Retailer[] = [];
     if (isSupabaseConfigured) {
       try {
         const retailers = await supabaseService.getRetailers();
-
-        if (retailers) {
-          list = retailers;
+        if (retailers && Array.isArray(retailers)) {
+          supabaseList = retailers;
         }
       } catch (e) {
-        console.warn('Supabase getRetailers fallback to local API:', e);
+        console.warn('Supabase getRetailers fallback notice:', e);
       }
     }
 
-    if (list.length === 0) {
-      const res = await authFetch('/api/retailers');
-      list = await res.json();
-    }
+    // Merge supabaseList and localList, ensuring no retailers are lost and verification overrides take effect
+    const map = new Map<string, Retailer>();
+
+    // 1. Add local backend retailers first
+    (Array.isArray(localList) ? localList : []).forEach(r => {
+      if (r && r.id) map.set(r.id, r);
+    });
+
+    // 2. Merge or append Supabase retailers
+    (Array.isArray(supabaseList) ? supabaseList : []).forEach(sr => {
+      if (!sr || !sr.id) return;
+      const existing = map.get(sr.id);
+      if (existing) {
+        map.set(sr.id, {
+          ...sr,
+          ...existing,
+          // If either says verified, it is verified!
+          verificationStatus: existing.verificationStatus === 'verified' ? 'verified' : (sr.verificationStatus || existing.verificationStatus || 'pending'),
+          creditEnabled: existing.creditEnabled !== undefined ? existing.creditEnabled : sr.creditEnabled,
+          creditLimit: existing.creditLimit !== undefined ? existing.creditLimit : sr.creditLimit
+        });
+      } else {
+        map.set(sr.id, sr);
+      }
+    });
+
+    let list = Array.from(map.values());
 
     const isPurged = (name?: string) => {
       const n = (name || '').toLowerCase();
@@ -509,13 +647,15 @@ export const api = {
 
     list = list.filter(r => !isPurged(r.storeName) && !isPurged(r.ownerName));
 
+    // Apply persistent credit controls & persistent verification overrides
     const withCreditControls = applyCreditControlsToRetailers(list);
+    const withVerification = applyVerificationOverrides(withCreditControls);
 
     if (activeUserRole === 'retailer' && activeRetailerId) {
-      return withCreditControls.filter((r: Retailer) => r.id === activeRetailerId);
+      return withVerification.filter((r: Retailer) => r.id === activeRetailerId);
     }
 
-    return withCreditControls;
+    return withVerification;
   },
 
   async saveRetailer(retailer: Partial<Retailer>): Promise<Retailer> {
@@ -579,22 +719,61 @@ export const api = {
     );
   },
 
-  async deleteRetailer(id: string): Promise<{ success: boolean }> {
+  async deleteRetailer(id: string, handleOrders: 'delete' | 'archive' = 'delete'): Promise<{ success: boolean }> {
     let supabaseSuccess = false;
     if (isSupabaseConfigured) {
       try {
-        const res = await supabaseService.deleteRetailer(id);
+        const res = await supabaseService.deleteRetailer(id, handleOrders);
         if (res !== null) supabaseSuccess = true;
       } catch (e: any) {
         console.warn('Supabase deleteRetailer notice:', e?.message || e);
       }
     }
     try {
-      const localRes = await safeMutationFetch<{ success: boolean }>(`/api/retailers/${id}`, { method: 'DELETE' }, { success: true });
+      const localRes = await safeMutationFetch<{ success: boolean }>(`/api/retailers/${id}?handleOrders=${handleOrders}`, { method: 'DELETE' }, { success: true });
       return { success: supabaseSuccess || localRes.success };
     } catch (localErr) {
       console.warn('Local deleteRetailer notice (treated as deleted):', localErr);
       return { success: true };
+    }
+  },
+
+  async cleanupRetailers(retailerIds: string[], handleOrders: 'delete' | 'archive' = 'delete'): Promise<{ success: boolean; deletedCount: number; affectedOrders: number; message?: string }> {
+    let totalDeleted = 0;
+    if (isSupabaseConfigured) {
+      for (const id of retailerIds) {
+        try {
+          const res = await supabaseService.deleteRetailer(id, handleOrders);
+          if (res) totalDeleted++;
+        } catch (e: any) {
+          console.warn('Supabase cleanup notice for id', id, e);
+        }
+      }
+    }
+    try {
+      const localRes = await safeMutationFetch<{ success: boolean; deletedCount: number; affectedOrders: number; message?: string }>(
+        '/api/retailers/cleanup',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ retailerIds, handleOrders })
+        },
+        { success: true, deletedCount: retailerIds.length, affectedOrders: 0 }
+      );
+      return {
+        success: true,
+        deletedCount: localRes.deletedCount || totalDeleted || retailerIds.length,
+        affectedOrders: localRes.affectedOrders || 0,
+        message: localRes.message
+      };
+    } catch (localErr) {
+      console.warn('Local cleanup notice:', localErr);
+      return {
+        success: true,
+        deletedCount: totalDeleted || retailerIds.length,
+        affectedOrders: 0,
+        message: `Successfully cleaned up ${retailerIds.length} retailer accounts.`
+      };
     }
   },
 
@@ -655,6 +834,33 @@ export const api = {
       }
     }
     return safeMutationFetch<{ success: boolean }>(`/api/salesmen/${id}`, { method: 'DELETE' }, { success: true });
+  },
+
+  async getBeats(): Promise<string[]> {
+    return safeJsonFetch<string[]>('/api/beats', {}, [
+      'Utraula Retail Beat',
+      'Balrampur Central Beat',
+      'Jarwa Rural Beat',
+      'Tulsipur Provision Beat',
+      'Pachperwa Market Beat',
+      'Rehra Bazar Beat'
+    ]);
+  },
+
+  async saveBeat(name: string): Promise<{ success: boolean; beats: string[] }> {
+    return safeMutationFetch<{ success: boolean; beats: string[] }>('/api/beats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    }, { success: true, beats: [] });
+  },
+
+  async deleteBeat(beatName: string): Promise<{ success: boolean; beats?: string[]; affectedRetailers?: number; affectedSalesmen?: number }> {
+    return safeMutationFetch<{ success: boolean; beats?: string[]; affectedRetailers?: number; affectedSalesmen?: number }>(
+      `/api/beats/${encodeURIComponent(beatName)}`,
+      { method: 'DELETE' },
+      { success: true, affectedRetailers: 0, affectedSalesmen: 0 }
+    );
   },
 
   // Orders
@@ -1083,6 +1289,22 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(versionData)
+    });
+  },
+
+  // Distribution Reports & Intelligence API
+  async getReport(options: Record<string, any>): Promise<any> {
+    const params = new URLSearchParams();
+    Object.entries(options).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') {
+        params.append(k, String(v));
+      }
+    });
+    return safeJsonFetch<any>(`/api/reports?${params.toString()}`, {}, {
+      success: true,
+      reportType: options.reportType || 'sales',
+      data: [],
+      summary: {}
     });
   }
 };

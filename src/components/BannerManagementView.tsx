@@ -73,52 +73,52 @@ const GRADIENT_PRESETS = [
 
 const FMCG_IMAGE_PRESETS = [
   {
-    name: 'बिस्कुट (Biscuits & Bakery)',
+    name: 'Biscuits & Bakery',
     url: 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=600&auto=format&fit=crop&q=80',
-    title: 'दुकानदारों के लिए विशेष थोक स्कीम',
+    title: 'Special Wholesale Retailer Scheme',
     subtitle: 'Parle • Britannia • Sunfeast • Amul',
-    badge: 'थोक ऑफर',
-    offer: 'हर पेटी पर अतिरिक्त 5% मार्जिन',
+    badge: 'Wholesale Offer',
+    offer: 'Extra 5% retailer margin on every carton',
     brands: 'Parle-G • Good Day • Marie Gold • Bourbon',
     gradient: 'from-[#F6BD27] via-[#F4B218] to-[#E89E0B]'
   },
   {
-    name: 'नमकीन व चिप्स (Snacks & Chips)',
+    name: 'Snacks & Chips',
     url: 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=600&auto=format&fit=crop&q=80',
-    title: "Lay's & Kurkure डायरेक्ट डिपो मार्जिन",
-    subtitle: '100% ओरिजिनल फ्रेश स्टॉक सीधे डिपो से',
-    badge: 'हॉट सेलिंग',
-    offer: '₹5 व ₹10 पैक पर पूरा 18% रिटेलर मार्जिन',
+    title: "Lay's & Kurkure Direct Depot Margin",
+    subtitle: '100% genuine fresh stock directly from depot',
+    badge: 'Fast Moving',
+    offer: 'Full 18% retailer margin on ₹5 & ₹10 packs',
     brands: "Lay's • Kurkure • Uncle Chipps • Doritos",
     gradient: 'from-[#F59E0B] via-[#D97706] to-[#B45309]'
   },
   {
-    name: 'अमूल डेयरी (Amul Dairy)',
+    name: 'Amul Dairy',
     url: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=600&auto=format&fit=crop&q=80',
-    title: 'अमूल मक्खन व चीज़ थोक सप्लाई',
-    subtitle: 'कोल्ड-चेन रेफ्रिजरेटेड वैन से दुकान तक डिलीवरी',
-    badge: 'अमूल डिपो',
-    offer: 'प्रति कार्टन सीधा ₹120 तक का मुनाफा',
+    title: 'Amul Butter & Cheese Wholesale Supply',
+    subtitle: 'Refrigerated cold-chain direct doorstep delivery',
+    badge: 'Amul Depot',
+    offer: 'High margin wholesale depot rates',
     brands: 'Amul Butter • Cheese Cubes • Paneer • Ghee',
     gradient: 'from-[#0284C7] via-[#0369A1] to-[#075985]'
   },
   {
-    name: 'मैगी नूडल्स (Maggi Noodles)',
+    name: 'Maggi Noodles',
     url: 'https://images.unsplash.com/photo-1612927601601-6638404737ce?w=600&auto=format&fit=crop&q=80',
-    title: 'मैगी 2-मिनट नूडल्स डिपो रेट्स',
-    subtitle: 'नेस्ले सुपर-स्टॉकिस्ट ऑथेंटिक डिस्ट्रीब्यूशन',
-    badge: 'सुपर स्कीम',
-    offer: 'थोक पेटी बुकिंग पर अतिरिक्त 4% कैश डिस्काउंट',
+    title: 'Maggi 2-Minute Noodles Depot Rates',
+    subtitle: 'Nestle authorized stockist distribution',
+    badge: 'Super Scheme',
+    offer: 'Additional 4% cash discount on bulk carton bookings',
     brands: 'Maggi 70g • Maggi Oats • Maggi Masala-ae-Magic',
     gradient: 'from-[#DC2626] via-[#B91C1C] to-[#991B1B]'
   },
   {
-    name: 'पर्सनल हाइजीन (Soap & Hygiene)',
+    name: 'Soap & Hygiene',
     url: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600&auto=format&fit=crop&q=80',
-    title: 'पर्सनल हाइजीन व सोप थोक कार्टन स्कीम',
-    subtitle: 'डेटॉल, कोलगेट, लक्स व लाइफबॉय डिपो स्टॉक',
-    badge: 'दुकान डिलीवरी',
-    offer: 'जीएसटी पक्के बिल के साथ 24 घंटे में डिस्पैच',
+    title: 'Personal Hygiene & Soap Wholesale Scheme',
+    subtitle: 'Dettol, Colgate, Lux & Lifebuoy depot inventory',
+    badge: 'Store Delivery',
+    offer: 'Fast dispatch with authentic GST invoice within 24 hours',
     brands: 'Dettol • Lifebuoy • Lux • Colgate • Whisper',
     gradient: 'from-[#0D9488] via-[#0F766E] to-[#115E59]'
   }
@@ -132,14 +132,14 @@ const FMCG_IMAGE_PRESETS = [
 function compressBannerImage(file: File, maxWidth = 1200, maxHeight = 600, quality = 0.85): Promise<{ dataUrl: string; sizeKb: number }> {
   return new Promise((resolve, reject) => {
     if (!file.type.startsWith('image/')) {
-      reject(new Error('कृपया केवल इमेज (JPG, PNG, WEBP) फ़ाइल चुनें।'));
+      reject(new Error('Please select an image file (JPG, PNG, WEBP) only.'));
       return;
     }
     const reader = new FileReader();
-    reader.onerror = () => reject(new Error('फ़ाइल पढ़ने में त्रुटि हुई।'));
+    reader.onerror = () => reject(new Error('Failed to read image file.'));
     reader.onload = (e) => {
       const img = new Image();
-      img.onerror = () => reject(new Error('इमेज लोड करने में समस्या हुई। कृपया दूसरी फोटो चुनें।'));
+      img.onerror = () => reject(new Error('Failed to load image. Please select another image.'));
       img.onload = () => {
         let width = img.width;
         let height = img.height;
@@ -208,14 +208,14 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
   const [hideTextOverlay, setHideTextOverlay] = useState(false);
   const [posterFit, setPosterFit] = useState<'cover' | 'fill' | 'contain'>('cover');
   const [showBuyNow, setShowBuyNow] = useState(true);
-  const [buyNowText, setBuyNowText] = useState('अभी खरीदें (Buy Now)');
+  const [buyNowText, setBuyNowText] = useState('Buy Now');
 
   const openCreateModal = (presetImage?: string) => {
     setEditingBanner(null);
     setIsCreatingNew(true);
     setTitle('');
     setSubtitle('');
-    setBadgeText('विशेष ऑफर');
+    setBadgeText('Special Offer');
     setCtaText('');
     setAccentColor('');
     setImageUrl(presetImage || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&auto=format&fit=crop&q=80');
@@ -226,9 +226,9 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
     setHideTextOverlay(false);
     setPosterFit('cover');
     setShowBuyNow(true);
-    setBuyNowText('अभी खरीदें (Buy Now)');
+    setBuyNowText('Buy Now');
     setSaveError(null);
-    setUploadInfo(presetImage ? '✓ फोटो लोड हो गई' : null);
+    setUploadInfo(presetImage ? '✓ Photo loaded' : null);
   };
 
   const openEditModal = (b: PromotionalBanner) => {
@@ -247,9 +247,9 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
     setHideTextOverlay(Boolean(b.hideTextOverlay));
     setPosterFit(b.posterFit || 'cover');
     setShowBuyNow(b.showBuyNow !== undefined ? Boolean(b.showBuyNow) : true);
-    setBuyNowText(b.buyNowText || 'अभी खरीदें (Buy Now)');
+    setBuyNowText(b.buyNowText || 'Buy Now');
     setSaveError(null);
-    setUploadInfo(b.imageUrl ? 'मौजूदा बैनर इमेज लोड है' : null);
+    setUploadInfo(b.imageUrl ? 'Existing banner photo loaded' : null);
   };
 
   const closeModal = () => {
@@ -264,14 +264,14 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
     try {
       setIsCompressing(true);
       setSaveError(null);
-      setUploadInfo('फोटो ऑप्टिमाइज़ हो रही है...');
+      setUploadInfo('Optimizing photo...');
       
       const { dataUrl, sizeKb } = await compressBannerImage(file);
       setImageUrl(dataUrl);
-      setUploadInfo(`✓ फोटो लोड हो गई (${sizeKb} KB - ऑप्टिमाइज़्ड)`);
+      setUploadInfo(`✓ Photo loaded (${sizeKb} KB - optimized)`);
     } catch (err: any) {
       console.error('Error processing image:', err);
-      setSaveError(err?.message || 'फोटो प्रोसेस करने में त्रुटि हुई। कृपया दूसरी फोटो चुनें।');
+      setSaveError(err?.message || 'Error processing photo. Please select another image.');
       setUploadInfo(null);
     } finally {
       setIsCompressing(false);
@@ -304,14 +304,14 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
     setAccentColor(preset.brands);
     setImageUrl(preset.url);
     setBgGradient(preset.gradient);
-    setUploadInfo(`✓ ${preset.name} प्रीसेट लागू किया गया`);
+    setUploadInfo(`✓ ${preset.name} preset applied`);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Title is NO LONGER MANDATORY! Default if empty
-    const effectiveTitle = title.trim() || (targetBrand ? `${targetBrand} Wholesale Offer` : 'प्रमोशनल बैनर');
+    const effectiveTitle = title.trim() || (targetBrand ? `${targetBrand} Wholesale Offer` : 'Promotional Banner');
 
     setIsSaving(true);
     setSaveError(null);
@@ -319,7 +319,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
     const bannerPayload: Partial<PromotionalBanner> = {
       title: effectiveTitle,
       subtitle: subtitle.trim(),
-      badgeText: badgeText.trim() || 'विशेष ऑफर',
+      badgeText: badgeText.trim() || 'Special Offer',
       ctaText: ctaText.trim() || undefined,
       accentColor: accentColor.trim() || undefined,
       imageUrl: imageUrl.trim() || 'https://images.unsplash.com/photo-1558961363-fa8fdf82db35?w=500&auto=format&fit=crop&q=80',
@@ -330,7 +330,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
       hideTextOverlay,
       posterFit,
       showBuyNow,
-      buyNowText: buyNowText.trim() || 'अभी खरीदें (Buy Now)'
+      buyNowText: buyNowText.trim() || 'Buy Now'
     };
 
     try {
@@ -349,7 +349,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
       }, 700);
     } catch (err: any) {
       console.error('Error saving banner:', err);
-      setSaveError(err?.message || 'बैनर सेव करने में त्रुटि हुई।');
+      setSaveError(err?.message || 'Error saving banner.');
     } finally {
       setIsSaving(false);
     }
@@ -364,7 +364,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
       setDeleteConfirmId(null);
     } catch (err: any) {
       console.error('Error deleting banner:', err);
-      alert('बैनर हटाने में त्रुटि: ' + (err?.message || err));
+      alert('Error deleting banner: ' + (err?.message || err));
     }
   };
 
@@ -403,7 +403,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
             </h1>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            होम स्क्रीन और रिटेलर ऐप में दिखने वाले प्रमोशनल स्लाइडर बैनर्स, फोटो व ऑफर्स को लाइव मैनेज करें।
+            Manage promotional slider banners, photos, and wholesale campaign offers live on retailer screens.
           </p>
         </div>
 
@@ -412,7 +412,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
             type="button"
             onClick={() => onRefreshBanners()}
             className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
-            title="रिफ्रेश करें"
+            title="Refresh"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -422,10 +422,10 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
             type="button"
             onClick={() => quickUploadRef.current?.click()}
             className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
-            title="फोटो अपलोड कर तुरंत नया बैनर बनाएं"
+            title="Upload photo to create banner"
           >
             <UploadCloud className="w-4 h-4" />
-            <span>+ फोटो अपलोड करें (Upload Image)</span>
+            <span>+ Upload Image</span>
           </button>
           
           <button
@@ -435,7 +435,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
             className="flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-[#1A73E8] hover:bg-[#1557b0] text-white text-xs font-bold shadow-sm active:scale-95 transition-all cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>+ नया बैनर फॉर्म (New Banner)</span>
+            <span>+ New Banner</span>
           </button>
         </div>
       </div>
@@ -477,7 +477,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                   {b.hideTextOverlay ? (
                     <span className="px-2 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider shadow-xs flex items-center space-x-1">
                       <EyeOff className="w-3 h-3" />
-                      <span>शुद्ध फोटो मोड (No Text)</span>
+                      <span>Photo Only Mode</span>
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-xs">
@@ -606,9 +606,9 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
         {safeBanners.length === 0 && (
           <div className="col-span-full p-8 text-center bg-white rounded-2xl border border-dashed border-slate-300">
             <ImageIcon className="w-10 h-10 text-slate-400 mx-auto mb-2" />
-            <h3 className="text-sm font-bold text-slate-700">कोई सक्रिय बैनर नहीं है</h3>
+            <h3 className="text-sm font-bold text-slate-700">No active promotional banners</h3>
             <p className="text-xs text-slate-500 mt-1 mb-4">
-              पहला प्रमोशनल बैनर जोड़ने के लिए "नया बैनर बनाएं" या "फोटो अपलोड करें" पर क्लिक करें।
+              Click &quot;New Banner&quot; or &quot;Upload Image&quot; to add the first promotional slider banner.
             </p>
             <div className="flex items-center justify-center space-x-2">
               <button
@@ -670,7 +670,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
               {/* Real-Time Live Preview of the Banner */}
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1.5">
-                  लाइव प्रिव्यू (Live Carousel Preview)
+                  Live Carousel Preview
                 </label>
                 <div className={`relative p-4 rounded-xl text-white ${imageUrl ? 'bg-slate-950' : `bg-gradient-to-r ${bgGradient}`} aspect-[2.2/1] min-h-[175px] max-h-[260px] flex flex-col justify-between shadow-inner overflow-hidden border border-slate-700/50`}>
                   
@@ -699,11 +699,11 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                     {hideTextOverlay ? (
                       <span className="px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-black uppercase tracking-wider shadow-xs flex items-center space-x-1">
                         <EyeOff className="w-3 h-3" />
-                        <span>शुद्ध फोटो मोड (No Text Overlay)</span>
+                        <span>Photo Only Mode</span>
                       </span>
                     ) : (
                       <span className="px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow-xs">
-                        {badgeText || 'केवल दुकानदारों के लिए'}
+                        {badgeText || 'Exclusive Wholesale'}
                       </span>
                     )}
                     <span className="text-[10px] bg-black/50 backdrop-blur-xs text-white px-2 py-0.5 rounded font-bold">
@@ -716,7 +716,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                     <div className="relative z-10 my-2 flex items-center justify-between gap-3">
                       <div className="space-y-0.5 flex-1 min-w-0">
                         <h4 className="text-base font-black leading-tight text-white drop-shadow-md">
-                          {title || 'बैनर का मुख्य शीर्षक'}
+                          {title || 'Promotional Banner Headline'}
                         </h4>
                         {subtitle && (
                           <p className="text-[11px] text-white/95 font-medium drop-shadow-xs">
@@ -745,7 +745,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                     {showBuyNow && (
                       <div className="inline-flex items-center space-x-1 px-3 py-1 rounded-lg bg-amber-400 text-slate-950 font-black text-[10.5px] shadow-sm">
                         <ShoppingBag className="w-3.5 h-3.5 stroke-[2.5]" />
-                        <span>{buyNowText || 'अभी खरीदें (Buy Now)'}</span>
+                        <span>{buyNowText || 'Buy Now'}</span>
                         <ArrowRight className="w-3 h-3 stroke-[3]" />
                       </div>
                     )}
@@ -758,10 +758,10 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                 <div className="space-y-0.5 pr-3">
                   <span className="font-bold text-slate-900 text-xs flex items-center space-x-1.5">
                     <EyeOff className="w-4 h-4 text-blue-600" />
-                    <span>बैनर पर लिखावट छुपाएं (केवल शुद्ध फोटो/पोस्टर दिखाएं)</span>
+                    <span>Hide Text Overlay (Show Clean Photo/Poster Only)</span>
                   </span>
                   <p className="text-[11px] text-slate-600">
-                    यदि आपके बैनर में पहले से डिज़ाइन या टेक्स्ट लिखा है, तो इसे चालू करें। केवल आपकी फोटो दिखेगी, ऊपर कोई फालतू शीर्षक नहीं आएगा।
+                    If your banner image already contains artwork and text, enable this. Only the clean photo will be displayed without text overlay.
                   </p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer shrink-0">
@@ -781,10 +781,10 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                   <div className="space-y-0.5">
                     <span className="font-bold text-slate-900 text-xs flex items-center space-x-1.5">
                       <ImageIcon className="w-4 h-4 text-emerald-600" />
-                      <span>पोस्टर साइज़ और डिस्प्ले स्टाइल (Proper Poster Fit)</span>
+                      <span>Poster Size &amp; Display Style (Proper Poster Fit)</span>
                     </span>
                     <p className="text-[11px] text-slate-600">
-                      पोस्टर का साइज़ और फिटिंग चुनें ताकि आपका बैनर पूरा और सही अनुपात में दिखाई दे।
+                      Choose poster size and fitting to ensure the banner is presented in correct aspect ratio.
                     </p>
                   </div>
                 </div>
@@ -806,11 +806,11 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                     </div>
                     <div>
                       <div className="text-xs font-bold text-slate-900 flex items-center space-x-1">
-                        <span>फुल स्पेस कवर (Full Banner 100%)</span>
-                        <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-emerald-600 text-white font-black">डिफ़ॉल्ट</span>
+                        <span>Full Banner Space (Cover 100%)</span>
+                        <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-emerald-600 text-white font-black">Default</span>
                       </div>
                       <p className="text-[10.5px] text-slate-600 mt-0.5 leading-snug">
-                        बैनर बिना किसी साइड स्पेस या ब्लैंक जगह के पूरे एरिया में एज-टू-एज (Edge-to-Edge) सेट होगा।
+                        Banner fits seamlessly edge-to-edge without side margins or empty gaps.
                       </p>
                     </div>
                   </button>
@@ -830,9 +830,9 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                       {posterFit === 'fill' && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-slate-900">स्ट्रेच फिट (Stretch 100%)</div>
+                      <div className="text-xs font-bold text-slate-900">Stretch Fit (100% Exact Box)</div>
                       <p className="text-[10.5px] text-slate-600 mt-0.5 leading-snug">
-                        फोटो बिना कुछ कटे पूरे बैनर बॉक्स में 100% चौड़ाई और ऊँचाई में खिंचकर फिट होगी।
+                        Stretches to 100% width and height without cropping any parts.
                       </p>
                     </div>
                   </button>
@@ -841,7 +841,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                 <div className="p-2 rounded-lg bg-white/90 border border-emerald-200/90 text-[11px] text-slate-700 flex items-start space-x-2">
                   <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                   <span className="leading-snug">
-                    <strong>पूरे स्पेस में सेट:</strong> अब पोस्टर बीच में सिमटने या साइड में ब्लैंक स्पेस छूटने के बजाय पूरे बैनर एरिया में 100% एज-टू-एज दिखेगा।
+                    <strong>Seamless Layout:</strong> Posters fill the entire banner container 100% edge-to-edge with no empty borders.
                   </span>
                 </div>
               </div>
@@ -852,10 +852,10 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                   <div className="space-y-0.5">
                     <span className="font-bold text-slate-900 text-xs flex items-center space-x-1.5">
                       <ShoppingBag className="w-4 h-4 text-amber-600" />
-                      <span>'बाय नाउ (Buy Now)' बटन और डायरेक्ट नेविगेशन</span>
+                      <span>&apos;Buy Now&apos; Button &amp; Direct Category Navigation</span>
                     </span>
                     <p className="text-[11px] text-slate-600">
-                      बैनर या 'Buy Now' बटन पर क्लिक करने पर ग्राहक सीधे उस ब्रांड या कैटेगरी के उत्पादों पर पहुंच जाएगा।
+                      Clicking the banner or &apos;Buy Now&apos; button navigates directly to the designated brand or category.
                     </p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer shrink-0">
@@ -873,14 +873,14 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                   <div>
                     <label className="block text-[11px] font-bold text-slate-800 mb-1">
-                      टारगेट ब्रांड (Direct Target Brand)
+                      Direct Target Brand
                     </label>
                     <select
                       value={targetBrand}
                       onChange={(e) => setTargetBrand(e.target.value)}
                       className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 font-medium"
                     >
-                      <option value="">-- कोई ब्रांड चुनें (या नीचे टाइप करें) --</option>
+                      <option value="">-- Select a Brand (or enter below) --</option>
                       {FMCG_POPULAR_BRANDS.map(br => (
                         <option key={br} value={br}>{br}</option>
                       ))}
@@ -889,21 +889,21 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                       type="text"
                       value={targetBrand}
                       onChange={(e) => setTargetBrand(e.target.value)}
-                      placeholder="या खुद ब्रांड का नाम लिखें (उदा. Parle, Britannia, Lay's)"
+                      placeholder="e.g. Parle, Britannia, Lay's"
                       className="mt-1.5 w-full px-2.5 py-1.5 text-[11px] bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-amber-400"
                     />
                   </div>
 
                   <div>
                     <label className="block text-[11px] font-bold text-slate-800 mb-1">
-                      टारगेट कैटेगरी (Direct Target Category)
+                      Direct Target Category
                     </label>
                     <select
                       value={targetCategory}
                       onChange={(e) => setTargetCategory(e.target.value)}
                       className="w-full px-2.5 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-400 font-medium"
                     >
-                      <option value="">-- कोई कैटेगरी चुनें --</option>
+                      <option value="">-- Select Category --</option>
                       {FMCG_POPULAR_CATEGORIES.map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
                       ))}
@@ -912,13 +912,13 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                     {showBuyNow && (
                       <div className="mt-1.5">
                         <label className="block text-[10.5px] font-semibold text-slate-700 mb-0.5">
-                          बटन का नाम (Button Label)
+                          Button Label
                         </label>
                         <input
                           type="text"
                           value={buyNowText}
                           onChange={(e) => setBuyNowText(e.target.value)}
-                          placeholder="उदा. अभी खरीदें (Buy Now) या ऑर्डर करें"
+                          placeholder="e.g. Buy Now or Order Wholesale"
                           className="w-full px-2.5 py-1.5 text-[11px] bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-amber-400 font-medium"
                         />
                       </div>
@@ -932,9 +932,9 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-slate-700 flex items-center space-x-1">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>त्वरित FMCG प्रीसेट (1-Click Presets)</span>
+                    <span>Quick FMCG Presets</span>
                   </span>
-                  <span className="text-[10px] text-slate-400">रेडीमेड फोटो व टेक्स्ट</span>
+                  <span className="text-[10px] text-slate-400">Ready-made images &amp; text</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {FMCG_IMAGE_PRESETS.map((p) => (
@@ -954,7 +954,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="block text-[11px] font-bold text-slate-800">
-                    बैनर फोटो अपलोड (Upload Banner Photo) *
+                    Upload Banner Photo *
                   </label>
                   {uploadInfo && (
                     <span className="text-[10.5px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
@@ -983,7 +983,7 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                             setUploadInfo(null);
                           }}
                           className="absolute top-1 right-1 p-1 rounded-full bg-black/70 hover:bg-rose-600 text-white transition-colors cursor-pointer"
-                          title="फोटो हटाएं"
+                          title="Remove Photo"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -1001,12 +1001,12 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                           {isCompressing ? (
                             <>
                               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              <span>प्रोसेसिंग...</span>
+                              <span>Processing...</span>
                             </>
                           ) : (
                             <>
                               <UploadCloud className="w-4 h-4" />
-                              <span>{imageUrl ? 'फोटो बदलें (Change Photo)' : 'फोटो चुनें (Choose File)'}</span>
+                              <span>{imageUrl ? 'Change Photo' : 'Choose File'}</span>
                             </>
                           )}
                           <input
@@ -1027,12 +1027,12 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                             }}
                             className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-rose-100 text-slate-700 hover:text-rose-700 text-xs font-semibold transition-colors cursor-pointer"
                           >
-                            हटाएं (Remove)
+                            Remove
                           </button>
                         )}
                       </div>
                       <p className="text-[10.5px] text-slate-500">
-                        मोबाइल या कंप्यूटर से कोई भी फोटो (JPG, PNG, WEBP) चुनें। यह अपने आप ऑप्टिमाइज़ हो जाएगी।
+                        Choose any image (JPG, PNG, WEBP) from your mobile or PC. It will automatically optimize.
                       </p>
                     </div>
 
@@ -1042,13 +1042,13 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                 {/* Optional Manual Image URL Field */}
                 <div className="pt-1">
                   <div className="flex items-center space-x-2">
-                    <span className="text-[10.5px] text-slate-500 font-medium shrink-0">या वेब URL:</span>
+                    <span className="text-[10.5px] text-slate-500 font-medium shrink-0">Or Image URL:</span>
                     <input
                       type="text"
                       value={imageUrl}
                       onChange={(e) => {
                         setImageUrl(e.target.value);
-                        setUploadInfo(e.target.value ? 'वेब URL सेट है' : null);
+                        setUploadInfo(e.target.value ? 'Image URL set' : null);
                       }}
                       placeholder="https://images.unsplash.com/..."
                       className="flex-1 px-2.5 py-1.5 text-[11px] bg-slate-50 border border-slate-200 rounded-lg focus:ring-1 focus:ring-blue-500 text-slate-700"
@@ -1061,22 +1061,22 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-[11px] font-semibold text-slate-700">
-                    बैनर का नाम / शीर्षक (Title / Internal Reference)
+                    Banner Title / Internal Reference
                   </label>
                   <span className="text-[10px] text-slate-500 font-medium">
-                    (ऐच्छिक / Optional - अनिवार्य नहीं है)
+                    (Optional)
                   </span>
                 </div>
                 <input
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder={hideTextOverlay ? "उदा. Parle Special Offer (केवल रिकॉर्ड के लिए)" : "उदा. दुकानदारों के लिए सीधे डिपो थोक भाव"}
+                  placeholder={hideTextOverlay ? "e.g. Parle Special Offer (Internal Reference)" : "e.g. Direct Depot Wholesale Deals"}
                   className="w-full px-3 py-2 text-xs font-semibold bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
                 {hideTextOverlay && (
                   <p className="text-[10px] text-blue-600 mt-1">
-                    ✓ 'शुद्ध फोटो मोड' चालू है, इसलिए यह नाम केवल आपके रिकॉर्ड में रहेगा, होम स्क्रीन बैनर पर नहीं दिखेगा।
+                    ✓ &apos;Photo Only Mode&apos; active. This title will only show in your records, not on the homepage banner.
                   </p>
                 )}
               </div>
@@ -1085,13 +1085,13 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
               {!hideTextOverlay && (
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    उप-शीर्षक (Subtitle / Tagline)
+                    Subtitle / Tagline
                   </label>
                   <input
                     type="text"
                     value={subtitle}
                     onChange={(e) => setSubtitle(e.target.value)}
-                    placeholder="उदा. Best Wholesale Rates • Maximum Retailer Margins"
+                    placeholder="e.g. Best Wholesale Rates • Maximum Retailer Margins"
                     className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
@@ -1103,26 +1103,26 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        बैज टेक्स्ट (Badge Text)
+                        Badge Text
                       </label>
                       <input
                         type="text"
                         value={badgeText}
                         onChange={(e) => setBadgeText(e.target.value)}
-                        placeholder="उदा. थोक व्यापार डिस्काउंट"
+                        placeholder="e.g. Wholesale Trade Discount"
                         className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                       />
                     </div>
 
                     <div>
                       <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        ऑफर टेक्स्ट (Offer / Margin Callout)
+                        Offer / Margin Callout
                       </label>
                       <input
                         type="text"
                         value={ctaText}
                         onChange={(e) => setCtaText(e.target.value)}
-                        placeholder="उदा. हर पेटी पर ₹20 से ₹60 तक का मुनाफा"
+                        placeholder="e.g. Up to 18% Retailer Margin"
                         className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                       />
                     </div>
@@ -1131,27 +1131,27 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
                   {/* Brands & Footer notes */}
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      ब्रांड्स या अतिरिक्त टेक्स्ट (Brands / Footer Text)
+                      Brands / Footer Text
                     </label>
                     <input
                       type="text"
                       value={accentColor}
                       onChange={(e) => setAccentColor(e.target.value)}
-                      placeholder="उदा. Lay's • Kurkure • Parle-G • Amul • Sunfeast"
+                      placeholder="e.g. Lay's • Kurkure • Parle-G • Amul • Sunfeast"
                       className="w-full px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                     />
                   </div>
                 </>
               ) : (
                 <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-[11px]">
-                  💡 <strong>शुद्ध फोटो मोड:</strong> आपने लिखावट छुपाने का विकल्प चुना है, इसलिए बैनर पर सिर्फ आपकी अपलोड की गई फोटो और 'बाय नाउ' बटन दिखेगा। कोई अन्य टेक्स्ट टाइप करने की आवश्यकता नहीं है।
+                  💡 <strong>Photo Only Mode:</strong> You selected to hide text overlay. Only your uploaded photo and &apos;Buy Now&apos; button will display on the banner.
                 </div>
               )}
 
               {/* Background Color & Gradient Selection */}
               <div>
                 <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                  बैकग्राउंड ग्रेडिएंट थीम (Gradient Theme)
+                  Gradient Theme
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {GRADIENT_PRESETS.map((p) => (
@@ -1177,8 +1177,8 @@ export const BannerManagementView: React.FC<BannerManagementViewProps> = ({
               {/* Status Switch */}
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">बैनर सक्रिय रखें (Active Status)</h4>
-                  <p className="text-[10.5px] text-slate-500">होम स्क्रीन पर सभी दुकानदारों को यह बैनर दिखेगा</p>
+                  <h4 className="text-xs font-bold text-slate-900">Active Status</h4>
+                  <p className="text-[10.5px] text-slate-500">This banner will appear to all retailers on home screen</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input

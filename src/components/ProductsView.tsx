@@ -287,7 +287,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
         });
 
         setBarcodeLookupSuccess(true);
-        setBarcodeLookupMessage(`✓ बारकोड ${code} सफलता से मिला: "${result.name}" (${result.brand})! नाम, ब्रांड, एमआरपी, थोक भाव, एचएसएन, टैक्स व फोटो इंटरनेट से भर दी गई हैं।`);
+        setBarcodeLookupMessage(`✓ Barcode ${code} found: "${result.name}" (${result.brand})! Name, Brand, MRP, Wholesale Rate, HSN, Tax and Photo auto-populated.`);
       } else {
         // Not found in catalog/net, but keep the scanned barcode
         setEditingProduct(prev => {
@@ -299,7 +299,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
           };
         });
         setBarcodeLookupSuccess(false);
-        setBarcodeLookupMessage(`बारकोड ${code} सेट हो गया। नेट पर इस कोड का विशिष्ट FMCG डेटा नहीं मिला, कृपया नाम, ब्रांड व रेट स्वयं भरें।`);
+        setBarcodeLookupMessage(`Barcode ${code} set. FMCG data not found online; please enter name, brand and wholesale rates manually.`);
       }
     } catch (err) {
       console.warn('Error during barcode lookup:', err);
@@ -312,7 +312,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
         };
       });
       setBarcodeLookupSuccess(false);
-      setBarcodeLookupMessage(`बारकोड ${code} सेट हो गया। कृपया प्रोडक्ट का नाम व रेट भरें।`);
+      setBarcodeLookupMessage(`Barcode ${code} set. Please fill product details and rate.`);
     } finally {
       setIsLookingUpBarcode(false);
     }
@@ -484,7 +484,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                 title="Add multiple products at once with Aryan Agency packings"
               >
                 <Boxes className="w-4 h-4 stroke-[2.5]" />
-                <span>+ Bulk Add Products (एक साथ जोड़ें)</span>
+                <span>+ Bulk Add Products</span>
               </button>
 
               <button
@@ -931,7 +931,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                   {editingProduct.id ? 'Edit FMCG Product SKU' : 'Add New FMCG SKU'}
                 </h2>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  बारकोड स्कैन करें या नया SKU प्रोडक्ट मैनुअल दर्ज करें
+                  Scan barcode or enter new product SKU details manually
                 </p>
               </div>
 
@@ -940,10 +940,10 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                   type="button"
                   onClick={() => setIsAddModalScannerOpen(true)}
                   className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center space-x-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
-                  title="कैमरा खोलकर बारकोड स्कैन करें"
+                  title="Open camera to scan barcode"
                 >
                   <Camera className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">बारकोड स्कैन करें</span>
+                  <span className="hidden sm:inline">Scan Barcode</span>
                   <span className="sm:hidden">Scan</span>
                 </button>
 
@@ -968,14 +968,14 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     <div>
                       <div className="flex items-center space-x-1.5">
                         <h3 className="text-xs font-bold text-slate-900">
-                          बारकोड स्कैनर व नेट ऑटो-फिल (Scan Barcode &amp; Fill from Net)
+                          Barcode Scanner &amp; Net Auto-Fill
                         </h3>
                         <span className="text-[10px] bg-emerald-600 text-white font-bold px-1.5 py-0.2 rounded-full">
                           AI / Web
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-600">
-                        बारकोड स्कैन करते ही नाम, ब्रांड, एमआरपी, थोक रेट, टैक्स व फोटो अपने आप भर जाएगी!
+                        Scan barcode to auto-fill name, brand, MRP, wholesale rate, tax &amp; product image!
                       </p>
                     </div>
                   </div>
@@ -987,7 +987,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs flex items-center justify-center space-x-1.5 shadow-sm active:scale-95 transition-all cursor-pointer shrink-0"
                   >
                     <Camera className="w-4 h-4" />
-                    <span>कैमरा स्कैन (Live Camera)</span>
+                    <span>Live Camera Scan</span>
                   </button>
                 </div>
 
@@ -1004,7 +1004,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                           handleLookupBarcodeAndAutoFill(barcodeInput);
                         }
                       }}
-                      placeholder="बारकोड / EAN-13 नंबर डालें या गन से स्कैन करें (उदा. 8901063012345)"
+                      placeholder="Enter barcode / EAN-13 number or scan with barcode gun (e.g. 8901063012345)"
                       className="w-full pl-8 pr-3 py-2 text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 outline-none shadow-2xs"
                     />
                     <Barcode className="w-4 h-4 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -1019,12 +1019,12 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
                     {isLookingUpBarcode ? (
                       <>
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>नेट से खोज रहे हैं...</span>
+                        <span>Searching Online...</span>
                       </>
                     ) : (
                       <>
                         <Search className="w-3.5 h-3.5" />
-                        <span>नेट से खोजें (Auto-Fill)</span>
+                        <span>Search Online (Auto-Fill)</span>
                       </>
                     )}
                   </button>
@@ -1032,7 +1032,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
 
                 {/* Quick Demo Barcodes 1-Click Chips */}
                 <div className="pt-1 flex items-center space-x-1.5 overflow-x-auto no-scrollbar">
-                  <span className="text-[10px] text-slate-500 font-bold shrink-0">टेस्ट बारकोड:</span>
+                  <span className="text-[10px] text-slate-500 font-bold shrink-0">Demo Barcodes:</span>
                   {[
                     { name: 'Parle-G', code: '8901063012345' },
                     { name: 'Good Day', code: '8901030383742' },
@@ -2082,8 +2082,8 @@ export const ProductsView: React.FC<ProductsViewProps> = ({
           isOpen={isAddModalScannerOpen}
           onClose={() => setIsAddModalScannerOpen(false)}
           products={products}
-          title="प्रोडक्ट बारकोड स्कैन करें (Barcode Auto-Fill)"
-          subtitle="कैमरे के सामने बारकोड रखें — इंटरनेट से पूरी डिटेल तुरंत भर जाएगी"
+          title="Scan Product Barcode (Barcode Auto-Fill)"
+          subtitle="Align barcode within camera frame to automatically populate product details"
           onBarcodeDetected={(scannedCode) => {
             handleLookupBarcodeAndAutoFill(scannedCode);
           }}

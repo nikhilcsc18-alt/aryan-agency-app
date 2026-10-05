@@ -30,7 +30,13 @@ import {
   RotateCcw,
   Navigation,
   Sparkles,
-  Info
+  Info,
+  Crosshair,
+  ExternalLink,
+  Globe,
+  Compass,
+  Loader2,
+  Search
 } from 'lucide-react';
 import { User, Order, Retailer, Salesman } from '../types';
 import { formatINR, api } from '../lib/api';
@@ -97,6 +103,13 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
   const [latitude, setLatitude] = useState<string>('');
   const [longitude, setLongitude] = useState<string>('');
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [isGeocodingAddress, setIsGeocodingAddress] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<{
+    type: 'idle' | 'locating' | 'success' | 'error' | 'info';
+    message: string;
+    source?: 'gps' | 'network' | 'address' | 'preset' | 'manual';
+    accuracy?: number;
+  }>({ type: 'idle', message: '' });
   const [isVerifying, setIsVerifying] = useState(false);
   const [adminRemarks, setAdminRemarks] = useState('');
 
@@ -114,16 +127,22 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
       );
       setBusinessLogoUrl(currentUser.businessLogoUrl || linkedRetailer?.shopPhotoUrl || linkedRetailer?.logoUrl || '');
       setAddress(currentUser.address || linkedRetailer?.address || '');
-      setCity(currentUser.city || 'Balrampur');
+      setCity(currentUser.city || 'Utraula');
       setState(currentUser.state || 'Uttar Pradesh');
       setPincode(currentUser.pincode || '271604');
-      setGstin(currentUser.gstin || linkedRetailer?.gstin || '');
-      setPanNumber(currentUser.panNumber || linkedRetailer?.panNumber || '');
+
+      const cachedGstin = typeof window !== 'undefined' ? localStorage.getItem('aryan_agency_gstin') : null;
+      const initialGstin = currentUser.gstin || linkedRetailer?.gstin || (currentUser.role === 'admin' ? (cachedGstin || '09BOGPG2620P1ZQ') : '');
+      setGstin(initialGstin);
+
+      const initialPan = currentUser.panNumber || linkedRetailer?.panNumber || (currentUser.role === 'admin' ? 'BOGPG2620P' : '');
+      setPanNumber(initialPan);
       
-      const lat = currentUser.locationCoordinates?.lat || linkedRetailer?.lat;
-      const lng = currentUser.locationCoordinates?.lng || linkedRetailer?.lng;
-      setLatitude(lat !== undefined ? String(lat) : '27.3167');
-      setLongitude(lng !== undefined ? String(lng) : '82.4167');
+      const lat = currentUser.locationCoordinates?.lat !== undefined ? currentUser.locationCoordinates?.lat : linkedRetailer?.lat;
+      const lng = currentUser.locationCoordinates?.lng !== undefined ? currentUser.locationCoordinates?.lng : linkedRetailer?.lng;
+      setLatitude(lat !== undefined ? String(lat) : '27.316700');
+      setLongitude(lng !== undefined ? String(lng) : '82.416700');
+      setLocationStatus({ type: 'idle', message: '' });
     }
   }, [currentUser, linkedRetailer, isOpen]);
 
@@ -161,29 +180,321 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
   // Check verification status
   const verificationStatus = currentUser.verificationStatus || linkedRetailer?.verificationStatus || (currentUser.role === 'admin' ? 'verified' : 'pending');
 
-  // Location detection
-  const handleDetectCurrentLocation = () => {
-    if ('geolocation' in navigator) {
-      setIsDetectingLocation(true);
+  // Regional Hub Presets for Aryan Agency operational territory (Uttar Pradesh B2B Network)
+  const REGIONAL_PRESETS = [
+    { name: 'Utraula Main Depot', lat: 27.3167, lng: 82.4167, city: 'Utraula', state: 'Uttar Pradesh', pincode: '271604' },
+    { name: 'Balrampur Central', lat: 27.4297, lng: 82.1818, city: 'Balrampur', state: 'Uttar Pradesh', pincode: '271201' },
+    { name: 'Gonda Junction Beat', lat: 27.1337, lng: 81.9619, city: 'Gonda', state: 'Uttar Pradesh', pincode: '271001' },
+    { name: 'Tulsipur Border Beat', lat: 27.5469, lng: 82.4184, city: 'Tulsipur', state: 'Uttar Pradesh', pincode: '271208' },
+    { name: 'Bahraich Market', lat: 27.5744, lng: 81.5947, city: 'Bahraich', state: 'Uttar Pradesh', pincode: '271801' },
+    { name: 'Lucknow Transport Hub', lat: 26.8467, lng: 80.9462, city: 'Lucknow', state: 'Uttar Pradesh', pincode: '226001' }
+  ];
+
+  // Reverse Geocoding helper (Server-side proxy with client fallback)
+  const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+      const res = await api.reverseGeoLocation(lat, lng);
+      if (res && res.success && res.data) {
+        const addr = res.data;
+        if (addr.city) setCity(addr.city);
+        if (addr.state) setState(addr.state);
+        if (addr.pincode) setPincode(addr.pincode);
+        if (!address.trim() && (addr.road || addr.displayName)) {
+          setAddress(addr.road || addr.displayName.split(',').slice(0, 3).join(', '));
+        }
+        return {
+          displayName: addr.displayName,
+          city: addr.city,
+          state: addr.state,
+          pincode: addr.pincode
+        };
+      }
+    } catch (e) {
+      console.warn('Server reverse geocode notice:', e);
+    }
+
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.address) {
+          const addr = data.address;
+          const detectedCity = addr.city || addr.town || addr.village || addr.county || addr.state_district;
+          const detectedState = addr.state;
+          const detectedPincode = addr.postcode;
+          const detectedRoad = [addr.road, addr.suburb, addr.neighbourhood].filter(Boolean).join(', ');
+
+          if (detectedCity) setCity(detectedCity);
+          if (detectedState) setState(detectedState);
+          if (detectedPincode) setPincode(detectedPincode);
+          if (!address.trim() && (data.display_name || detectedRoad)) {
+            setAddress(detectedRoad || data.display_name.split(',').slice(0, 3).join(', '));
+          }
+          return {
+            displayName: data.display_name,
+            city: detectedCity,
+            state: detectedState,
+            pincode: detectedPincode
+          };
+        }
+      }
+    } catch (err) {
+      console.warn('Direct reverse geocode error notice:', err);
+    }
+    return null;
+  };
+
+  // Robust Multi-tier Location detection
+  const handleDetectCurrentLocation = async () => {
+    setIsDetectingLocation(true);
+    setLocationStatus({
+      type: 'locating',
+      message: '📡 Connecting to device GPS satellite & network triangulation...'
+    });
+
+    const onCoordinatesObtained = async (lat: number, lng: number, source: 'gps' | 'network', accuracy?: number) => {
+      const latStr = lat.toFixed(6);
+      const lngStr = lng.toFixed(6);
+      setLatitude(latStr);
+      setLongitude(lngStr);
+
+      setLocationStatus({
+        type: 'success',
+        message: source === 'gps' 
+          ? `✓ Live Device GPS Acquired (${latStr}, ${lngStr})${accuracy ? ` • Accuracy: ±${Math.round(accuracy)}m` : ''}` 
+          : `✓ Regional Location Acquired (${latStr}, ${lngStr})`,
+        source,
+        accuracy
+      });
+
+      // Automatically reverse-geocode address
+      try {
+        const reverseData = await reverseGeocode(lat, lng);
+        if (reverseData?.city) {
+          setLocationStatus({
+            type: 'success',
+            message: `✓ GPS Position Locked: ${reverseData.city}${reverseData.state ? ', ' + reverseData.state : ''} (${latStr}, ${lngStr})`,
+            source,
+            accuracy
+          });
+        }
+      } catch {}
+
+      setIsDetectingLocation(false);
+    };
+
+    // Fallback using IP Geolocation
+    const fallbackToNetworkLocation = async (failureReason?: string) => {
+      try {
+        setLocationStatus({
+          type: 'locating',
+          message: failureReason 
+            ? `${failureReason} Querying regional network location...`
+            : 'Device GPS unavailable; querying regional network IP...'
+        });
+
+        // 1. Try server proxy endpoint
+        const serverGeo = await api.getIpLocation();
+        if (serverGeo && serverGeo.data && serverGeo.data.lat && serverGeo.data.lng) {
+          const { lat, lng, city: ipCity, state: ipRegion, postal: ipPostal } = serverGeo.data;
+          if (ipCity) setCity(ipCity);
+          if (ipRegion) setState(ipRegion);
+          if (ipPostal) setPincode(ipPostal);
+          await onCoordinatesObtained(lat, lng, 'network');
+          return;
+        }
+      } catch (netErr) {
+        console.warn('Network location fallback note:', netErr);
+      }
+
+      // Default to Utraula / Balrampur Depot Coordinates
+      const defaultLat = 27.3167;
+      const defaultLng = 82.4167;
+      setLatitude(defaultLat.toFixed(6));
+      setLongitude(defaultLng.toFixed(6));
+      setCity(prev => prev || 'Balrampur');
+      setState(prev => prev || 'Uttar Pradesh');
+      setPincode(prev => prev || '271604');
+      setLocationStatus({
+        type: 'info',
+        message: 'Set to Aryan Agency Regional Depot (Utraula / Balrampur: 27.3167, 82.4167). You can also click "Pin from Address" or select a preset.',
+        source: 'manual'
+      });
+      setIsDetectingLocation(false);
+    };
+
+    if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setLatitude(pos.coords.latitude.toFixed(6));
-          setLongitude(pos.coords.longitude.toFixed(6));
-          setIsDetectingLocation(false);
+          onCoordinatesObtained(pos.coords.latitude, pos.coords.longitude, 'gps', pos.coords.accuracy);
         },
         (err) => {
-          console.warn('Geolocation access warning:', err.message);
-          setIsDetectingLocation(false);
-          // Fallback to Balrampur / Utraula defaults
-          setLatitude('27.3167');
-          setLongitude('82.4167');
+          console.warn('GPS attempt notice:', err.message, 'Code:', err.code);
+          let reason = 'Device GPS signal weak.';
+          if (err.code === 1) {
+            reason = 'Browser location permission denied.';
+          } else if (err.code === 3) {
+            reason = 'Device GPS request timed out.';
+          }
+          fallbackToNetworkLocation(reason);
         },
-        { enableHighAccuracy: true, timeout: 8000 }
+        { enableHighAccuracy: true, timeout: 7000, maximumAge: 30000 }
       );
     } else {
-      setLatitude('27.3167');
-      setLongitude('82.4167');
+      fallbackToNetworkLocation('Browser geolocation API not supported.');
     }
+  };
+
+  // Forward Geocoding: Locate GPS from Premises Address
+  const handleGeocodeFromAddress = async () => {
+    const query = [address, city, state, pincode].filter(Boolean).join(', ');
+    if (!query.trim()) {
+      setLocationStatus({
+        type: 'error',
+        message: 'Please enter a shop street address, city, or pincode first to pinpoint GPS coordinates.'
+      });
+      return;
+    }
+
+    setIsGeocodingAddress(true);
+    setLocationStatus({
+      type: 'locating',
+      message: `Searching GPS pin for "${address || city || pincode}"...`
+    });
+
+    try {
+      // 1. Try server geocoding proxy
+      const serverSearch = await api.searchGeoLocation(query);
+      if (serverSearch && serverSearch.results && serverSearch.results.length > 0) {
+        const item = serverSearch.results[0];
+        const latStr = item.lat.toFixed(6);
+        const lngStr = item.lng.toFixed(6);
+        setLatitude(latStr);
+        setLongitude(lngStr);
+        if (item.city) setCity(item.city);
+        if (item.state) setState(item.state);
+        if (item.pincode) setPincode(item.pincode);
+        setLocationStatus({
+          type: 'success',
+          message: `✓ GPS coordinates matched from address: ${latStr}, ${lngStr} (${item.city || city})`,
+          source: 'address'
+        });
+        setIsGeocodingAddress(false);
+        return;
+      }
+
+      // City-level fallback
+      if (city.trim()) {
+        const citySearch = await api.searchGeoLocation(`${city.trim()}, Uttar Pradesh, India`);
+        if (citySearch && citySearch.results && citySearch.results.length > 0) {
+          const item = citySearch.results[0];
+          const latStr = item.lat.toFixed(6);
+          const lngStr = item.lng.toFixed(6);
+          setLatitude(latStr);
+          setLongitude(lngStr);
+          setLocationStatus({
+            type: 'success',
+            message: `✓ Pinpointed from city "${city}": ${latStr}, ${lngStr}`,
+            source: 'address'
+          });
+          setIsGeocodingAddress(false);
+          return;
+        }
+      }
+
+      // Direct client fallback
+      const directRes = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (directRes.ok) {
+        const items = await directRes.json();
+        if (items && items.length > 0) {
+          const item = items[0];
+          const lat = parseFloat(item.lat);
+          const lon = parseFloat(item.lon);
+          setLatitude(lat.toFixed(6));
+          setLongitude(lon.toFixed(6));
+          setLocationStatus({
+            type: 'success',
+            message: `✓ GPS coordinates matched: ${lat.toFixed(6)}, ${lon.toFixed(6)}`,
+            source: 'address'
+          });
+          setIsGeocodingAddress(false);
+          return;
+        }
+      }
+
+      setLocationStatus({
+        type: 'error',
+        message: `Could not find map pin for "${query}". Try clicking "Get Live GPS" or select a regional preset below.`
+      });
+    } catch (err: any) {
+      setLocationStatus({
+        type: 'error',
+        message: 'Address lookup error. You can click "Get Live GPS" or select a regional preset below.'
+      });
+    } finally {
+      setIsGeocodingAddress(false);
+    }
+  };
+
+  // Smart Coordinate Handlers (Splits comma-separated "lat, lng" strings on paste)
+  const handleLatChange = (val: string) => {
+    if (val.includes(',') || (val.trim().includes(' ') && val.trim().split(/\s+/).length === 2)) {
+      const parts = val.split(/[,\s]+/).map(p => p.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        const p1 = parseFloat(parts[0]);
+        const p2 = parseFloat(parts[1]);
+        if (!isNaN(p1) && !isNaN(p2)) {
+          setLatitude(p1.toFixed(6));
+          setLongitude(p2.toFixed(6));
+          setLocationStatus({
+            type: 'success',
+            message: `✓ Extracted coordinates: Lat ${p1.toFixed(6)}, Lng ${p2.toFixed(6)}`,
+            source: 'manual'
+          });
+          return;
+        }
+      }
+    }
+    setLatitude(val);
+  };
+
+  const handleLngChange = (val: string) => {
+    if (val.includes(',') || (val.trim().includes(' ') && val.trim().split(/\s+/).length === 2)) {
+      const parts = val.split(/[,\s]+/).map(p => p.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        const p1 = parseFloat(parts[0]);
+        const p2 = parseFloat(parts[1]);
+        if (!isNaN(p1) && !isNaN(p2)) {
+          setLatitude(p1.toFixed(6));
+          setLongitude(p2.toFixed(6));
+          setLocationStatus({
+            type: 'success',
+            message: `✓ Extracted coordinates: Lat ${p1.toFixed(6)}, Lng ${p2.toFixed(6)}`,
+            source: 'manual'
+          });
+          return;
+        }
+      }
+    }
+    setLongitude(val);
+  };
+
+  // Quick Preset Setter
+  const setPresetLocation = (preset: typeof REGIONAL_PRESETS[0]) => {
+    setLatitude(preset.lat.toFixed(6));
+    setLongitude(preset.lng.toFixed(6));
+    if (preset.city) setCity(preset.city);
+    if (preset.state) setState(preset.state);
+    if (preset.pincode) setPincode(preset.pincode);
+    setLocationStatus({
+      type: 'success',
+      message: `✓ Set to ${preset.name} (${preset.lat.toFixed(6)}, ${preset.lng.toFixed(6)})`,
+      source: 'preset'
+    });
   };
 
   // Profile image upload simulation / URL helper
@@ -209,34 +520,52 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
     setIsSaving(true);
     setSaveError(null);
 
-    const latNum = latitude ? parseFloat(latitude) : undefined;
-    const lngNum = longitude ? parseFloat(longitude) : undefined;
+    const latClean = latitude.trim();
+    const lngClean = longitude.trim();
+    const latNum = latClean !== '' && !isNaN(Number(latClean)) ? Number(latClean) : undefined;
+    const lngNum = lngClean !== '' && !isNaN(Number(lngClean)) ? Number(lngClean) : undefined;
 
-    const payload: Partial<User> = {
+    const finalGstin = gstin.trim().toUpperCase();
+    const finalPan = panNumber.trim().toUpperCase();
+
+    const payload: Partial<User> & { lat?: number; lng?: number } = {
       id: currentUser.id,
       role: currentUser.role,
       name: name.trim(),
       email: email.trim(),
       phone: phone.trim(),
       avatarUrl: avatarUrl.trim() || undefined,
-      businessName: businessName.trim() || undefined,
+      businessName: businessName.trim() || (currentUser.role === 'admin' ? 'Aryan Agency FMCG Distribution' : undefined),
       businessLogoUrl: businessLogoUrl.trim() || undefined,
       address: address.trim() || undefined,
       city: city.trim() || undefined,
       state: state.trim() || undefined,
       pincode: pincode.trim() || undefined,
-      gstin: gstin.trim() ? gstin.trim().toUpperCase() : undefined,
-      panNumber: panNumber.trim() ? panNumber.trim().toUpperCase() : undefined,
-      locationCoordinates: {
+      gstin: finalGstin,
+      panNumber: finalPan,
+      lat: latNum,
+      lng: lngNum,
+      locationCoordinates: (latNum !== undefined && lngNum !== undefined) ? {
         lat: latNum,
         lng: lngNum,
-        addressText: address.trim()
-      }
+        addressText: address.trim() || (city.trim() ? `${city.trim()}, ${state.trim()}` : '')
+      } : undefined
     };
 
     try {
+      if (finalGstin) {
+        try {
+          localStorage.setItem('aryan_agency_gstin', finalGstin);
+          localStorage.setItem(`aryan_profile_${currentUser.id}`, JSON.stringify({ ...currentUser, ...payload }));
+        } catch {}
+      }
+
       const res = await updateProfile(payload);
       if (res && res.success) {
+        setGstin(finalGstin);
+        setPanNumber(finalPan);
+        if (payload.businessName) setBusinessName(payload.businessName);
+
         // Also update linked retailer object in state if available
         if (linkedRetailer && onSaveRetailer) {
           await onSaveRetailer({
@@ -246,8 +575,8 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
             phone: phone.trim() || linkedRetailer.phone,
             email: email.trim() || linkedRetailer.email,
             address: address.trim() || linkedRetailer.address,
-            gstin: gstin.trim() || linkedRetailer.gstin,
-            panNumber: panNumber.trim() || linkedRetailer.panNumber,
+            gstin: finalGstin || linkedRetailer.gstin,
+            panNumber: finalPan || linkedRetailer.panNumber,
             logoUrl: businessLogoUrl.trim() || linkedRetailer.logoUrl,
             photoUrl: avatarUrl.trim() || linkedRetailer.photoUrl,
             lat: latNum !== undefined ? latNum : linkedRetailer.lat,
@@ -384,7 +713,7 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
                 </h2>
               </div>
               <p className="text-xs text-blue-200 font-semibold truncate mt-0.5">
-                {businessName || (currentUser.role === 'admin' ? 'Aryan Agency FMCG Distribution' : 'Retail Partner Outlet')}
+                {businessName || (currentUser.role === 'admin' ? 'Aryan Agency FMCG Distribution' : 'Kirana Retail Store')}
               </p>
               
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -692,9 +1021,9 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
                     <input
                       type="text"
                       value={gstin}
-                      onChange={(e) => setGstin(e.target.value)}
+                      onChange={(e) => setGstin(e.target.value.toUpperCase())}
                       className="w-full text-xs px-3 py-2 border border-slate-300 rounded-xl bg-white focus:outline-blue-500 font-mono"
-                      placeholder="29AABCA1234F1Z8"
+                      placeholder="e.g. 09BOGPG2620P1ZQ"
                     />
                   </div>
 
@@ -703,54 +1032,119 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
                     <input
                       type="text"
                       value={panNumber}
-                      onChange={(e) => setPanNumber(e.target.value)}
+                      onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
                       className="w-full text-xs px-3 py-2 border border-slate-300 rounded-xl bg-white focus:outline-blue-500 font-mono"
-                      placeholder="AABCA1234F"
+                      placeholder="e.g. BOGPG2620P"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Physical Address & GPS Location */}
-              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-4 space-y-3.5 shadow-2xs">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
                   <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center space-x-2">
                     <MapPin className="w-4 h-4 text-rose-600" />
                     <span>Physical Address & GPS Coordinates</span>
                   </h3>
-                  <button
-                    type="button"
-                    onClick={handleDetectCurrentLocation}
-                    disabled={isDetectingLocation}
-                    className="text-[11px] font-bold text-blue-700 hover:text-blue-900 flex items-center space-x-1 cursor-pointer"
-                  >
-                    <Navigation className={`w-3 h-3 ${isDetectingLocation ? 'animate-spin' : ''}`} />
-                    <span>{isDetectingLocation ? 'Locating...' : 'Get Live GPS'}</span>
-                  </button>
+                  
+                  <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                    <button
+                      type="button"
+                      onClick={handleDetectCurrentLocation}
+                      disabled={isDetectingLocation}
+                      className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 flex items-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                      title="Fetch live GPS coordinates from this phone or computer"
+                    >
+                      <Navigation className={`w-3 h-3 ${isDetectingLocation ? 'animate-spin text-blue-700' : ''}`} />
+                      <span>{isDetectingLocation ? 'Locating...' : 'Get Live GPS'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleGeocodeFromAddress}
+                      disabled={isGeocodingAddress}
+                      className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 flex items-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                      title="Search map registry from your street address and city"
+                    >
+                      <Search className={`w-3 h-3 ${isGeocodingAddress ? 'animate-spin text-emerald-800' : ''}`} />
+                      <span>{isGeocodingAddress ? 'Searching...' : 'Pin from Address'}</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="space-y-2">
+                {/* Live Status Notification Banner */}
+                {locationStatus.message && (
+                  <div className={`p-2.5 rounded-xl border text-xs flex items-start justify-between gap-2 animate-in fade-in duration-150 ${
+                    locationStatus.type === 'success' 
+                      ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900' 
+                      : locationStatus.type === 'error'
+                      ? 'bg-rose-50/90 border-rose-200 text-rose-900'
+                      : locationStatus.type === 'locating'
+                      ? 'bg-blue-50/90 border-blue-200 text-blue-900'
+                      : 'bg-amber-50/90 border-amber-200 text-amber-900'
+                  }`}>
+                    <div className="flex items-start space-x-2 min-w-0">
+                      {locationStatus.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />}
+                      {locationStatus.type === 'error' && <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />}
+                      {locationStatus.type === 'locating' && <Loader2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5 animate-spin" />}
+                      {locationStatus.type === 'info' && <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[11px] leading-relaxed">{locationStatus.message}</p>
+                        {locationStatus.source && (
+                          <div className="flex items-center space-x-2 mt-1">
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/80 uppercase tracking-wider border border-black/5">
+                              Source: {locationStatus.source === 'gps' ? '🛰️ Satellite GPS' : locationStatus.source === 'network' ? '🌐 Regional IP' : locationStatus.source === 'address' ? '📍 Address Search' : '🏢 Regional Preset'}
+                            </span>
+                            {locationStatus.accuracy !== undefined && (
+                              <span className="text-[10px] text-slate-600">
+                                ±{Math.round(locationStatus.accuracy)}m accuracy
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {latitude && longitude && !isNaN(Number(latitude)) && !isNaN(Number(longitude)) && (
+                      <a
+                        href={`https://www.google.com/maps?q=${latitude},${longitude}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[10px] font-bold text-blue-700 hover:text-blue-900 flex items-center space-x-1 shrink-0 underline bg-white/70 px-2 py-1 rounded-lg border border-blue-100"
+                      >
+                        <span>Open Map</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                <div className="space-y-3">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-slate-700 block">Premises Street Address *</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-slate-700 block">Premises Street Address *</label>
+                      <span className="text-[10px] text-slate-400">Street / Mohalla / Landmark</span>
+                    </div>
                     <textarea
                       rows={2}
                       required
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       className="w-full text-xs px-3 py-2 border border-slate-300 rounded-xl bg-white focus:outline-blue-500"
-                      placeholder="Plot / Shop No, Street, Landmark, Area"
+                      placeholder="e.g. Shop No. 12, Main Market Road, Near Gandhi Chowk, Utraula"
                     />
                   </div>
 
                   <div className="grid grid-cols-3 gap-2">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-600 block">City</label>
+                      <label className="text-[10px] font-bold text-slate-600 block">City / Town</label>
                       <input
                         type="text"
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
                         className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-xl bg-white focus:outline-blue-500"
-                        placeholder="Balrampur"
+                        placeholder="Utraula"
                       />
                     </div>
                     <div className="space-y-1">
@@ -760,7 +1154,7 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
                         value={state}
                         onChange={(e) => setState(e.target.value)}
                         className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-xl bg-white focus:outline-blue-500"
-                        placeholder="Karnataka"
+                        placeholder="Uttar Pradesh"
                       />
                     </div>
                     <div className="space-y-1">
@@ -770,31 +1164,81 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
                         value={pincode}
                         onChange={(e) => setPincode(e.target.value)}
                         className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-xl bg-white focus:outline-blue-500 font-mono"
-                        placeholder="560022"
+                        placeholder="271604"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-600 block">Latitude</label>
-                      <input
-                        type="text"
-                        value={latitude}
-                        onChange={(e) => setLatitude(e.target.value)}
-                        className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-xl bg-white focus:outline-blue-500 font-mono"
-                        placeholder="13.0285"
-                      />
+                  {/* GPS Coordinates Inputs with Live Helper */}
+                  <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3 space-y-2.5">
+                    <div className="flex items-center justify-between flex-wrap gap-1">
+                      <span className="text-[11px] font-bold text-slate-800 flex items-center space-x-1.5">
+                        <Crosshair className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Precise GPS Coordinates (Latitude & Longitude)</span>
+                      </span>
+
+                      <div className="flex items-center space-x-2 text-[10px]">
+                        <span className="text-slate-500 italic">Tip: You can paste &ldquo;lat, lng&rdquo; together</span>
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-600 block">Longitude</label>
-                      <input
-                        type="text"
-                        value={longitude}
-                        onChange={(e) => setLongitude(e.target.value)}
-                        className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-xl bg-white focus:outline-blue-500 font-mono"
-                        placeholder="77.5407"
-                      />
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600 block">Latitude (°N)</label>
+                        <input
+                          type="text"
+                          value={latitude}
+                          onChange={(e) => handleLatChange(e.target.value)}
+                          className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-blue-500 font-mono font-semibold text-slate-800"
+                          placeholder="27.316700"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600 block">Longitude (°E)</label>
+                        <input
+                          type="text"
+                          value={longitude}
+                          onChange={(e) => handleLngChange(e.target.value)}
+                          className="w-full text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white focus:outline-blue-500 font-mono font-semibold text-slate-800"
+                          placeholder="82.416700"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Regional Presets Quick Selector */}
+                    <div className="pt-1.5 border-t border-slate-200/70 space-y-1.5">
+                      <div className="flex items-center justify-between text-[10px]">
+                        <span className="font-bold text-slate-600 uppercase tracking-wider">
+                          1-Click Regional Depot & Beat Presets:
+                        </span>
+                        {latitude && longitude && (
+                          <a 
+                            href={`https://www.google.com/maps?q=${latitude},${longitude}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-bold text-blue-700 hover:text-blue-900 flex items-center space-x-1"
+                          >
+                            <span>Preview Pin</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {REGIONAL_PRESETS.map((preset) => (
+                          <button
+                            key={preset.name}
+                            type="button"
+                            onClick={() => setPresetLocation(preset)}
+                            className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-all cursor-pointer ${
+                              Math.abs(Number(latitude) - preset.lat) < 0.01 && Math.abs(Number(longitude) - preset.lng) < 0.01
+                                ? 'bg-blue-600 text-white border-blue-700 shadow-2xs'
+                                : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
+                            }`}
+                          >
+                            📍 {preset.name}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -947,7 +1391,7 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
                   <div className="bg-white p-2.5 rounded-xl border border-slate-100">
                     <span className="text-[10px] text-slate-400 font-semibold block uppercase">GSTIN / Tax ID</span>
                     <span className="font-bold text-slate-800 mt-0.5 block font-mono">
-                      {gstin || currentUser.gstin || linkedRetailer?.gstin || '29AABCA1234F1Z8'}
+                      {gstin || currentUser.gstin || linkedRetailer?.gstin || (currentUser.role === 'admin' ? '09BOGPG2620P1ZQ' : 'Not Registered')}
                     </span>
                   </div>
                   <div className="bg-white p-2.5 rounded-xl border border-slate-100">
@@ -956,25 +1400,59 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
                     </span>
                     <span className="font-bold text-slate-800 mt-0.5 block font-mono">
                       {currentUser.role === 'admin' 
-                        ? (panNumber || currentUser.panNumber || 'AABCA1234F') 
+                        ? (panNumber || currentUser.panNumber || 'BOGPG2620P') 
                         : (linkedRetailer?.beatName || 'City Central Beat')}
                     </span>
                   </div>
-                  {(address || currentUser.address || linkedRetailer?.address) && (
-                    <div className="bg-white p-2.5 rounded-xl border border-slate-100 sm:col-span-2 flex items-start space-x-2">
-                      <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
-                      <div className="min-w-0">
-                        <span className="text-slate-700 text-xs font-medium block">
-                          {address || currentUser.address || linkedRetailer?.address}
-                        </span>
-                        {(latitude || longitude) && (
-                          <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">
-                            GPS Coordinates: {latitude || '13.0285'}, {longitude || '77.5407'}
+                  {/* Physical Address & GPS Coordinates Card in View Mode */}
+                  <div className="bg-white p-3 rounded-xl border border-slate-200/90 sm:col-span-2 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start space-x-2 min-w-0">
+                        <MapPin className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                            Physical Address & Delivery Geolocation
                           </span>
-                        )}
+                          <span className="text-slate-800 text-xs font-semibold block mt-0.5 leading-snug">
+                            {address || currentUser.address || linkedRetailer?.address || `${city || currentUser.city || 'Balrampur'}, ${state || currentUser.state || 'Uttar Pradesh'} - ${pincode || currentUser.pincode || '271604'}`}
+                          </span>
+                          {(city || state || pincode) && (
+                            <span className="text-[11px] text-slate-500 block mt-0.5">
+                              {[city || currentUser.city, state || currentUser.state, pincode || currentUser.pincode].filter(Boolean).join(', ')}
+                            </span>
+                          )}
+                        </div>
                       </div>
+
+                      {latitude && longitude && (
+                        <a
+                          href={`https://www.google.com/maps?q=${latitude},${longitude}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2.5 py-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 flex items-center space-x-1 shrink-0 transition-colors"
+                          title="Verify pinned store on Google Maps"
+                        >
+                          <span>Google Maps</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
                     </div>
-                  )}
+
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-slate-100 text-[10px]">
+                      <div className="flex items-center space-x-1.5 font-mono text-slate-600">
+                        <Crosshair className="w-3 h-3 text-blue-600" />
+                        <span>GPS Coordinates:</span>
+                        <span className="font-bold text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                          {latitude || '27.316700'}, {longitude || '82.416700'}
+                        </span>
+                      </div>
+
+                      <span className="inline-flex items-center space-x-1 text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                        <Check className="w-3 h-3" />
+                        <span>Delivery Beat Pin Locked</span>
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </section>
 

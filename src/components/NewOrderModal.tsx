@@ -66,7 +66,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
   const [orderNotes, setOrderNotes] = useState('');
 
   // AI Parser state
-  const [aiTextPrompt, setAiTextPrompt] = useState('5 cases Parle-G 80g, 2 peti Tata Tea 500g, 4 cases Maggi 70g for Laxmi Supermarket');
+  const [aiTextPrompt, setAiTextPrompt] = useState('5 cases Parle-G 80g, 2 peti Tata Tea 500g, 4 cases Maggi 70g for Maa Durga Kirana Store');
   const [isParsingAI, setIsParsingAI] = useState(false);
   const [aiParseResult, setAiParseResult] = useState<any>(null);
 
@@ -340,7 +340,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                   rows={2}
                   value={aiTextPrompt}
                   onChange={(e) => setAiTextPrompt(e.target.value)}
-                  placeholder="e.g. 5 cases Parle-G, 2 peti Tata Tea 500g, 4 cases Maggi for Laxmi Supermarket"
+                  placeholder="e.g. 5 cases Parle-G, 2 peti Tata Tea 500g, 4 cases Maggi for Maa Durga Kirana Store"
                   className="w-full p-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] font-sans text-xs"
                 />
 
@@ -349,10 +349,10 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                     <span className="text-slate-500">Quick Samples:</span>
                     <button
                       type="button"
-                      onClick={() => setAiTextPrompt('10 cases Good Day Butter, 2 cases Surf Excel 1kg for Shree Ganesh Provision')}
+                      onClick={() => setAiTextPrompt('10 cases Good Day Butter, 2 cases Surf Excel 1kg for Paras Kirana Store')}
                       className="text-[#2563eb] underline cursor-pointer"
                     >
-                      Ganesh Store Order
+                      Paras Kirana Order
                     </button>
                     <span>•</span>
                     <button
@@ -671,7 +671,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
           {isRetailer && isRetailerUnverified && (
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-xs flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>सत्यापन लंबित है: जब तक एडमिन द्वारा वेरिफिकेशन पूरा नहीं होता, तब तक ऑर्डर नहीं दिया जा सकता।</span>
+              <span>Verification Pending: Wholesale orders cannot be placed until your store account is verified by Admin.</span>
             </div>
           )}
 
@@ -694,7 +694,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
               }`}
             >
               <Check className="w-4 h-4" />
-              <span>{isRetailer && isRetailerUnverified ? 'Verification Pending (सत्यापन लंबित)' : isRetailer ? 'Confirm & Place Order' : 'Confirm & Punch FMCG Order'}</span>
+              <span>{isRetailer && isRetailerUnverified ? 'Verification Pending' : isRetailer ? 'Confirm & Place Order' : 'Confirm & Punch FMCG Order'}</span>
             </button>
           </div>
 

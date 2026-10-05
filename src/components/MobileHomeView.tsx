@@ -278,13 +278,13 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
         bgGradient: b.bgGradient || 'from-[#F6BD27] via-[#F4B218] to-[#E89E0B]',
         title: b.title,
         tagline: b.subtitle || 'Best Wholesale Rates • Maximum Retailer Margins',
-        badge: b.badgeText || 'केवल दुकानदारों के लिए (B2B)',
-        offer: b.ctaText || 'हर पेटी / कार्टन पर सीधा थोक मुनाफा',
+        badge: b.badgeText || 'Retailer Wholesale (B2B)',
+        offer: b.ctaText || 'Direct Wholesale Margin on Every Case & Carton',
         brands: b.accentColor || "Parle • Britannia • Sunfeast • Amul",
         imageUrl: b.imageUrl,
         hideTextOverlay: Boolean(b.hideTextOverlay),
         showBuyNow: b.showBuyNow !== undefined ? Boolean(b.showBuyNow) : true,
-        buyNowText: b.buyNowText || 'अभी खरीदें (Buy Now)',
+        buyNowText: b.buyNowText || 'Buy Now',
         targetBrand: b.targetBrand || '',
         targetCategory: b.targetCategory || '',
         posterFit: b.posterFit || 'cover'
@@ -295,14 +295,14 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
       {
         id: 'banner_main',
         bgGradient: 'from-[#F6BD27] via-[#F4B218] to-[#E89E0B]',
-        title: 'दुकानदारों के लिए सीधे डिपो थोक भाव',
+        title: 'Direct Depot Wholesale Pricing for Retailers',
         tagline: 'Best Wholesale Rates • Maximum Retailer Margins',
-        badge: 'केवल दुकानदारों के लिए (B2B)',
-        offer: 'हर पेटी / कार्टन पर ₹20 से ₹60 तक का सीधा दुकानदार मुनाफा',
+        badge: 'Retailer Wholesale (B2B)',
+        offer: 'Direct ₹20 to ₹60 Margin Per Case/Carton for Retailers',
         brands: "Lay's • Kurkure • Parle-G • Amul • Sunfeast",
         hideTextOverlay: false,
         showBuyNow: true,
-        buyNowText: 'अभी खरीदें (Buy Now)',
+        buyNowText: 'Buy Now',
         targetBrand: 'Parle',
         targetCategory: 'Biscuits & Bakery',
         posterFit: 'cover'
@@ -312,12 +312,12 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
         bgGradient: 'from-[#F59E0B] via-[#D97706] to-[#B45309]',
         title: 'Aryan B2B Retailer Trade Schemes',
         tagline: 'Parle • Britannia • Sunfeast • PepsiCo • Amul',
-        badge: 'थोक व्यापार डिस्काउंट',
-        offer: 'कार्टन / पेटी बुकिंग पर अतिरिक्त 5% थोक स्कीम मार्जिन',
+        badge: 'Wholesale Trade Schemes',
+        offer: 'Additional 5% Trade Scheme Margin on Bulk Carton Bookings',
         brands: 'Special Wholesale Trade Margin on Bulk Booking',
         hideTextOverlay: false,
         showBuyNow: true,
-        buyNowText: 'ऑर्डर करें (Order Now)',
+        buyNowText: 'Order Now',
         targetBrand: "Lay's",
         targetCategory: 'Snacks & Namkeen'
       },
@@ -326,12 +326,12 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
         bgGradient: 'from-[#0284C7] via-[#0369A1] to-[#075985]',
         title: 'Direct Depot Supply to Your Shop',
         tagline: 'Same-Day / 24-Hour Dispatch directly to your Kirana Counter',
-        badge: 'दुकान तक सीधी डिलीवरी',
+        badge: 'Direct Store Delivery',
         offer: '100% Genuine Direct Supply Chain Guarantee with GST Bill',
         brands: 'Depot Fleet • Utraula • Balrampur • Gonda • Tulsipur',
         hideTextOverlay: false,
         showBuyNow: true,
-        buyNowText: 'थोक कैटलॉग देखें',
+        buyNowText: 'View Wholesale Catalog',
         targetBrand: '',
         targetCategory: ''
       },
@@ -340,12 +340,12 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
         bgGradient: 'from-[#0D9488] via-[#0F766E] to-[#115E59]',
         title: 'Baby Care & Personal Hygiene Wholesale',
         tagline: 'Honey Bunny • Dettol • Colgate • Stayfree',
-        badge: 'सुपर-स्टॉकिस्ट डिपो',
+        badge: 'Super-Stockist Depot',
         offer: 'Buy 5 Cases, Get 1 Case Free on Honey Bunny Diapers',
         brands: 'Super-Stockist Authentic Direct Supply for Retailers',
         hideTextOverlay: false,
         showBuyNow: true,
-        buyNowText: 'डायपर ऑर्डर करें',
+        buyNowText: 'Order Diapers',
         targetBrand: 'Honey Bunny',
         targetCategory: 'Personal Care'
       }
@@ -529,7 +529,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
               </span>
             </div>
             <p className="text-[10px] text-blue-200">
-              Live Cloud Sync • नया बारकोड स्कैनर व फीचर्स लोड करें
+              Live Cloud Sync • Load latest barcode catalog and features
             </p>
           </div>
         </div>
@@ -539,10 +539,10 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
             type="button"
             onClick={() => performInAppUpdate()}
             className="px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-[11px] flex items-center space-x-1 shadow-sm active:scale-95 transition-all cursor-pointer"
-            title="नया वर्शन तुरंत लोड करें और कैश साफ़ करें"
+            title="Load latest version and clear cache"
           >
             <RefreshCw className="w-3 h-3 text-slate-950" />
-            <span>नया वर्जन लोड करें</span>
+            <span>Reload Version</span>
           </button>
         </div>
       </div>
@@ -654,7 +654,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
                       className="inline-flex items-center space-x-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-md active:scale-95 transition-all cursor-pointer border border-amber-300"
                     >
                       <ShoppingBag className="w-3.5 h-3.5 stroke-[2.5]" />
-                      <span>{bannerSlides[currentBanner].buyNowText || 'अभी खरीदें (Buy Now)'}</span>
+                      <span>{bannerSlides[currentBanner].buyNowText || 'Buy Now'}</span>
                       <ArrowRight className="w-3 h-3 stroke-[3]" />
                     </button>
                   </div>
@@ -712,7 +712,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
                     className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm shadow-2xl active:scale-95 transition-all cursor-pointer border-2 border-amber-300"
                   >
                     <ShoppingBag className="w-4 h-4 stroke-[2.5]" />
-                    <span>{bannerSlides[currentBanner].buyNowText || 'अभी खरीदें (Buy Now)'}</span>
+                    <span>{bannerSlides[currentBanner].buyNowText || 'Buy Now'}</span>
                     <ArrowRight className="w-4 h-4 stroke-[3]" />
                   </button>
                 </div>
@@ -782,7 +782,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
                 <div>
                   <div className="flex items-center space-x-2">
                     <span className="text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider bg-amber-400 text-slate-950">
-                      दुकान तक डिलीवरी (Live Beat Van)
+                      Direct Store Delivery (Beat Van)
                     </span>
                     <span className="text-xs font-bold text-blue-200">
                       #{activeOrder.orderNumber}
@@ -825,7 +825,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
                   <span className={`text-[10px] sm:text-xs font-bold mt-1.5 leading-tight ${
                     currentStep === 1 ? 'text-amber-300' : currentStep > 1 ? 'text-emerald-400' : 'text-slate-400'
                   }`}>
-                    Booked (दर्ज)
+                    Booked
                   </span>
                 </div>
 
@@ -839,7 +839,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
                   <span className={`text-[10px] sm:text-xs font-bold mt-1.5 leading-tight ${
                     currentStep === 2 ? 'text-amber-300' : currentStep > 2 ? 'text-emerald-400' : 'text-slate-400'
                   }`}>
-                    Confirmed (स्वीकृत)
+                    Confirmed
                   </span>
                 </div>
 
@@ -853,7 +853,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
                   <span className={`text-[10px] sm:text-xs font-bold mt-1.5 leading-tight ${
                     currentStep === 3 ? 'text-amber-300' : currentStep > 3 ? 'text-emerald-400' : 'text-slate-400'
                   }`}>
-                    Packed (डिपो पैक)
+                    Packed
                   </span>
                 </div>
 
@@ -867,7 +867,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
                   <span className={`text-[10px] sm:text-xs font-bold mt-1.5 leading-tight ${
                     currentStep === 4 ? 'text-amber-300 font-extrabold' : currentStep > 4 ? 'text-emerald-400' : 'text-slate-400'
                   }`}>
-                    On Van (वैन पर)
+                    On Van
                   </span>
                 </div>
 
@@ -881,7 +881,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
                   <span className={`text-[10px] sm:text-xs font-bold mt-1.5 leading-tight ${
                     currentStep >= 5 ? 'text-emerald-400 font-bold' : 'text-slate-400'
                   }`}>
-                    Delivered (दुकान पर)
+                    Delivered
                   </span>
                 </div>
 
@@ -955,13 +955,13 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
-                  <span>Product Categories (थोक श्रेणियां)</span>
+                  <span>Product Categories</span>
                   <span className="text-[10px] font-semibold text-slate-500 lowercase">
                     ({categories.length} categories)
                   </span>
                 </h3>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  दुकान के स्टॉक के लिए कैटेगरी चुनें • पेटी व कार्टन थोक दरें उपलब्ध
+                  Select wholesale categories for your shop stock • Cases & carton trade pricing available
                 </p>
               </div>
 
@@ -1111,7 +1111,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
               <Flame className="w-4 h-4 text-orange-600 fill-orange-500" />
             </span>
             <h2 className="text-base font-black text-slate-900 tracking-tight">
-              {selectedBrand ? `${selectedBrand} Wholesale Catalog` : selectedCategory ? `${categories.find(c => c.id === selectedCategory)?.label} (थोक स्टॉक)` : 'Wholesale FMCG Stock (थोक उत्पाद)'}
+              {selectedBrand ? `${selectedBrand} Wholesale Catalog` : selectedCategory ? `${categories.find(c => c.id === selectedCategory)?.label} (Wholesale)` : 'Wholesale FMCG Catalog'}
             </h2>
             {(selectedCategory || selectedBrand) && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold uppercase">
@@ -1126,10 +1126,10 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
                 type="button"
                 onClick={onOpenBarcodeScanner}
                 className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold flex items-center space-x-1 cursor-pointer transition-all active:scale-95 shadow-xs"
-                title="बारकोड स्कैन करके तुरंत प्रोडक्ट खोजें"
+                title="Scan barcode to quickly find products"
               >
                 <ScanLine className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-                <span>स्कैन</span>
+                <span>Scan</span>
               </button>
             )}
 
@@ -1252,7 +1252,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
             className="text-blue-600 dark:text-blue-400 hover:underline font-bold flex items-center space-x-1 cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Check App Updates (नया वर्शन चेक करें)</span>
+            <span>Check App Updates</span>
           </button>
           <span className="text-slate-300">•</span>
           <button

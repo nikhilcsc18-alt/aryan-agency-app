@@ -117,10 +117,10 @@ export const DistributorSettingsModal: React.FC<DistributorSettingsModalProps> =
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs space-y-1">
             <div className="flex items-center space-x-1.5 font-bold text-blue-900">
               <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0" />
-              <span>UPI QR Clarity (Kisi ne hack nahi kiya hai)</span>
+              <span>UPI QR Verification</span>
             </div>
             <p className="text-[11px] text-blue-800 leading-relaxed">
-              पुराने कोड में एक डमी सैंपल UPI ID (<code className="bg-blue-100 px-1 py-0.5 rounded font-mono">aryanagency@icici</code>) डली थी। NPCI/ICICI बैंक के रिकॉर्ड में वह नाम धर्मेश डी. पटेल जी के नाम पर रजिस्टर्ड था। <strong>नीचे अपनी असली कंपनी की UPI ID और नाम दर्ज करें</strong>, ताकि स्कैन करते ही आपकी एजेंसी का नाम और बैंक खाता दिखे।
+              Ensure you enter your official business UPI ID and company name below so that retailers see your business account name when scanning the QR code at checkout.
             </p>
           </div>
 
@@ -140,7 +140,7 @@ export const DistributorSettingsModal: React.FC<DistributorSettingsModalProps> =
               <div className="space-y-2.5">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Company UPI VPA ID (आपकी असली UPI ID) *
+                    Company UPI VPA ID *
                   </label>
                   <input
                     type="text"
@@ -151,7 +151,7 @@ export const DistributorSettingsModal: React.FC<DistributorSettingsModalProps> =
                     required
                   />
                   <p className="text-[10px] text-slate-500 mt-1">
-                    PhonePe/GPay/Paytm या बैंक से मिली बिजनेस UPI VPA।
+                    Business UPI VPA from PhonePe, GPay, Paytm, or your bank.
                   </p>
                 </div>
 
@@ -168,7 +168,7 @@ export const DistributorSettingsModal: React.FC<DistributorSettingsModalProps> =
                     required
                   />
                   <p className="text-[10px] text-slate-500 mt-1">
-                    स्कैन करने पर ऐप में यही कंपनी का नाम दिखेगा।
+                    Company name displayed to retailers when scanning the QR code.
                   </p>
                 </div>
               </div>
@@ -205,8 +205,8 @@ export const DistributorSettingsModal: React.FC<DistributorSettingsModalProps> =
                   <Truck className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">Delivery Charges (डिलीवरी चार्ज सेटिंग्स)</h4>
-                  <p className="text-[10px] text-slate-500">छोटे ऑर्डर्स पर चार्ज लगाएं और बड़े ऑर्डर्स पर फ्री डिलीवरी दें</p>
+                  <h4 className="text-xs font-bold text-slate-900">Delivery Charges</h4>
+                  <p className="text-[10px] text-slate-500">Apply delivery charge on small orders and offer free delivery above threshold</p>
                 </div>
               </div>
 
@@ -239,7 +239,7 @@ export const DistributorSettingsModal: React.FC<DistributorSettingsModalProps> =
                       className="w-full pl-6 pr-3 py-1.5 text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                     />
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-0.5">कम राशि वाले आर्डर पर लगने वाला शुल्क</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Fee charged on smaller order values</p>
                 </div>
 
                 <div>
@@ -257,19 +257,19 @@ export const DistributorSettingsModal: React.FC<DistributorSettingsModalProps> =
                       className="w-full pl-6 pr-3 py-1.5 text-xs font-mono font-bold bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                     />
                   </div>
-                  <p className="text-[10px] text-slate-500 mt-0.5">इतने या इससे अधिक राशि पर डिलीवरी मुफ्त होगी</p>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Orders equal to or above this value get free delivery</p>
                 </div>
 
                 <div className="sm:col-span-2 p-2 bg-amber-100/70 border border-amber-200 rounded-lg text-[11px] text-amber-900 flex items-center space-x-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5 text-amber-700 shrink-0" />
                   <span>
-                    नियम: <strong>₹{freeDeliveryAbove}</strong> से कम के ऑर्डर पर <strong>₹{deliveryCharge}</strong> डिलीवरी चार्ज लगेगा। ₹{freeDeliveryAbove} या उससे अधिक की खरीदारी पर <strong>100% FREE डिलीवरी</strong> रहेगी।
+                    Rule: Orders below <strong>₹{freeDeliveryAbove}</strong> incur a <strong>₹{deliveryCharge}</strong> delivery fee. Orders of ₹{freeDeliveryAbove} or more receive <strong>100% FREE delivery</strong>.
                   </span>
                 </div>
               </div>
             ) : (
               <div className="p-2 bg-slate-100 rounded-lg text-[11px] text-slate-600">
-                डिलीवरी चार्ज बंद है (सभी ऑर्डर्स पर ₹0 डिलीवरी रहेगी)।
+                Delivery charges disabled (all orders get ₹0 delivery fee).
               </div>
             )}
           </div>
@@ -282,8 +282,8 @@ export const DistributorSettingsModal: React.FC<DistributorSettingsModalProps> =
                   <Percent className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">Govt MDR Charges (डिजिटल भुगतान पर शुल्क)</h4>
-                  <p className="text-[10px] text-slate-500">ऑनलाइन UPI / QR पेमेंट पर 0.04% मर्चेंट शुल्क जोड़ें</p>
+                  <h4 className="text-xs font-bold text-slate-900">Govt MDR Charges</h4>
+                  <p className="text-[10px] text-slate-500">Apply merchant fee on digital UPI / QR payments</p>
                 </div>
               </div>
 
@@ -330,13 +330,13 @@ export const DistributorSettingsModal: React.FC<DistributorSettingsModalProps> =
                     </div>
                   </div>
                   <div className="flex-1 text-[11px] text-slate-600 pt-3">
-                    सरकारी नियमों के अनुसार डिजिटल / UPI पेमेंट पर <strong>{mdrPercentage}%</strong> MDR चार्ज चेकआउट बिल में जोड़ा जाएगा।
+                    As per digital regulations, <strong>{mdrPercentage}%</strong> MDR will be added to the checkout bill for digital/UPI payments.
                   </div>
                 </div>
 
                 {/* Quick select presets */}
                 <div className="flex items-center space-x-2 pt-1">
-                  <span className="text-[10px] font-semibold text-slate-500">त्वरित दर चुनें (Presets):</span>
+                  <span className="text-[10px] font-semibold text-slate-500">Presets:</span>
                   {[0.04, 0.4, 0.5, 1.0, 1.5].map(rate => (
                     <button
                       key={rate}
@@ -354,7 +354,7 @@ export const DistributorSettingsModal: React.FC<DistributorSettingsModalProps> =
                 </div>
 
                 <div className="p-2 bg-emerald-100/70 border border-emerald-200 rounded-lg text-[10.5px] text-emerald-900">
-                  ⚡ <strong>Note:</strong> यह चार्ज केवल ऑनलाइन UPI व QR कोड पेमेंट पर लागू होगा। Cash on Delivery (COD) या क्रेडिट (उधार) पर यह चार्ज नहीं लगेगा।
+                  ⚡ <strong>Note:</strong> This charge only applies to online UPI and QR code payments. It does not apply to Cash on Delivery (COD) or credit payments.
                 </div>
               </div>
             )}

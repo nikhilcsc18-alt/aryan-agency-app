@@ -24,6 +24,9 @@ import { AppUpdateChecker } from './components/AppUpdateChecker';
 import { NotificationPanel } from './components/NotificationPanel';
 import { BarcodeScannerModal } from './components/BarcodeScannerModal';
 import { RetailerVerificationPendingModal } from './components/RetailerVerificationPendingModal';
+import { RetailerVerificationDashboard } from './components/RetailerVerificationDashboard';
+import { UpiConnectModal } from './components/UpiConnectModal';
+import { ReportsView } from './components/ReportsView';
 import { 
   buildLiveNotifications, 
   saveReadNotificationId, 
@@ -88,6 +91,19 @@ function MainApp() {
   const [preselectedRetailerForPayment, setPreselectedRetailerForPayment] = useState<Retailer | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null);
 
+  // UPI Connect Modal State
+  const [isUpiConnectOpen, setIsUpiConnectOpen] = useState(false);
+  const [upiConnectInitialAmount, setUpiConnectInitialAmount] = useState<number | undefined>(undefined);
+  const [upiConnectInitialRetailerId, setUpiConnectInitialRetailerId] = useState<string | undefined>(undefined);
+
+  const handleOpenUpiConnect = (initialAmount?: any, initialRetailerId?: any) => {
+    const validAmount = typeof initialAmount === 'number' && !isNaN(initialAmount) && isFinite(initialAmount) ? initialAmount : undefined;
+    const validRetailer = typeof initialRetailerId === 'string' ? initialRetailerId : undefined;
+    setUpiConnectInitialAmount(validAmount);
+    setUpiConnectInitialRetailerId(validRetailer);
+    setIsUpiConnectOpen(true);
+  };
+
   // Fast Product Search via Barcode Scanner
   const handleProductScanned = (product: Product) => {
     // Fill search query so products filter immediately
@@ -96,7 +112,7 @@ function MainApp() {
     if (activeTab !== 'home' && activeTab !== 'products') {
       setActiveTab('products');
     }
-    showToast(`बारकोड मैच: ${product.name} (डिपो स्टॉक: ${product.currentStockCases} कार्टन)`, 'success');
+    showToast(`Barcode match: ${product.name} (Depot Stock: ${product.currentStockCases} cases)`, 'success');
   };
 
   // Notifications State
@@ -195,9 +211,9 @@ function MainApp() {
     if (activeTab === 'home') return;
     if (currentRole === 'delivery' && !['deliveries', 'delivery', 'orders', 'payments', 'home'].includes(activeTab)) {
       setActiveTab('home');
-    } else if (currentRole === 'salesman' && !['dashboard', 'orders', 'retailers', 'products', 'payments', 'home'].includes(activeTab)) {
+    } else if (currentRole === 'salesman' && !['dashboard', 'orders', 'retailers', 'products', 'payments', 'verifications', 'home'].includes(activeTab)) {
       setActiveTab('home');
-    } else if (currentRole === 'accounts' && !['payments', 'retailers', 'orders', 'dashboard', 'home'].includes(activeTab)) {
+    } else if (currentRole === 'accounts' && !['payments', 'retailers', 'orders', 'dashboard', 'verifications', 'home'].includes(activeTab)) {
       setActiveTab('home');
     } else if (currentRole === 'retailer' && !['products', 'orders', 'retailers', 'payments', 'home'].includes(activeTab)) {
       setActiveTab('home');
@@ -294,7 +310,7 @@ function MainApp() {
     if (currentUser?.role === 'retailer') {
       const isVerified = (targetRetailer && targetRetailer.verificationStatus === 'verified') || currentUser.verificationStatus === 'verified';
       if (!isVerified) {
-        showToast('सत्यापन लंबित है! जब तक एडमिन द्वारा वेरिफिकेशन पूरा नहीं होता, तब तक ऑर्डर नहीं दिया जा सकता।', 'error');
+        showToast('Verification Pending: wholesale orders cannot be placed until your store account is verified by Admin.', 'error');
         return;
       }
     }
@@ -596,10 +612,15 @@ function MainApp() {
     }
   };
 
-  const handleDeleteRetailer = async (retailerId: string) => {
+  const handleDeleteRetailer = async (retailerId: string, handleOrders: 'delete' | 'archive' = 'delete') => {
     try {
       setRetailers(prev => prev.filter(r => r.id !== retailerId));
-      await api.deleteRetailer(retailerId);
+      if (handleOrders === 'delete') {
+        setOrders(prev => prev.filter(o => o.retailerId !== retailerId));
+      } else {
+        setOrders(prev => prev.map(o => o.retailerId === retailerId ? { ...o, status: 'cancelled', outstandingAmount: 0 } : o));
+      }
+      await api.deleteRetailer(retailerId, handleOrders);
       showToast('Retailer store deleted successfully!', 'info');
       await loadData();
     } catch (err: any) {
@@ -608,16 +629,44 @@ function MainApp() {
     }
   };
 
-  const handleVerifyRetailer = async (retailerId: string, status: 'verified' | 'rejected', remarks?: string) => {
+  const handleCleanupRetailers = async (retailerIds: string[], handleOrders: 'delete' | 'archive' = 'delete') => {
+    try {
+      setRetailers(prev => prev.filter(r => !retailerIds.includes(r.id)));
+      if (handleOrders === 'delete') {
+        setOrders(prev => prev.filter(o => !retailerIds.includes(o.retailerId)));
+      } else {
+        setOrders(prev => prev.map(o => retailerIds.includes(o.retailerId) ? { ...o, status: 'cancelled', outstandingAmount: 0 } : o));
+      }
+      const res = await api.cleanupRetailers(retailerIds, handleOrders);
+      showToast(res.message || `Cleaned up ${retailerIds.length} retailer accounts and associated orders.`, 'success');
+      await loadData();
+    } catch (err: any) {
+      showToast(err?.message || 'Failed to cleanup retailers', 'error');
+      await loadData();
+    }
+  };
+
+  const handleVerifyRetailer = async (
+    retailerId: string, 
+    status: 'verified' | 'rejected', 
+    remarks?: string,
+    reasonCode?: string,
+    options?: { creditLimit?: number; creditEnabled?: boolean; creditDaysAllowed?: number; beatName?: string }
+  ) => {
     try {
       setRetailers(prev => prev.map(r => r.id === retailerId ? {
         ...r,
         verificationStatus: status,
         verificationRemarks: remarks || (status === 'verified' ? 'Approved by Admin / Salesman' : 'Rejected'),
+        verificationReasonCode: reasonCode,
         verifiedAt: status === 'verified' ? new Date().toISOString() : undefined,
-        verifiedBy: currentUser?.name || 'Admin'
+        verifiedBy: currentUser?.name || 'Admin',
+        creditLimit: options?.creditLimit !== undefined ? options.creditLimit : r.creditLimit,
+        creditEnabled: options?.creditEnabled !== undefined ? options.creditEnabled : r.creditEnabled,
+        creditDaysAllowed: options?.creditDaysAllowed !== undefined ? options.creditDaysAllowed : r.creditDaysAllowed,
+        beatName: options?.beatName || r.beatName
       } : r));
-      await api.verifyRetailer(retailerId, status, remarks);
+      await api.verifyRetailer(retailerId, status, remarks, reasonCode, options);
       showToast(`Retailer ${status === 'verified' ? 'verified & approved' : 'rejected'} successfully!`, 'success');
       await loadData();
     } catch (err: any) {
@@ -643,6 +692,21 @@ function MainApp() {
       await loadData();
     } catch (err) {
       showToast('Failed to delete salesman', 'error');
+    }
+  };
+
+  const handleDeleteBeat = async (beatName: string) => {
+    try {
+      await api.deleteBeat(beatName);
+      setRetailers(prev => prev.map(r => r.beatName?.toLowerCase() === beatName.toLowerCase() ? { ...r, beatName: 'Utraula Retail Beat' } : r));
+      setSalesmen(prev => prev.map(s => ({
+        ...s,
+        assignedBeats: (s.assignedBeats || []).filter(b => b.toLowerCase() !== beatName.toLowerCase())
+      })));
+      showToast(`Beat route "${beatName}" removed successfully`, 'info');
+      await loadData();
+    } catch (err) {
+      showToast('Failed to delete beat route', 'error');
     }
   };
 
@@ -750,6 +814,7 @@ function MainApp() {
 
   // Pending counts
   const pendingOrdersCount = orders.filter(o => o.status === 'booked' || o.status === 'confirmed').length;
+  const pendingVerificationsCount = retailers.filter(r => r.verificationStatus === 'pending').length;
   const criticalBatchesCount = products.reduce((acc, p) => {
     const today = new Date();
     const count = p.batches.filter(b => {
@@ -795,6 +860,7 @@ function MainApp() {
         cartItemCount={totalCartCount}
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAccount={() => setIsAccountDetailsModalOpen(true)}
+        onOpenUpiConnect={handleOpenUpiConnect}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onToggleMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -809,9 +875,11 @@ function MainApp() {
         onSelectTab={(tab) => setActiveTab(tab)}
         ordersBadge={pendingOrdersCount}
         lowStockBadge={criticalBatchesCount}
+        pendingVerificationsBadge={pendingVerificationsCount}
         cartCount={totalCartCount}
         onOpenCart={() => setIsCartOpen(true)}
         onOpenAccountModal={() => setIsAccountDetailsModalOpen(true)}
+        onOpenUpiConnect={handleOpenUpiConnect}
         isMobileMenuOpen={isMobileMenuOpen}
         setIsMobileMenuOpen={setIsMobileMenuOpen}
         onOpenNewOrder={() => {
@@ -935,6 +1003,24 @@ function MainApp() {
           </ProtectedRoute>
         )}
 
+        {/* Retailer Verification Dashboard - Protected */}
+        {activeTab === 'verifications' && (
+          <ProtectedRoute 
+            pageName="Retailer Verification Dashboard"
+            allowedRoles={['admin', 'salesman', 'accounts']}
+            onNavigateHome={() => setActiveTab(getRoleHomeTab())}
+          >
+            <RetailerVerificationDashboard
+              retailers={retailers}
+              orders={orders}
+              onVerifyRetailer={handleVerifyRetailer}
+              onSaveRetailer={handleSaveRetailer}
+              onNavigateToRetailers={() => setActiveTab('retailers')}
+              onRefreshData={loadData}
+            />
+          </ProtectedRoute>
+        )}
+
         {/* Retailers & Ledger View - Protected */}
         {activeTab === 'retailers' && (
           <ProtectedRoute 
@@ -944,11 +1030,16 @@ function MainApp() {
           >
             <RetailersView
               retailers={retailers}
+              orders={orders}
               onSaveRetailer={handleSaveRetailer}
               onVerifyRetailer={handleVerifyRetailer}
               onDeleteRetailer={handleDeleteRetailer}
+              onCleanupRetailers={handleCleanupRetailers}
+              onDeleteBeat={handleDeleteBeat}
               onOpenNewOrderForRetailer={openNewOrderForRetailer}
               onRecordPaymentForRetailer={openPaymentForRetailer}
+              onNavigateToVerifications={() => setActiveTab('verifications')}
+              pendingVerificationsCount={pendingVerificationsCount}
             />
           </ProtectedRoute>
         )}
@@ -962,8 +1053,11 @@ function MainApp() {
           >
             <SalesmenView
               salesmen={salesmen}
+              retailers={retailers}
               onSaveSalesman={handleSaveSalesman}
               onDeleteSalesman={handleDeleteSalesman}
+              onDeleteBeat={handleDeleteBeat}
+              onSaveRetailer={handleSaveRetailer}
               onOpenNewOrderForSalesman={openNewOrderForSalesman}
             />
           </ProtectedRoute>
@@ -998,6 +1092,7 @@ function MainApp() {
               orders={orders}
               onOpenInvoice={(order) => setActiveInvoiceOrder(order)}
               onRecordPayment={handleRecordPayment}
+              onOpenUpiConnect={handleOpenUpiConnect}
               preselectedRetailer={preselectedRetailerForPayment}
             />
           </ProtectedRoute>
@@ -1013,6 +1108,26 @@ function MainApp() {
             <BannerManagementView
               banners={banners}
               onRefreshBanners={refreshBanners}
+            />
+          </ProtectedRoute>
+        )}
+
+        {/* Distribution Reports & Intelligence View - Protected (Admin, Accounts, Salesman) */}
+        {activeTab === 'reports' && (
+          <ProtectedRoute 
+            pageName="Distribution Reports & Intelligence"
+            allowedRoles={['admin', 'accounts', 'salesman']}
+            onNavigateHome={() => setActiveTab(getRoleHomeTab())}
+          >
+            <ReportsView
+              orders={orders}
+              retailers={retailers}
+              products={products}
+              salesmen={salesmen}
+              deliveries={deliveryRunSheets}
+              payments={payments}
+              inventoryLogs={inventoryLogs}
+              onOpenInvoice={(order) => setActiveInvoiceOrder(order)}
             />
           </ProtectedRoute>
         )}
@@ -1070,6 +1185,20 @@ function MainApp() {
           setIsAccountDetailsModalOpen(false);
         }}
         onLogout={logout}
+        onSaveRetailer={handleSaveRetailer}
+      />
+
+      {/* UPI Connect, Dynamic QR & Bank Reconciliation Modal */}
+      <UpiConnectModal
+        isOpen={isUpiConnectOpen}
+        onClose={() => setIsUpiConnectOpen(false)}
+        currentUser={currentUser}
+        currentRetailer={linkedRetailer}
+        retailers={retailers}
+        payments={payments}
+        onRecordPayment={handleRecordPayment}
+        initialAmount={upiConnectInitialAmount}
+        initialRetailerId={upiConnectInitialRetailerId}
       />
 
       {/* Real-time Notification Panel */}

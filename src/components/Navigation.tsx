@@ -19,7 +19,8 @@ import {
   ClipboardList,
   User as UserIcon,
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  BarChart3
 } from 'lucide-react';
 import { NavTab } from '../types';
 export type { NavTab };
@@ -29,11 +30,13 @@ interface NavigationProps {
   onSelectTab: (tab: NavTab) => void;
   ordersBadge?: number;
   lowStockBadge?: number;
+  pendingVerificationsBadge?: number;
   cartCount?: number;
   onOpenCart?: () => void;
   onOpenAccountModal?: () => void;
   onOpenNewOrder?: () => void;
   onOpenAICopilot?: () => void;
+  onOpenUpiConnect?: () => void;
   isMobileMenuOpen?: boolean;
   setIsMobileMenuOpen?: (open: boolean) => void;
 }
@@ -43,11 +46,13 @@ export const Navigation: React.FC<NavigationProps> = ({
   onSelectTab,
   ordersBadge,
   lowStockBadge,
+  pendingVerificationsBadge,
   cartCount = 0,
   onOpenCart,
   onOpenAccountModal,
   onOpenNewOrder,
   onOpenAICopilot,
+  onOpenUpiConnect,
   isMobileMenuOpen: externalIsMenuOpen,
   setIsMobileMenuOpen: externalSetIsMenuOpen
 }) => {
@@ -66,6 +71,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   if (currentRole === 'admin') {
     navItems.push(
       { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, description: 'FMCG Metrics & Analytics' },
+      { id: 'verifications', label: 'Store Verifications', icon: <ShieldCheck className="w-5 h-5" />, badge: pendingVerificationsBadge, description: 'KYC & Approval Timeline' },
       { id: 'orders', label: 'Orders & Dispatch', icon: <ShoppingCart className="w-5 h-5" />, badge: ordersBadge, description: 'Bookings & Invoicing' },
       { id: 'products', label: 'Products & Schemes', icon: <Package className="w-5 h-5" />, description: 'Catalog & Trade Margins' },
       { id: 'inventory', label: 'Warehouse & Batches', icon: <Boxes className="w-5 h-5" />, badge: lowStockBadge, description: 'Stock & Expiry Tracking' },
@@ -73,13 +79,16 @@ export const Navigation: React.FC<NavigationProps> = ({
       { id: 'banners', label: 'Banner Management', icon: <ImageIcon className="w-5 h-5" />, description: 'Home Slides & Offers' },
       { id: 'salesmen', label: 'Salesmen & Beats', icon: <Users className="w-5 h-5" />, description: 'Field Beats & Targets' },
       { id: 'deliveries', label: 'Delivery Run Sheets', icon: <Truck className="w-5 h-5" />, description: 'Trip Sheets & Digital POD' },
-      { id: 'payments', label: 'Payments & Ledger', icon: <IndianRupee className="w-5 h-5" />, description: 'Collections & Statements' }
+      { id: 'payments', label: 'Payments & Ledger', icon: <IndianRupee className="w-5 h-5" />, description: 'Collections & Statements' },
+      { id: 'reports', label: 'Reports & Intelligence', icon: <BarChart3 className="w-5 h-5" />, description: 'Sales, GST, Ledger & Margin' }
     );
   } else if (currentRole === 'salesman') {
     navItems.push(
       { id: 'dashboard', label: 'Beat Overview', icon: <LayoutDashboard className="w-5 h-5" /> },
+      { id: 'verifications', label: 'KYC Approvals', icon: <ShieldCheck className="w-5 h-5" />, badge: pendingVerificationsBadge },
       { id: 'orders', label: 'Booked Orders', icon: <ShoppingCart className="w-5 h-5" /> },
       { id: 'retailers', label: 'My Beat Outlets', icon: <Store className="w-5 h-5" /> },
+      { id: 'reports', label: 'Reports & Intelligence', icon: <BarChart3 className="w-5 h-5" /> },
       { id: 'products', label: 'Catalog & Schemes', icon: <Package className="w-5 h-5" /> },
       { id: 'payments', label: 'Collections', icon: <IndianRupee className="w-5 h-5" /> }
     );
@@ -91,6 +100,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     );
   } else if (currentRole === 'accounts') {
     navItems.push(
+      { id: 'reports', label: 'Reports & Intelligence', icon: <BarChart3 className="w-5 h-5" />, description: 'Sales, GST, Ledger & Margin' },
       { id: 'payments', label: 'Payments & Ledger', icon: <IndianRupee className="w-5 h-5" /> },
       { id: 'retailers', label: 'Retailer Outstandings & Limits', icon: <Store className="w-5 h-5" /> },
       { id: 'orders', label: 'GST Invoices & Billing', icon: <ShoppingCart className="w-5 h-5" />, badge: ordersBadge },
@@ -156,7 +166,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             {onOpenNewOrder && (
               <button
                 type="button"
-                onClick={onOpenNewOrder}
+                onClick={() => onOpenNewOrder && onOpenNewOrder()}
                 className={`w-full flex items-center justify-center space-x-2 py-2.5 px-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl shadow-md text-xs font-bold active:scale-95 transition-all cursor-pointer ${
                   isSidebarCollapsed ? 'px-0' : ''
                 }`}
@@ -206,6 +216,33 @@ export const Navigation: React.FC<NavigationProps> = ({
               );
             })}
           </div>
+
+          {/* Dedicated UPI Connect Quick Action in Admin Sidebar */}
+          {onOpenUpiConnect && (
+            <div className="p-2 border-t border-slate-800 bg-[#0d1838]">
+              <button
+                type="button"
+                onClick={() => onOpenUpiConnect && onOpenUpiConnect()}
+                className={`w-full flex items-center ${isSidebarCollapsed ? 'justify-center p-2' : 'justify-between px-3 py-2'} rounded-xl bg-gradient-to-r from-blue-900/90 via-indigo-900/90 to-purple-900/90 hover:from-blue-800 hover:to-indigo-800 border border-blue-700/60 text-white shadow-xs transition-all cursor-pointer group`}
+                title="UPI Connect & QR Standee"
+              >
+                <div className="flex items-center space-x-2.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                  {!isSidebarCollapsed && (
+                    <div className="text-left truncate">
+                      <span className="text-xs font-bold text-amber-300 block">UPI Connect</span>
+                      <span className="text-[10px] text-blue-200 block truncate">QR Standee & Settlement</span>
+                    </div>
+                  )}
+                </div>
+                {!isSidebarCollapsed && (
+                  <span className="text-[9px] px-1.5 py-0.5 bg-amber-400 text-slate-950 font-black rounded font-mono">
+                    2.0
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
 
           {/* Admin User Footer inside Sidebar */}
           <div className="p-3 border-t border-slate-800 bg-[#0B132B]">
@@ -452,6 +489,31 @@ export const Navigation: React.FC<NavigationProps> = ({
                 )}
               </div>
             </div>
+
+            {/* UPI Connect Mobile Banner */}
+            {onOpenUpiConnect && (
+              <div className="px-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    onOpenUpiConnect();
+                  }}
+                  className="w-full flex items-center justify-between p-3 rounded-xl bg-gradient-to-r from-blue-900 via-indigo-900 to-purple-900 border border-blue-700/80 text-white shadow-md active:scale-98 transition-transform cursor-pointer"
+                >
+                  <div className="flex items-center space-x-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                    <div className="text-left">
+                      <span className="block font-bold text-amber-300 text-xs">UPI Connect & QR Standee</span>
+                      <span className="block text-[10px] text-blue-200">GPay, PhonePe, Paytm & Auto-Ledger</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] px-2 py-0.5 bg-amber-400 text-slate-950 font-black rounded font-mono">
+                    UPI 2.0
+                  </span>
+                </button>
+              </div>
+            )}
 
             {/* All Navigation Directory Tabs */}
             <div className="flex-1 overflow-y-auto p-3 space-y-1">

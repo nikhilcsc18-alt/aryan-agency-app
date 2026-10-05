@@ -5,6 +5,16 @@ export interface DistributorSettings {
   mandatoryOnlinePayment: boolean;
   upiVpa: string;
   upiPayeeName: string;
+  // Extended UPI Connect fields
+  upiBankName?: string;
+  upiAccountNumber?: string; // e.g. "XXXX1234"
+  upiIfscCode?: string;
+  upiMerchantId?: string;
+  upiMerchantCategoryCode?: string; // 5411 = Grocery/FMCG
+  upiStatus?: 'active' | 'pending' | 'unverified';
+  upiAutoVerify?: boolean;
+  upiConnectedAt?: string;
+  soundboxEnabled?: boolean;
   // Delivery charges settings
   enableDeliveryCharges: boolean;
   deliveryCharge: number; // e.g. ₹50 standard fee
@@ -18,7 +28,16 @@ const DEFAULT_SETTINGS: DistributorSettings = {
   allowCOD: true,
   mandatoryOnlinePayment: false,
   upiVpa: 'aryanagency@upi',
-  upiPayeeName: 'Aryan Agency',
+  upiPayeeName: 'Aryan Agency FMCG Distribution',
+  upiBankName: 'State Bank of India',
+  upiAccountNumber: '••••4109',
+  upiIfscCode: 'SBIN0000612',
+  upiMerchantId: 'MC_ARYAN_FMCG_26',
+  upiMerchantCategoryCode: '5411',
+  upiStatus: 'active',
+  upiAutoVerify: true,
+  upiConnectedAt: '2026-01-15T09:00:00.000Z',
+  soundboxEnabled: true,
   enableDeliveryCharges: true,
   deliveryCharge: 50,
   freeDeliveryAbove: 2000,

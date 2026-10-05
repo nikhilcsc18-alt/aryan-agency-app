@@ -30,6 +30,11 @@ export interface User {
   verifiedAt?: string;
   verifiedBy?: string;
   shopPhotoUrl?: string;
+  // UPI Connect fields
+  upiVpa?: string; // Linked UPI Virtual Payment Address (e.g. store@upi)
+  upiPayeeName?: string; // Payee Name displayed on UPI
+  upiBankName?: string; // Linked settlement bank name
+  upiStatus?: 'active' | 'unverified';
 }
 
 export interface Category {
@@ -154,8 +159,37 @@ export interface Retailer {
   shopPhotoUrl?: string; // Shop front photo captured during onboarding
   verificationStatus?: 'pending' | 'verified' | 'rejected';
   verificationRemarks?: string;
+  verificationReasonCode?: string;
   verifiedAt?: string;
   verifiedBy?: string;
+  submittedAt?: string; // When retailer application was submitted
+  verificationTimeline?: VerificationTimelineEvent[];
+  // UPI Connect fields
+  upiVpa?: string;
+  upiPayeeName?: string;
+  upiBankName?: string;
+  upiStatus?: 'active' | 'unverified';
+}
+
+export interface VerificationTimelineEvent {
+  id: string;
+  timestamp: string; // ISO String
+  type: 'submitted' | 'document_uploaded' | 'beat_mapped' | 'reviewed' | 'approved' | 'rejected' | 'comment_added';
+  actorName: string;
+  actorRole: string;
+  title: string;
+  description: string;
+  reasonCode?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface VerificationReasonOption {
+  code: string;
+  label: string;
+  description: string;
+  category: 'approval' | 'rejection';
+  defaultCreditLimit?: number;
+  isCreditRecommended?: boolean;
 }
 
 export interface Salesman {
@@ -248,6 +282,7 @@ export interface Order {
   podReceiverName?: string;
   podNotes?: string;
   notes?: string;
+  remarks?: string;
   isInterstate?: boolean;
 }
 
@@ -342,7 +377,7 @@ export interface PromotionalBanner {
   hideTextOverlay?: boolean; // When true, hides title, subtitle, badges so only the pure graphic banner shows
   posterFit?: 'cover' | 'fill' | 'contain'; // Display style for poster: 'cover' fills entire space, 'fill' stretches 100%
   showBuyNow?: boolean; // Whether to show Buy Now button on the banner
-  buyNowText?: string; // Custom label for Buy Now button, e.g. "अभी खरीदें (Buy Now)"
+  buyNowText?: string; // Custom label for Buy Now button, e.g. "Buy Now"
 }
 
 export type NavTab = 
@@ -355,7 +390,69 @@ export type NavTab =
   | 'salesmen' 
   | 'deliveries' 
   | 'payments'
-  | 'banners';
+  | 'banners'
+  | 'verifications'
+  | 'reports';
+
+export type ReportType = 
+  | 'sales' 
+  | 'purchase' 
+  | 'customer_ledger' 
+  | 'outstanding' 
+  | 'payment_collection' 
+  | 'product_sales' 
+  | 'customer_sales' 
+  | 'brand_sales' 
+  | 'category_sales' 
+  | 'salesman_sales' 
+  | 'delivery' 
+  | 'returns' 
+  | 'gst' 
+  | 'profit_margin';
+
+export type ReportPeriod = 
+  | 'today' 
+  | 'yesterday' 
+  | 'this_week' 
+  | 'this_month' 
+  | 'previous_month' 
+  | 'this_quarter' 
+  | 'this_year' 
+  | 'financial_year' 
+  | 'custom';
+
+export type GstSubReportType = 
+  | 'sales_register' 
+  | 'b2b' 
+  | 'b2c' 
+  | 'invoice_report' 
+  | 'taxable_summary' 
+  | 'hsn_summary' 
+  | 'rate_summary' 
+  | 'cgst_summary' 
+  | 'sgst_summary' 
+  | 'igst_summary' 
+  | 'credit_note';
+
+export interface ReportFilterOptions {
+  period: ReportPeriod;
+  fromDate?: string;
+  toDate?: string;
+  retailerId?: string;
+  salesmanId?: string;
+  deliveryPersonId?: string;
+  productId?: string;
+  brand?: string;
+  category?: string;
+  paymentStatus?: 'all' | 'unpaid' | 'partial' | 'paid';
+  orderStatus?: 'all' | OrderStatus;
+  gstFilter?: 'all' | 'gst' | 'non_gst';
+  paymentMode?: 'all' | 'cash' | 'upi' | 'cheque' | 'bank_transfer' | 'credit' | 'qr';
+  beatName?: string;
+  onlyOverdue?: boolean;
+  gstSubReport?: GstSubReportType;
+  searchTerm?: string;
+}
 
 export interface AppNotification {
   id: string;

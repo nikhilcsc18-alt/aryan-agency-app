@@ -717,7 +717,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 <div className="flex items-center justify-between pt-1">
                   <span className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
                     <CreditCard className="w-4 h-4 text-blue-600" />
-                    <span>Select Payment Option (भुगतान माध्यम)</span>
+                    <span>Select Payment Option</span>
                   </span>
                   {isAdmin && (
                     <button
@@ -961,9 +961,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-start space-x-2">
                     <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                     <div>
-                      <span className="font-bold block">सत्यापन लंबित है (Verification Pending)</span>
+                      <span className="font-bold block">Verification Pending</span>
                       <span className="text-[11px] text-amber-800">
-                        आपकी दुकान का खाता अभी एडमिन द्वारा सत्यापित नहीं हुआ है। वेरिफिकेशन के बिना ऑर्डर नहीं दिया जा सकता।
+                        Your store account is not verified yet. Verification is required before placing wholesale orders.
                       </span>
                     </div>
                   </div>
@@ -984,12 +984,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   {isSubmitting ? (
                     <>
                       <Loader2 className="w-4 h-4 text-white animate-spin" />
-                      <span>Order Punch Ho Raha Hai...</span>
+                      <span>Processing Order...</span>
                     </>
                   ) : isRetailerUnverified ? (
                     <>
                       <ShieldAlert className="w-4 h-4 text-white" />
-                      <span>सत्यापन लंबित है (Verification Pending)</span>
+                      <span>Verification Pending</span>
                     </>
                   ) : (
                     <>

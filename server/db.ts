@@ -38,6 +38,7 @@ export interface DatabaseSchema {
   inventoryLogs: InventoryMovement[];
   banners?: PromotionalBanner[];
   appVersionConfig?: AppVersionConfig;
+  beats?: string[];
 }
 
 function getBannerMainImageUrl(): string {
@@ -61,6 +62,7 @@ const INITIAL_RETAILERS: Retailer[] = [
     area: 'Utraula Central',
     beatName: 'Utraula Retail Beat',
     status: 'active',
+    verificationStatus: 'verified',
     creditLimit: 75000,
     currentOutstanding: 0,
     creditDaysAllowed: 15,
@@ -75,6 +77,7 @@ const INITIAL_RETAILERS: Retailer[] = [
     area: 'Utraula',
     beatName: 'Utraula Retail Beat',
     status: 'active',
+    verificationStatus: 'verified',
     creditLimit: 50000,
     currentOutstanding: 0,
     creditDaysAllowed: 15,
@@ -89,6 +92,7 @@ const INITIAL_RETAILERS: Retailer[] = [
     area: 'Balrampur',
     beatName: 'Balrampur Beat',
     status: 'active',
+    verificationStatus: 'verified',
     creditLimit: 100000,
     currentOutstanding: 0,
     creditDaysAllowed: 21,
@@ -163,8 +167,8 @@ const INITIAL_DATA: DatabaseSchema = {
       city: 'Balrampur',
       state: 'Uttar Pradesh',
       pincode: '271604',
-      gstin: '09AABCA1234F1Z8',
-      panNumber: 'AABCA1234F',
+      gstin: '09BOGPG2620P1ZQ',
+      panNumber: 'BOGPG2620P',
       locationCoordinates: {
         lat: 27.3167,
         lng: 82.4167,
@@ -878,13 +882,44 @@ class Database {
     return retailer;
   }
 
-  public deleteRetailer(id: string): boolean {
+  public deleteRetailer(id: string, options: { deleteOrders?: boolean; archiveOrders?: boolean } = { deleteOrders: true }): boolean {
     const idx = this.data.retailers.findIndex(r => r.id === id);
     if (idx >= 0) {
       this.data.retailers.splice(idx, 1);
-      this.saveData(this.data);
     }
+    
+    // Handle associated orders and payments
+    if (options.archiveOrders) {
+      this.data.orders.forEach(o => {
+        if (o.retailerId === id) {
+          o.status = 'cancelled';
+          o.outstandingAmount = 0;
+          o.remarks = (o.remarks ? o.remarks + ' | ' : '') + '[Retailer Account Cleaned Up]';
+        }
+      });
+      this.data.payments.forEach(p => {
+        if (p.retailerId === id) {
+          p.notes = (p.notes ? p.notes + ' | ' : '') + '[Retailer Account Cleaned Up]';
+        }
+      });
+    } else {
+      // Default: cascade delete associated orders and payments
+      this.data.orders = this.data.orders.filter(o => o.retailerId !== id);
+      this.data.payments = this.data.payments.filter(p => p.retailerId !== id);
+    }
+
+    this.saveData(this.data);
     return true;
+  }
+
+  public cleanupRetailers(ids: string[], handleOrders: 'delete' | 'archive' = 'delete'): { deletedCount: number; affectedOrders: number } {
+    let affectedOrders = 0;
+    ids.forEach(id => {
+      const ords = this.data.orders.filter(o => o.retailerId === id);
+      affectedOrders += ords.length;
+      this.deleteRetailer(id, { deleteOrders: handleOrders === 'delete', archiveOrders: handleOrders === 'archive' });
+    });
+    return { deletedCount: ids.length, affectedOrders };
   }
 
   public updateRetailerOutstanding(id: string, delta: number) {
@@ -927,6 +962,68 @@ class Database {
       this.saveData(this.data);
     }
     return true;
+  }
+
+  public getBeats(): string[] {
+    if (!this.data.beats || this.data.beats.length === 0) {
+      const set = new Set<string>([
+        'Utraula Retail Beat',
+        'Balrampur Central Beat',
+        'Jarwa Rural Beat',
+        'Tulsipur Provision Beat',
+        'Pachperwa Market Beat',
+        'Rehra Bazar Beat'
+      ]);
+      (this.data.retailers || []).forEach(r => { if (r.beatName) set.add(r.beatName); });
+      (this.data.salesmen || []).forEach(s => { (s.assignedBeats || []).forEach(b => set.add(b)); });
+      this.data.beats = Array.from(set).filter(Boolean);
+      this.saveData(this.data);
+    }
+    return this.data.beats;
+  }
+
+  public saveBeat(name: string): string[] {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return this.getBeats();
+    const beats = this.getBeats();
+    if (!beats.some(b => b.toLowerCase() === trimmed.toLowerCase())) {
+      beats.push(trimmed);
+      this.data.beats = beats;
+      this.saveData(this.data);
+    }
+    return this.data.beats;
+  }
+
+  public deleteBeat(beatName: string): { affectedRetailers: number; affectedSalesmen: number; beats: string[] } {
+    let affectedRetailers = 0;
+    let affectedSalesmen = 0;
+    const target = (beatName || '').trim();
+    if (!target) return { affectedRetailers: 0, affectedSalesmen: 0, beats: this.getBeats() };
+
+    const targetLower = target.toLowerCase();
+
+    // 1. Remove from database beats list
+    const currentBeats = this.getBeats();
+    this.data.beats = currentBeats.filter(b => b.toLowerCase() !== targetLower);
+
+    // 2. Unassign from all salesmen
+    this.data.salesmen.forEach(s => {
+      if (s.assignedBeats && s.assignedBeats.some(b => b.toLowerCase() === targetLower)) {
+        s.assignedBeats = s.assignedBeats.filter(b => b.toLowerCase() !== targetLower);
+        affectedSalesmen++;
+      }
+    });
+
+    // 3. Reassign any retailer from this beat to default
+    this.data.retailers.forEach(r => {
+      if (r.beatName && r.beatName.toLowerCase() === targetLower) {
+        r.beatName = 'Utraula Retail Beat';
+        affectedRetailers++;
+      }
+    });
+
+    this.saveData(this.data);
+    return { affectedRetailers, affectedSalesmen, beats: this.data.beats };
   }
 
   // Orders
@@ -1224,6 +1321,38 @@ class Database {
     }
 
     return this.data.appVersionConfig;
+  }
+
+  // Settings & UPI Configuration
+  public getSettings(): any {
+    return (this.data as any).settings || {
+      allowCOD: true,
+      mandatoryOnlinePayment: false,
+      upiVpa: 'aryanagency@upi',
+      upiPayeeName: 'Aryan Agency FMCG Distribution',
+      upiBankName: 'State Bank of India',
+      upiAccountNumber: '••••4109',
+      upiIfscCode: 'SBIN0000612',
+      upiMerchantId: 'MC_ARYAN_FMCG_26',
+      upiMerchantCategoryCode: '5411',
+      upiStatus: 'active',
+      upiAutoVerify: true,
+      upiConnectedAt: '2026-01-15T09:00:00.000Z',
+      soundboxEnabled: true,
+      enableDeliveryCharges: true,
+      deliveryCharge: 50,
+      freeDeliveryAbove: 2000,
+      enableMdr: true,
+      mdrPercentage: 0.04
+    };
+  }
+
+  public updateSettings(newSettings: any): any {
+    const current = this.getSettings();
+    const updated = { ...current, ...newSettings };
+    (this.data as any).settings = updated;
+    this.saveData(this.data);
+    return updated;
   }
 }
 

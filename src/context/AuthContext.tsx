@@ -56,6 +56,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .then(users => {
           if (users && users.length > 0) {
             setAllUsers(users);
+            // Enrich current user with database fields (e.g. gstin, panNumber, businessName) if not already set
+            setCurrentUser(prev => {
+              if (!prev) return prev;
+              const matched = users.find(u => u.id === prev.id || (u.email && prev.email && u.email.toLowerCase() === prev.email.toLowerCase()));
+              if (matched) {
+                const enriched = {
+                  ...prev,
+                  gstin: prev.gstin || matched.gstin || (prev.role === 'admin' ? '09BOGPG2620P1ZQ' : undefined),
+                  panNumber: prev.panNumber || matched.panNumber || (prev.role === 'admin' ? 'BOGPG2620P' : undefined),
+                  businessName: prev.businessName || matched.businessName || (prev.role === 'admin' ? 'Aryan Agency FMCG Distribution' : undefined),
+                  address: prev.address || matched.address,
+                  city: prev.city || matched.city,
+                  state: prev.state || matched.state,
+                  pincode: prev.pincode || matched.pincode,
+                  locationCoordinates: prev.locationCoordinates || matched.locationCoordinates
+                };
+                try {
+                  localStorage.setItem(`aryan_profile_${enriched.id}`, JSON.stringify(enriched));
+                  if (enriched.gstin) localStorage.setItem('aryan_agency_gstin', enriched.gstin);
+                } catch {}
+                return enriched;
+              }
+              return prev;
+            });
           }
         })
         .catch(e => {
@@ -94,14 +118,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               };
             }
             if (dbProfile) {
+              // Hydrate from localStorage or session user_metadata to preserve GSTIN and profile details
+              try {
+                const cached = localStorage.getItem(`aryan_profile_${dbProfile.id}`);
+                const cachedGstin = localStorage.getItem('aryan_agency_gstin');
+                const meta = session.user?.user_metadata || {};
+                if (cached) {
+                  const parsed = JSON.parse(cached);
+                  dbProfile = { ...parsed, ...dbProfile, gstin: dbProfile.gstin || parsed.gstin, panNumber: dbProfile.panNumber || parsed.panNumber, businessName: dbProfile.businessName || parsed.businessName };
+                }
+                if (!dbProfile.gstin) {
+                  dbProfile.gstin = meta.gstin || (dbProfile.role === 'admin' ? (cachedGstin || '09BOGPG2620P1ZQ') : undefined);
+                }
+                if (!dbProfile.panNumber) {
+                  dbProfile.panNumber = meta.panNumber || (dbProfile.role === 'admin' ? 'BOGPG2620P' : undefined);
+                }
+                if (!dbProfile.businessName && dbProfile.role === 'admin') {
+                  dbProfile.businessName = 'Aryan Agency FMCG Distribution';
+                }
+              } catch {}
+
               setAuthenticatedUser(dbProfile);
               setCurrentUser(dbProfile);
               setApiAuthContext(
-  session.access_token || null,
-  dbProfile.id,
-  dbProfile.role,
-  dbProfile.retailerId || null
-);
+                session.access_token || null,
+                dbProfile.id,
+                dbProfile.role,
+                dbProfile.retailerId || null
+              );
               return;
             }
           }
@@ -150,14 +194,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
           }
           if (profile) {
+            // Hydrate from localStorage or session user_metadata
+            try {
+              const cached = localStorage.getItem(`aryan_profile_${profile.id}`);
+              const cachedGstin = localStorage.getItem('aryan_agency_gstin');
+              const meta = session.user?.user_metadata || {};
+              if (cached) {
+                const parsed = JSON.parse(cached);
+                profile = { ...parsed, ...profile, gstin: profile.gstin || parsed.gstin, panNumber: profile.panNumber || parsed.panNumber, businessName: profile.businessName || parsed.businessName };
+              }
+              if (!profile.gstin) {
+                profile.gstin = meta.gstin || (profile.role === 'admin' ? (cachedGstin || '09BOGPG2620P1ZQ') : undefined);
+              }
+              if (!profile.panNumber) {
+                profile.panNumber = meta.panNumber || (profile.role === 'admin' ? 'BOGPG2620P' : undefined);
+              }
+              if (!profile.businessName && profile.role === 'admin') {
+                profile.businessName = 'Aryan Agency FMCG Distribution';
+              }
+            } catch {}
+
             setAuthenticatedUser(profile);
             setCurrentUser(profile);
             setApiAuthContext(
-  session.access_token || null,
-  profile.id,
-  profile.role,
-  profile.retailerId || null
-);
+              session.access_token || null,
+              profile.id,
+              profile.role,
+              profile.retailerId || null
+            );
           }
           setIsLoading(false);
         } else if (event === 'SIGNED_OUT' || !session) {
@@ -494,6 +558,30 @@ const signInWithEmail = async (email: string, pass: string): Promise<{ success: 
         setAuthenticatedUser(res.user);
         setCurrentUser(res.user);
         setAllUsers(prev => prev.map(u => u.id === res.user.id ? res.user : u));
+
+        // Persist locally for instant hydration
+        try {
+          localStorage.setItem(`aryan_profile_${res.user.id}`, JSON.stringify(res.user));
+          if (res.user.gstin) {
+            localStorage.setItem('aryan_agency_gstin', res.user.gstin);
+          }
+        } catch {}
+
+        // Also update Supabase auth metadata if available
+        if (isSupabaseConfigured && supabaseService) {
+          try {
+            await (supabaseService as any).updateUserMetadata?.({
+              gstin: res.user.gstin,
+              panNumber: res.user.panNumber,
+              businessName: res.user.businessName,
+              address: res.user.address,
+              city: res.user.city,
+              state: res.user.state,
+              pincode: res.user.pincode
+            });
+          } catch {}
+        }
+
         return { success: true, user: res.user };
       }
       return { success: false, error: 'Failed to update profile' };

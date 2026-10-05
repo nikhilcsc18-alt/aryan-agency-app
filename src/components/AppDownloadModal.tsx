@@ -98,7 +98,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
       }
     } catch (err) {
       console.error('Download error:', err);
-      setDownloadError('मुख्य सर्वर से डाउनलोड में समस्या आ रही है। कृपया नीचे दिए गए बैकअप मिरर लिंक से डाउनलोड करें।');
+      setDownloadError('Download error from primary host. Please try downloading via the backup mirror link below.');
       setShowFallbackMirror(true);
     }
   };
@@ -292,7 +292,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                   className="w-full py-2.5 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold transition-all flex items-center justify-center space-x-2 text-xs cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Check In-App Update (बिना APK दोबारा लोड किए तुरंत अपडेट करें)</span>
+                  <span>Check In-App Update (Update instantly without re-downloading APK)</span>
                 </button>
 
                 {downloadSuccess && (
@@ -310,7 +310,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                     <div className="flex items-start space-x-2">
                       <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <div>
-                        <strong className="block font-bold">डाउनलोड में समस्या (Download Error)</strong>
+                        <strong className="block font-bold">Download Issue</strong>
                         <span className="text-[11px] text-amber-800">{downloadError}</span>
                       </div>
                     </div>
@@ -321,7 +321,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                       className="w-full py-2 px-3 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs"
                     >
                       <Download className="w-3.5 h-3.5" />
-                      <span>Use Backup Release Mirror (वैकल्पिक बैकअप से डाउनलोड करें)</span>
+                      <span>Use Backup Release Mirror</span>
                     </a>
                   </div>
                 )}
@@ -334,7 +334,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                       onClick={() => setShowFallbackMirror(true)}
                       className="text-[11px] text-slate-400 hover:text-slate-600 transition-colors cursor-pointer inline-flex items-center space-x-1"
                     >
-                      <span>डाउनलोड में परेशानी होने पर वैकल्पिक बैकअप लिंक देखें</span>
+                      <span>Trouble downloading? View backup mirror links</span>
                     </button>
                   </div>
                 ) : !downloadError && (
@@ -346,7 +346,7 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
                       className="w-full py-1.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 font-medium transition-all flex items-center justify-center space-x-2 text-[11px] border border-slate-200"
                     >
                       <ExternalLink className="w-3 h-3 text-slate-400" />
-                      <span>Alternative Backup Mirror (वैकल्पिक डाउनलोड लिंक)</span>
+                      <span>Alternative Backup Mirror</span>
                     </a>
                   </div>
                 )}

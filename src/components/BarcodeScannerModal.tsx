@@ -153,7 +153,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       setScannedProduct(product);
       setScanError(null);
     } else {
-      setScanError(`बारकोड "${decodedText}" के साथ कोई प्रोडक्ट मैच नहीं हुआ। कृपया SKU चेक करें।`);
+      setScanError(`No product found matching barcode "${decodedText}". Please verify SKU or barcode.`);
       setScannedProduct(null);
     }
   };
@@ -238,11 +238,11 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       setPermissionState('denied');
       const errString = String(err?.message || err);
       if (errString.includes('NotAllowedError') || errString.includes('Permission') || errString.includes('denied')) {
-        setScanError('कैमरा परमिशन नहीं मिली (Permission Denied). कृपया ब्राउज़र या फ़ोन में कैमरा Allow करें या नीचे बारकोड नंबर टाइप करें।');
+        setScanError('Camera permission denied. Please allow camera access in your browser or type the barcode number below.');
       } else if (errString.includes('NotFoundError') || errString.includes('DevicesNotFoundError')) {
-        setScanError('कोई कैमरा डिवाइस नहीं मिला। कृपया नीचे बारकोड नंबर डालकर सर्च करें।');
+        setScanError('No camera found on this device. Please enter the barcode number manually below.');
       } else {
-        setScanError('कैमरा शुरू नहीं हो पाया। आप नीचे दिए गए इनपुट से बारकोड या SKU सर्च कर सकते हैं।');
+        setScanError('Unable to start camera. Please enter the barcode or SKU code below.');
       }
     }
   };
@@ -316,7 +316,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
       setScannedProduct(product);
       setScanError(null);
     } else {
-      setScanError(`SKU / बारकोड "${manualCode}" से कोई प्रोडक्ट नहीं मिला। नीचे दिए गए डेमो बारकोड से टेस्ट करें।`);
+      setScanError(`No product found matching SKU / barcode "${manualCode}". Try one of the demo barcodes below.`);
       setScannedProduct(null);
     }
   };
@@ -359,7 +359,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
             </div>
             <div>
               <div className="flex items-center space-x-1.5">
-                <h3 className="text-sm font-black tracking-tight text-white">{title || 'बारकोड स्कैनर (Barcode Scanner)'}</h3>
+                <h3 className="text-sm font-black tracking-tight text-white">{title || 'Barcode Scanner'}</h3>
                 <span className="text-[10px] bg-emerald-500/30 text-emerald-300 font-bold px-1.5 py-0.2 rounded border border-emerald-400/30">
                   Live
                 </span>
@@ -371,7 +371,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
           <button
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors cursor-pointer"
-            title="बंद करें"
+            title="Close"
           >
             <X className="w-5 h-5" />
           </button>
@@ -388,7 +388,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
             }`}
           >
             <Camera className="w-4 h-4 text-emerald-600" />
-            <span>लाइव कैमरा स्कैनर (Camera)</span>
+            <span>Live Camera Scanner</span>
           </button>
 
           <button
@@ -400,7 +400,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
             }`}
           >
             <Keyboard className="w-4 h-4 text-blue-600" />
-            <span>मैन्युअल / गन इनपुट (Manual)</span>
+            <span>Manual / Gun Input</span>
           </button>
         </div>
 
@@ -428,7 +428,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                       
                       <div className="absolute -bottom-6 left-0 right-0 text-center">
                         <span className="text-[10.5px] bg-slate-900/90 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/40 tracking-wide uppercase">
-                          बारकोड को बॉक्स में रखें
+                          Align barcode inside the box
                         </span>
                       </div>
                     </div>
@@ -442,9 +442,9 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                       <CameraOff className="w-6 h-6" />
                     </div>
                     <div className="space-y-1 max-w-xs">
-                      <h4 className="font-bold text-sm text-white">कैमरा परमिशन ब्लॉक है</h4>
+                      <h4 className="font-bold text-sm text-white">Camera Permission Blocked</h4>
                       <p className="text-xs text-slate-300 leading-relaxed">
-                        बारकोड स्कैन करने के लिए ब्राउज़र या फ़ोन में Camera Allow करें।
+                        Please allow camera access in your browser or phone settings to scan barcodes.
                       </p>
                     </div>
                     <button
@@ -453,7 +453,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                       className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
-                      <span>कैमरा दोबारा चालू करें</span>
+                      <span>Retry Camera</span>
                     </button>
                   </div>
                 )}
@@ -463,7 +463,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
               <div className="flex items-center justify-between text-xs px-1 bg-slate-50 p-2 rounded-xl border border-slate-200">
                 <span className="text-slate-600 flex items-center space-x-1.5 text-[11px] font-medium">
                   <span className={`w-2 h-2 rounded-full ${isScanning ? 'bg-emerald-500 animate-ping' : 'bg-slate-400'}`} />
-                  <span>{isScanning ? 'कैमरा स्कैनर सक्रिय (Scanning...)' : 'कैमरा बंद'}</span>
+                  <span>{isScanning ? 'Scanner Active (Scanning...)' : 'Camera Off'}</span>
                 </span>
 
                 <div className="flex items-center space-x-2">
@@ -502,14 +502,14 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
               <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
                 <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center space-x-1">
                   <Tag className="w-3.5 h-3.5 text-blue-600" />
-                  <span>बारकोड नंबर या SKU कोड दर्ज करें:</span>
+                  <span>Enter Barcode Number or SKU Code:</span>
                 </label>
                 <div className="relative">
                   <ScanLine className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                   <input
                     type="text"
                     autoFocus
-                    placeholder="उदा: 8901063012345 या PARLE-G-80G"
+                    placeholder="e.g. 8901063012345 or PARLE-G-80G"
                     value={manualCode}
                     onChange={(e) => setManualCode(e.target.value)}
                     className="w-full pl-9 pr-24 py-2.5 text-xs font-mono bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 text-slate-900 shadow-inner font-bold"
@@ -518,11 +518,11 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                     type="submit"
                     className="absolute right-1.5 top-1.5 bottom-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg cursor-pointer transition-colors shadow-xs"
                   >
-                    सर्च करें
+                    Search
                   </button>
                 </div>
                 <p className="text-[11px] text-slate-500 mt-1.5">
-                  USB व Bluetooth लेज़र बारकोड गन सीधे इस फील्ड में रीड करती है।
+                  USB and Bluetooth laser barcode scanners directly input into this field.
                 </p>
               </div>
             </form>
@@ -555,7 +555,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                     <div className="flex items-center space-x-1.5">
                       <span className="text-[10px] px-2 py-0.5 font-black rounded-full bg-emerald-600 text-white uppercase tracking-wider flex items-center space-x-1 shadow-xs">
                         <CheckCircle2 className="w-2.5 h-2.5" />
-                        <span>मैच मिला (Matched)</span>
+                        <span>Matched</span>
                       </span>
                       <span className="text-[11px] text-emerald-800 font-mono font-bold">
                         {getProductBarcode(scannedProduct)}
@@ -569,7 +569,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                 </div>
 
                 <div className="text-right shrink-0">
-                  <span className="text-[10px] text-slate-500 block uppercase font-bold">थोक भाव</span>
+                  <span className="text-[10px] text-slate-500 block uppercase font-bold">Wholesale Price</span>
                   <span className="text-sm font-black font-mono text-emerald-700">
                     {formatINR(scannedProduct.wholesalePricePiece)} / pc
                   </span>
@@ -582,10 +582,10 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
               {/* Stock and Margin Badge */}
               <div className="grid grid-cols-2 gap-2 text-xs bg-white/80 p-2 rounded-xl border border-emerald-200 font-semibold">
                 <div className="text-slate-700">
-                  डिपो स्टॉक: <strong className="text-emerald-800 font-mono">{scannedProduct.currentStockCases} कार्टन</strong>
+                  Depot Stock: <strong className="text-emerald-800 font-mono">{scannedProduct.currentStockCases} cases</strong>
                 </div>
                 <div className="text-right text-emerald-800">
-                  रिटेलर मार्जिन: <strong className="font-mono text-emerald-700">{scannedProduct.retailerMarginPercent}%</strong>
+                  Retailer Margin: <strong className="font-mono text-emerald-700">{scannedProduct.retailerMarginPercent}%</strong>
                 </div>
               </div>
 
@@ -596,7 +596,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                   onClick={handleScanNext}
                   className="px-3 py-2 text-slate-700 hover:bg-white bg-slate-100 rounded-xl font-bold text-xs border border-slate-300 cursor-pointer transition-colors"
                 >
-                  दूसरा बारकोड स्कैन करें
+                  Scan Next Barcode
                 </button>
 
                 <button
@@ -604,7 +604,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
                   onClick={handleConfirmProduct}
                   className="flex-1 py-2 px-3.5 bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black rounded-xl shadow-md flex items-center justify-center space-x-1.5 cursor-pointer transition-all active:scale-95"
                 >
-                  <span>प्रोडक्ट खोलें व आर्डर करें</span>
+                  <span>Select &amp; Order</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>
@@ -614,7 +614,7 @@ export const BarcodeScannerModal: React.FC<BarcodeScannerModalProps> = ({
           {/* Instant Sample Barcode Clickers (Helpful for quick test / demo) */}
           <div className="pt-2 border-t border-slate-200">
             <span className="text-[11px] font-bold text-slate-500 block mb-1.5">
-              तुरंत टेस्ट के लिए मुख्य FMCG प्रोडक्ट्स (Quick Demo Barcodes):
+              Quick Demo Barcodes:
             </span>
             <div className="flex flex-wrap gap-1.5">
               {demoBarcodes.map(demo => (
