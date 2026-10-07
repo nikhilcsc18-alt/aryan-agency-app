@@ -290,6 +290,43 @@ export const api = {
     return res;
   },
 
+  // Phone OTP Authentication
+  async sendOtp(phone: string): Promise<{ success: boolean; message?: string; phone: string; error?: string }> {
+    return safeMutationFetch('/api/auth/otp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone })
+    });
+  },
+
+  async verifyOtp(phone: string, token: string): Promise<{ success: boolean; isNewUser?: boolean; user?: User; retailer?: any; phone?: string; error?: string }> {
+    return safeMutationFetch('/api/auth/otp/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, token })
+    });
+  },
+
+  async registerRetailerWithOtp(payload: {
+    phone: string;
+    storeName?: string;
+    ownerName?: string;
+    email?: string;
+    address?: string;
+    area?: string;
+    beatName?: string;
+    gstin?: string;
+    panNumber?: string;
+    lat?: number;
+    lng?: number;
+  }): Promise<{ success: boolean; user?: User; retailer?: any; error?: string }> {
+    return safeMutationFetch('/api/auth/otp/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  },
+
   async getIpLocation(): Promise<{ success: boolean; data: { lat: number; lng: number; city: string; state: string; postal: string; country: string; source: string } }> {
     return safeJsonFetch('/api/geo/ip', {}, {
       success: true,

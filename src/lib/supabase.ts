@@ -414,6 +414,8 @@ function retailerToDb(r: Partial<Retailer>): any {
   if (r.shopPhotoUrl !== undefined) out.shop_photo_url = r.shopPhotoUrl;
   if (r.logoUrl !== undefined) out.logo_url = r.logoUrl;
   if (r.photoUrl !== undefined) out.photo_url = r.photoUrl;
+  if (r.lat !== undefined) out.lat = r.lat;
+  if (r.lng !== undefined) out.lng = r.lng;
   return out;
 }
 
@@ -819,6 +821,36 @@ export const supabaseService = {
     return data ? mapDbUser(data) : null;
   },
 
+  async getUserByPhone(phone: string): Promise<User | null> {
+    if (!supabase) return null;
+    const digitsOnly = phone.replace(/\D/g, '').slice(-10);
+    if (!digitsOnly) return null;
+    try {
+      const { data, error } = await supabase.from('users').select('*');
+      if (error) throw error;
+      const matched = (data || []).find((u: any) => (u.phone || '').replace(/\D/g, '').slice(-10) === digitsOnly);
+      return matched ? mapDbUser(matched) : null;
+    } catch (e) {
+      console.warn('[Supabase getUserByPhone error]:', e);
+      return null;
+    }
+  },
+
+  async getRetailerByPhone(phone: string): Promise<Retailer | null> {
+    if (!supabase) return null;
+    const digitsOnly = phone.replace(/\D/g, '').slice(-10);
+    if (!digitsOnly) return null;
+    try {
+      const { data, error } = await supabase.from('retailers').select('*');
+      if (error) throw error;
+      const matched = (data || []).find((r: any) => (r.phone || '').replace(/\D/g, '').slice(-10) === digitsOnly);
+      return matched ? mapDbRetailer(matched) : null;
+    } catch (e) {
+      console.warn('[Supabase getRetailerByPhone error]:', e);
+      return null;
+    }
+  },
+
   async saveUser(user: Partial<User>): Promise<User | null> {
     if (!supabase) return null;
     const dbPayload = userToDb(user);
@@ -954,6 +986,127 @@ export const supabaseService = {
     }
 
     return { session: data.session, user: profile || null, authUser: data.user };
+  },
+
+  // Phone OTP Authentication (Supabase Phone Auth with Seamless Server Fallback)
+  async signInWithOtp(phone: string): Promise<{ success: boolean; viaSupabase: boolean; message?: string; error?: string }> {
+    const digitsOnly = phone.replace(/\D/g, '').slice(-10);
+    const formattedPhone = `+91${digitsOnly}`;
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.auth.signInWithOtp({
+          phone: formattedPhone,
+          options: {
+            channel: 'sms'
+          }
+        });
+
+        if (!error) {
+          console.log('[Supabase Auth] signInWithOtp succeeded for:', formattedPhone);
+          return { success: true, viaSupabase: true, message: `OTP sent to ${formattedPhone.slice(0, 5)}•••••` };
+        }
+
+        console.warn('[Supabase Phone Auth Notice]:', error.message, error.code);
+      } catch (err: any) {
+        console.warn('[Supabase Phone Auth Exception]:', err.message);
+      }
+    }
+
+    // Direct fallback to server-side OTP generator if Twilio/phone provider is not active
+    try {
+      const resp = await fetch('/api/auth/otp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formattedPhone })
+      });
+      const res = await resp.json();
+      return {
+        success: Boolean(res.success),
+        viaSupabase: false,
+        message: res.message || 'OTP sent successfully to your mobile number',
+        error: res.error
+      };
+    } catch (fetchErr: any) {
+      return {
+        success: false,
+        viaSupabase: false,
+        error: fetchErr.message || 'Failed to send OTP'
+      };
+    }
+  },
+
+  async verifyOtp(phone: string, token: string): Promise<{
+    success: boolean;
+    isNewUser?: boolean;
+    user?: User | null;
+    retailer?: any;
+    session?: any;
+    error?: string;
+  }> {
+    const digitsOnly = phone.replace(/\D/g, '').slice(-10);
+    const formattedPhone = `+91${digitsOnly}`;
+
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.auth.verifyOtp({
+          phone: formattedPhone,
+          token: token.trim(),
+          type: 'sms'
+        });
+
+        if (!error && data?.user) {
+          console.log('[Supabase Auth] verifyOtp successful. Auth User ID:', data.user.id);
+          
+          let profile = await this.getUserByPhone(formattedPhone);
+          let linkedRetailer = await this.getRetailerByPhone(formattedPhone);
+
+          if (!profile && linkedRetailer) {
+            profile = {
+              id: data.user.id,
+              name: linkedRetailer.ownerName || linkedRetailer.storeName,
+              email: data.user.email || `retailer.${digitsOnly}@aryanagency.in`,
+              phone: formattedPhone,
+              role: 'retailer',
+              retailerId: linkedRetailer.id,
+              businessName: linkedRetailer.storeName,
+              address: linkedRetailer.address
+            };
+            await this.saveUser(profile).catch(() => {});
+          }
+
+          return {
+            success: true,
+            isNewUser: !profile && !linkedRetailer,
+            user: profile || null,
+            retailer: linkedRetailer || null,
+            session: data.session
+          };
+        }
+
+        if (error) {
+          console.warn('[Supabase verifyOtp Notice]:', error.message);
+        }
+      } catch (err: any) {
+        console.warn('[Supabase verifyOtp Exception]:', err.message);
+      }
+    }
+
+    // Fallback to server-side OTP verification
+    try {
+      const resp = await fetch('/api/auth/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formattedPhone, token: token.trim() })
+      });
+      const res = await resp.json();
+      return res;
+    } catch (fetchErr: any) {
+      return {
+        success: false,
+        error: fetchErr.message || 'OTP verification failed'
+      };
+    }
   },
 
   async resetPassword(email: string) {

@@ -132,10 +132,16 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
       setPincode(currentUser.pincode || '271604');
 
       const cachedGstin = typeof window !== 'undefined' ? localStorage.getItem('aryan_agency_gstin') : null;
-      const initialGstin = currentUser.gstin || linkedRetailer?.gstin || (currentUser.role === 'admin' ? (cachedGstin || '09BOGPG2620P1ZQ') : '');
+      const initialGstin = currentUser.gstin !== undefined 
+        ? currentUser.gstin 
+        : (linkedRetailer?.gstin !== undefined 
+            ? linkedRetailer.gstin 
+            : (cachedGstin !== null ? cachedGstin : (currentUser.role === 'admin' ? '09BOGPG2620P1ZQ' : '')));
       setGstin(initialGstin);
 
-      const initialPan = currentUser.panNumber || linkedRetailer?.panNumber || (currentUser.role === 'admin' ? 'BOGPG2620P' : '');
+      const initialPan = currentUser.panNumber !== undefined 
+        ? currentUser.panNumber 
+        : (linkedRetailer?.panNumber !== undefined ? linkedRetailer.panNumber : (currentUser.role === 'admin' ? 'BOGPG2620P' : ''));
       setPanNumber(initialPan);
       
       const lat = currentUser.locationCoordinates?.lat !== undefined ? currentUser.locationCoordinates?.lat : linkedRetailer?.lat;
@@ -553,12 +559,10 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
     };
 
     try {
-      if (finalGstin) {
-        try {
-          localStorage.setItem('aryan_agency_gstin', finalGstin);
-          localStorage.setItem(`aryan_profile_${currentUser.id}`, JSON.stringify({ ...currentUser, ...payload }));
-        } catch {}
-      }
+      try {
+        localStorage.setItem('aryan_agency_gstin', finalGstin);
+        localStorage.setItem(`aryan_profile_${currentUser.id}`, JSON.stringify({ ...currentUser, ...payload }));
+      } catch {}
 
       const res = await updateProfile(payload);
       if (res && res.success) {
@@ -575,8 +579,8 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
             phone: phone.trim() || linkedRetailer.phone,
             email: email.trim() || linkedRetailer.email,
             address: address.trim() || linkedRetailer.address,
-            gstin: finalGstin || linkedRetailer.gstin,
-            panNumber: finalPan || linkedRetailer.panNumber,
+            gstin: finalGstin,
+            panNumber: finalPan,
             logoUrl: businessLogoUrl.trim() || linkedRetailer.logoUrl,
             photoUrl: avatarUrl.trim() || linkedRetailer.photoUrl,
             lat: latNum !== undefined ? latNum : linkedRetailer.lat,

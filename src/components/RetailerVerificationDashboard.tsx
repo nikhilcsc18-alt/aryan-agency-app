@@ -1136,6 +1136,23 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
                               </a>
                             </div>
                             <p className="text-[11px] text-slate-500 truncate">{retailer.address}</p>
+                            {retailer.lat !== undefined && retailer.lng !== undefined && (
+                              <div className="flex items-center space-x-1.5 pt-0.5">
+                                <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center space-x-1">
+                                  <MapPin className="w-2.5 h-2.5 text-rose-500" />
+                                  <span>GPS: {Number(retailer.lat).toFixed(4)}, {Number(retailer.lng).toFixed(4)}</span>
+                                </span>
+                                <a
+                                  href={`https://www.google.com/maps?q=${retailer.lat},${retailer.lng}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[10px] font-bold text-blue-600 hover:text-blue-800 flex items-center space-x-0.5"
+                                >
+                                  <span>Open Maps</span>
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              </div>
+                            )}
                           </div>
 
                           {/* Tax / GSTIN / PAN KYC */}

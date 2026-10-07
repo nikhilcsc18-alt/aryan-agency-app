@@ -27,7 +27,7 @@ declare const __APP_VERSION__: string | undefined;
 // Current application version resolved from Vite build or package.json
 const CURRENT_APP_VERSION: string = 
   ((import.meta as any)?.env?.PACKAGE_VERSION) ||
-  (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.2');
+  (typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.3');
 
 // Base URL resolution: in Capacitor/Android builds, resolve to the deployed public app URL via VITE_APP_URL,
 // falling back safely to the official origin or GitHub.

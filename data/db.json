@@ -71,6 +71,19 @@
       },
       "verificationStatus": "pending",
       "panNumber": "BOGPG2620P"
+    },
+    {
+      "id": "usr_1791362412273",
+      "name": "Retailer 6655",
+      "email": "retailer.9988776655@aryanagency.in",
+      "phone": "+919988776655",
+      "role": "retailer",
+      "retailerId": "ret_1791362412268",
+      "businessName": "Kirana Store (6655)",
+      "address": "Utraula, Balrampur (UP)",
+      "gstin": "",
+      "panNumber": "",
+      "verificationStatus": "pending"
     }
   ],
   "products": [
@@ -695,6 +708,99 @@
           "reasonCode": "DOCS_VALIDATED"
         }
       ]
+    },
+    {
+      "id": "ret_1791275454028_g7oc0",
+      "storeName": "Registered Retail Outlet",
+      "ownerName": "Retail Owner",
+      "phone": "",
+      "address": "Utraula, Balrampur",
+      "area": "Utraula",
+      "beatName": "Utraula Retail Beat",
+      "status": "active",
+      "creditLimit": 50000,
+      "currentOutstanding": 0,
+      "creditDaysAllowed": 15,
+      "creditEnabled": true,
+      "verificationStatus": "verified",
+      "verificationRemarks": "Verified and approved by Nikhil on 7/10/2026",
+      "verificationReasonCode": "PHYSICAL_STORE_VERIFIED",
+      "verifiedAt": "2026-10-07T04:48:47.214Z",
+      "verifiedBy": "NIkhil",
+      "submittedAt": "2026-10-07T04:48:47.214Z",
+      "verificationTimeline": [
+        {
+          "id": "vtl_1791348527214_4q4f",
+          "timestamp": "2026-10-07T04:48:47.214Z",
+          "type": "approved",
+          "actorName": "NIkhil",
+          "actorRole": "admin",
+          "title": "Verification Approved (PHYSICAL_STORE_VERIFIED)",
+          "description": "Verified and approved by Nikhil on 7/10/2026",
+          "reasonCode": "PHYSICAL_STORE_VERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "ret_1791274745127_5lbh1",
+      "storeName": "Registered Retail Outlet",
+      "ownerName": "Retail Owner",
+      "phone": "",
+      "address": "Utraula, Balrampur",
+      "area": "Utraula",
+      "beatName": "Utraula Retail Beat",
+      "status": "active",
+      "creditLimit": 50000,
+      "currentOutstanding": 0,
+      "creditDaysAllowed": 15,
+      "creditEnabled": true,
+      "verificationStatus": "verified",
+      "verificationRemarks": "Verified and approved by Nikhil on 7/10/2026",
+      "verificationReasonCode": "DOCS_VALIDATED",
+      "verifiedAt": "2026-10-07T04:51:14.964Z",
+      "verifiedBy": "NIkhil",
+      "submittedAt": "2026-10-07T04:48:59.577Z",
+      "verificationTimeline": [
+        {
+          "id": "vtl_1791348674965_3ose",
+          "timestamp": "2026-10-07T04:51:14.964Z",
+          "type": "approved",
+          "actorName": "NIkhil",
+          "actorRole": "admin",
+          "title": "Verification Approved (DOCS_VALIDATED)",
+          "description": "Verified and approved by Nikhil on 7/10/2026",
+          "reasonCode": "DOCS_VALIDATED"
+        },
+        {
+          "id": "vtl_1791348539577_5z3w",
+          "timestamp": "2026-10-07T04:48:59.577Z",
+          "type": "approved",
+          "actorName": "NIkhil",
+          "actorRole": "admin",
+          "title": "Verification Approved (PHYSICAL_STORE_VERIFIED)",
+          "description": "Verified and approved by Nikhil on 7/10/2026",
+          "reasonCode": "PHYSICAL_STORE_VERIFIED"
+        }
+      ]
+    },
+    {
+      "id": "ret_1791362412268",
+      "storeName": "Kirana Store (6655)",
+      "ownerName": "Retailer 6655",
+      "phone": "+919988776655",
+      "email": "retailer.9988776655@aryanagency.in",
+      "address": "Utraula, Balrampur (UP)",
+      "area": "Utraula Central",
+      "beatName": "Utraula Retail Beat",
+      "gstin": "",
+      "panNumber": "",
+      "creditLimit": 50000,
+      "currentOutstanding": 0,
+      "creditDaysAllowed": 15,
+      "status": "active",
+      "creditEnabled": false,
+      "verificationStatus": "pending",
+      "createdAt": "2026-10-07T08:40:12.268Z"
     }
   ],
   "salesmen": [
@@ -721,7 +827,9 @@
       "name": "Vikram Singh",
       "phone": "+91 99001 56789",
       "email": "vikram.sales@aryanagency.in",
-      "assignedBeats": [],
+      "assignedBeats": [
+        "Tulsipur Provision Beat"
+      ],
       "dailyTargetAmount": 65000,
       "monthlyTargetAmount": 1600000,
       "currentMonthAchieved": 1180000,
@@ -857,13 +965,14 @@
     }
   ],
   "appVersionConfig": {
-    "version": "1.3.2",
-    "versionCode": 132,
-    "downloadUrl": "https://aryanagency.in/download/aryan-agency-app.apk",
+    "version": "1.3.3",
+    "versionCode": 133,
+    "downloadUrl": "https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk",
     "apkUrl": "https://aryanagency.in/download/aryan-agency-app.apk",
-    "updatedAt": "2026-09-22T08:23:10Z",
-    "releaseNotes": "Aryan Agency App v1.3.2 release build with barcode scanning and auto-update.",
+    "githubMirrorUrl": "https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk",
     "fileSize": "7.7 MB",
+    "updatedAt": "2026-10-07T05:13:00.405Z",
+    "releaseNotes": "Aryan Agency App v1.3.3: Retailer onboarding GPS location pinning, Google Search branding, and route delivery tracking.",
     "minAndroidVersion": "Android 8.0+"
   },
   "beats": [

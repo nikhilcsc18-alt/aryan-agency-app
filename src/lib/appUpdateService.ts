@@ -17,8 +17,8 @@ export interface AppVersionInfo {
 declare const __APP_VERSION__: string | undefined;
 
 export const CURRENT_APP_VERSION = 
-  typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.2';
-export const CURRENT_VERSION_CODE = 132;
+  typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.3.3';
+export const CURRENT_VERSION_CODE = 133;
 
 const VERSION_CHECK_ENDPOINT = '/download/version.json';
 const AUTO_UPDATE_PREF_KEY = 'aryan_auto_update_enabled';

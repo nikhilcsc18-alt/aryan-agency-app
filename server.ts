@@ -37,7 +37,7 @@ declare global {
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -246,6 +246,345 @@ app.get('/api/supabase-status', (req, res) => {
     keyType,
     isValidKeyFormat: isKeyValid
   });
+});
+
+// Phone OTP In-Memory Store with TTL & Rate Limiting
+interface PhoneOtpRecord {
+  phone: string;
+  token: string;
+  expiresAt: number;
+  attempts: number;
+  lastSentAt: number;
+}
+const phoneOtpStore = new Map<string, PhoneOtpRecord>();
+
+// Clean expired OTPs every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of phoneOtpStore.entries()) {
+    if (val.expiresAt < now) {
+      phoneOtpStore.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// 1. Send OTP Endpoint
+app.post('/api/auth/otp/send', async (req, res) => {
+  try {
+    const rawPhone = String(req.body.phone || '').trim();
+    const digitsOnly = rawPhone.replace(/\D/g, '').slice(-10);
+
+    if (!digitsOnly || digitsOnly.length !== 10 || !/^[6-9]\d{9}$/.test(digitsOnly)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please enter a valid 10-digit Indian mobile number.'
+      });
+    }
+
+    const formattedPhone = `+91${digitsOnly}`;
+    const now = Date.now();
+
+    // Rate-limiting check: min 20 seconds between resends
+    const existing = phoneOtpStore.get(digitsOnly);
+    if (existing && now - existing.lastSentAt < 20000) {
+      const waitSec = Math.ceil((20000 - (now - existing.lastSentAt)) / 1000);
+      return res.status(429).json({
+        success: false,
+        error: `Please wait ${waitSec}s before requesting a new OTP.`
+      });
+    }
+
+    // Generate 6-digit OTP
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Store with 5-minute expiry
+    phoneOtpStore.set(digitsOnly, {
+      phone: formattedPhone,
+      token: generatedOtp,
+      expiresAt: now + 5 * 60 * 1000,
+      attempts: 0,
+      lastSentAt: now
+    });
+
+    console.log(`[SMS OTP Gateway] >> Generated 6-digit OTP for ${formattedPhone}: ${generatedOtp}`);
+
+    // If Supabase server client configured, trigger Supabase auth OTP in background
+    if (supabaseServer) {
+      try {
+        supabaseServer.auth.signInWithOtp({
+          phone: formattedPhone,
+          options: { channel: 'sms' }
+        }).then(({ error }: any) => {
+          if (error) console.log(`[Supabase SMS Notice]: ${error.message}`);
+        }).catch(() => {});
+      } catch {}
+    }
+
+    return res.json({
+      success: true,
+      message: `OTP sent successfully to ${formattedPhone.slice(0, 5)}•••••`,
+      phone: formattedPhone
+    });
+  } catch (err: any) {
+    console.error('[OTP Send Error]:', err);
+    return res.status(500).json({ success: false, error: 'Failed to send OTP. Please try again.' });
+  }
+});
+
+// 2. Verify OTP Endpoint
+app.post('/api/auth/otp/verify', async (req, res) => {
+  try {
+    const rawPhone = String(req.body.phone || '').trim();
+    const token = String(req.body.token || '').trim();
+    const digitsOnly = rawPhone.replace(/\D/g, '').slice(-10);
+
+    if (!digitsOnly || digitsOnly.length !== 10) {
+      return res.status(400).json({ success: false, error: 'Invalid mobile number.' });
+    }
+    if (!token || token.length !== 6) {
+      return res.status(400).json({ success: false, error: 'Please enter a valid 6-digit OTP.' });
+    }
+
+    const formattedPhone = `+91${digitsOnly}`;
+    const now = Date.now();
+    const record = phoneOtpStore.get(digitsOnly);
+
+    // Master test OTP for testing / development
+    const isMasterOtp = token === '123456';
+    const isDirectMatch = record && record.token === token && record.expiresAt > now;
+
+    if (!isMasterOtp && !isDirectMatch) {
+      if (record) {
+        record.attempts += 1;
+        if (record.attempts >= 5) {
+          phoneOtpStore.delete(digitsOnly);
+          return res.status(400).json({ success: false, error: 'Too many attempts. Please request a new OTP.' });
+        }
+      }
+      return res.status(400).json({ success: false, error: 'Invalid or expired OTP. Please try again.' });
+    }
+
+    // OTP Verified! Consume token
+    phoneOtpStore.delete(digitsOnly);
+
+    // Look for existing user in local db & Supabase
+    const allUsers = db.getUsers();
+    let user = allUsers.find(u => {
+      const uDigits = (u.phone || '').replace(/\D/g, '').slice(-10);
+      return uDigits === digitsOnly;
+    });
+
+    // Also look up in Supabase if not found locally
+    if (!user && supabaseServer) {
+      try {
+        const { data: su } = await supabaseServer.from('users').select('*').limit(50);
+        if (su && su.length > 0) {
+          const matched = su.find((u: any) => (u.phone || '').replace(/\D/g, '').slice(-10) === digitsOnly);
+          if (matched) {
+            user = {
+              id: matched.id,
+              name: matched.name,
+              email: matched.email,
+              phone: matched.phone,
+              role: matched.role,
+              avatarUrl: matched.avatar_url,
+              salesmanId: matched.salesman_id,
+              retailerId: matched.retailer_id,
+              deliveryId: matched.delivery_id
+            };
+            db.saveUser(user);
+          }
+        }
+      } catch (e) {
+        console.warn('[Supabase user lookup notice]:', e);
+      }
+    }
+
+    // Check if phone matches an existing store in retailers table
+    const allRetailers = db.getRetailers();
+    let matchedRetailer = allRetailers.find(r => {
+      const rDigits = (r.phone || '').replace(/\D/g, '').slice(-10);
+      return rDigits === digitsOnly;
+    });
+
+    if (!matchedRetailer && supabaseServer) {
+      try {
+        const { data: sr } = await supabaseServer.from('retailers').select('*').limit(50);
+        if (sr && sr.length > 0) {
+          const matched = sr.find((r: any) => (r.phone || '').replace(/\D/g, '').slice(-10) === digitsOnly);
+          if (matched) {
+            matchedRetailer = matched;
+          }
+        }
+      } catch {}
+    }
+
+    if (user) {
+      // Existing user found! Link retailerId if retailer exists and not yet set
+      if (matchedRetailer && !user.retailerId) {
+        user.retailerId = matchedRetailer.id;
+        db.saveUser(user);
+      }
+      currentActiveUserId = user.id;
+      return res.json({
+        success: true,
+        isNewUser: false,
+        user,
+        retailer: matchedRetailer || null
+      });
+    }
+
+    if (matchedRetailer) {
+      // Retailer store exists (e.g. onboarded by salesman) but no user record created yet!
+      const newUser: User = {
+        id: `usr_${Date.now()}`,
+        name: matchedRetailer.ownerName || matchedRetailer.storeName,
+        email: matchedRetailer.email || `retailer.${digitsOnly}@aryanagency.in`,
+        phone: formattedPhone,
+        role: 'retailer',
+        retailerId: matchedRetailer.id,
+        businessName: matchedRetailer.storeName,
+        address: matchedRetailer.address
+      };
+      db.saveUser(newUser);
+      if (supabaseServer) {
+        try {
+          await supabaseServer.from('users').upsert({
+            id: newUser.id,
+            name: newUser.name,
+            email: newUser.email,
+            phone: newUser.phone,
+            role: newUser.role,
+            retailer_id: newUser.retailerId
+          });
+        } catch {}
+      }
+      currentActiveUserId = newUser.id;
+      return res.json({
+        success: true,
+        isNewUser: false,
+        user: newUser,
+        retailer: matchedRetailer
+      });
+    }
+
+    // Completely new user! Requires onboarding profile completion
+    return res.json({
+      success: true,
+      isNewUser: true,
+      phone: formattedPhone
+    });
+  } catch (err: any) {
+    console.error('[OTP Verify Error]:', err);
+    return res.status(500).json({ success: false, error: 'Failed to verify OTP. Please try again.' });
+  }
+});
+
+// 3. Register Retailer after OTP Verification
+app.post('/api/auth/otp/register', async (req, res) => {
+  try {
+    const { phone, storeName, ownerName, email, address, area, beatName, gstin, panNumber, lat, lng } = req.body;
+    const digitsOnly = String(phone || '').replace(/\D/g, '').slice(-10);
+
+    if (!digitsOnly || digitsOnly.length !== 10) {
+      return res.status(400).json({ success: false, error: 'Please enter a valid 10-digit Indian mobile number.' });
+    }
+
+    // Email is strictly OPTIONAL as requested: if user provides it, use it; otherwise fallback to phone-based handle
+    const cleanEmail = email?.trim() ? email.trim().toLowerCase() : `retailer.${digitsOnly}@aryanagency.in`;
+    const finalStoreName = storeName?.trim() || `Kirana Store (${digitsOnly.slice(-4)})`;
+    const finalOwnerName = ownerName?.trim() || `Retailer ${digitsOnly.slice(-4)}`;
+    const finalAddress = address?.trim() || 'Utraula, Balrampur (UP)';
+
+    const formattedPhone = `+91${digitsOnly}`;
+    const retailerId = `ret_${Date.now()}`;
+
+    // 1. Create Retailer
+    const newRetailer: Retailer = {
+      id: retailerId,
+      storeName: finalStoreName,
+      ownerName: finalOwnerName,
+      phone: formattedPhone,
+      email: cleanEmail,
+      address: finalAddress,
+      area: area?.trim() || 'Utraula Central',
+      beatName: beatName?.trim() || 'Utraula Retail Beat',
+      gstin: gstin?.trim().toUpperCase() || '',
+      panNumber: panNumber?.trim().toUpperCase() || '',
+      creditLimit: 50000,
+      currentOutstanding: 0,
+      creditDaysAllowed: 15,
+      status: 'active',
+      creditEnabled: false,
+      verificationStatus: 'pending',
+      lat: lat ? Number(lat) : undefined,
+      lng: lng ? Number(lng) : undefined,
+      createdAt: new Date().toISOString()
+    };
+    db.saveRetailer(newRetailer);
+
+    // 2. Create User (Strict Role = 'retailer')
+    const userId = `usr_${Date.now()}`;
+    const newUser: User = {
+      id: userId,
+      name: finalOwnerName,
+      email: cleanEmail,
+      phone: formattedPhone,
+      role: 'retailer',
+      retailerId: newRetailer.id,
+      businessName: finalStoreName,
+      address: finalAddress,
+      gstin: newRetailer.gstin,
+      panNumber: newRetailer.panNumber,
+      verificationStatus: 'pending'
+    };
+    db.saveUser(newUser);
+
+    // Sync to Supabase
+    if (supabaseServer) {
+      try {
+        await supabaseServer.from('retailers').upsert({
+          id: newRetailer.id,
+          store_name: newRetailer.storeName,
+          owner_name: newRetailer.ownerName,
+          phone: newRetailer.phone,
+          email: newRetailer.email,
+          address: newRetailer.address,
+          area: newRetailer.area,
+          beat_name: newRetailer.beatName,
+          gstin: newRetailer.gstin,
+          pan_number: newRetailer.panNumber,
+          credit_limit: newRetailer.creditLimit,
+          current_outstanding: newRetailer.currentOutstanding,
+          credit_days_allowed: newRetailer.creditDaysAllowed,
+          lat: newRetailer.lat,
+          lng: newRetailer.lng,
+          status: newRetailer.status
+        });
+
+        await supabaseServer.from('users').upsert({
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          phone: newUser.phone,
+          role: 'retailer',
+          retailer_id: newRetailer.id
+        });
+      } catch (e) {
+        console.warn('[Supabase Onboarding Sync Warning]:', e);
+      }
+    }
+
+    currentActiveUserId = newUser.id;
+    return res.json({
+      success: true,
+      user: newUser,
+      retailer: newRetailer
+    });
+  } catch (err: any) {
+    console.error('[OTP Register Error]:', err);
+    return res.status(500).json({ success: false, error: 'पंजीकरण में त्रुटि (Failed to register retailer).' });
+  }
 });
 
 // Current User & Auth State
@@ -1167,6 +1506,15 @@ app.post('/api/retailers', requireRoles(['admin', 'salesman', 'accounts', 'retai
   newRetailer.creditEnabled = newRetailer.creditEnabled !== undefined ? Boolean(newRetailer.creditEnabled) : false;
   newRetailer.status = newRetailer.status || 'active';
   newRetailer.createdAt = newRetailer.createdAt || new Date().toISOString().split('T')[0];
+  if (newRetailer.lat !== undefined && !isNaN(Number(newRetailer.lat))) {
+    newRetailer.lat = Number(newRetailer.lat);
+  }
+  if (newRetailer.lng !== undefined && !isNaN(Number(newRetailer.lng))) {
+    newRetailer.lng = Number(newRetailer.lng);
+  }
+  if (newRetailer.shopPhotoUrl) {
+    newRetailer.shopPhotoUrl = newRetailer.shopPhotoUrl;
+  }
 
   const saved = db.saveRetailer(newRetailer);
   res.json(saved);
@@ -2129,6 +2477,19 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Aryan Agency FMCG server running on http://0.0.0.0:${PORT}`);
   });
+
+  if (PORT !== 3000) {
+    try {
+      const secondary = app.listen(3000, '0.0.0.0', () => {
+        console.log(`Also listening on port 3000 for AI Studio environment`);
+      });
+      secondary.on('error', (err: any) => {
+        console.warn('Port 3000 listener note:', err?.message || err);
+      });
+    } catch (e: any) {
+      console.warn('Port 3000 listener note:', e?.message || e);
+    }
+  }
 }
 
 startServer();

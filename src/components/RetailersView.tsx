@@ -31,7 +31,12 @@ import {
   Square,
   Sparkles,
   RefreshCw,
-  Layers
+  Layers,
+  LocateFixed,
+  Navigation,
+  ExternalLink,
+  Globe,
+  Compass
 } from 'lucide-react';
 import { Retailer, Order } from '../types';
 import { formatINR, formatINRDecimals, api } from '../lib/api';
@@ -67,6 +72,18 @@ const DEFAULT_BEAT_ROUTES = [
   'Rehra Bazar Beat',
   'Gaindas Bujurg Beat',
   'Mankapur Road Beat'
+];
+
+// 1-Tap Quick GPS Presets for Aryan Agency Territory
+export const REGIONAL_BEAT_GPS_PRESETS = [
+  { name: 'Utraula Central Market', area: 'Utraula Central', lat: 27.3167, lng: 82.4210 },
+  { name: 'Balrampur Mandi Beat', area: 'Balrampur Mandi', lat: 27.4300, lng: 82.1800 },
+  { name: 'Jarwa Rural Beat', area: 'Jarwa Border', lat: 27.7100, lng: 82.5000 },
+  { name: 'Tulsipur Provision Beat', area: 'Tulsipur Town', lat: 27.5500, lng: 82.4100 },
+  { name: 'Pachperwa Market Beat', area: 'Pachperwa Station Road', lat: 27.5200, lng: 82.6500 },
+  { name: 'Rehra Bazar Beat', area: 'Rehra Town', lat: 27.1800, lng: 82.3500 },
+  { name: 'Gaindas Bujurg Beat', area: 'Gaindas Market', lat: 27.2400, lng: 82.5200 },
+  { name: 'Mankapur Highway Beat', area: 'Mankapur Road', lat: 27.0300, lng: 82.2300 }
 ];
 
 // Target test accounts explicitly requested for cleanup
@@ -293,6 +310,15 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   const [modalError, setModalError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // GPS Location Pinning State for Onboarding / Edit
+  const [isDetectingGps, setIsDetectingGps] = useState(false);
+  const [isGeocodingAddress, setIsGeocodingAddress] = useState(false);
+  const [gpsStatus, setGpsStatus] = useState<{
+    type: 'idle' | 'locating' | 'success' | 'error' | 'info';
+    message: string;
+    accuracy?: number;
+  }>({ type: 'idle', message: '' });
+
   // Shop Photo Lightbox Modal
   const [previewPhotoUrl, setPreviewPhotoUrl] = useState<{ url: string; title: string } | null>(null);
 
@@ -495,6 +521,9 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
     setModalError(null);
     setIsSaving(false);
     setIsAddingBeatInline(false);
+    setIsDetectingGps(false);
+    setIsGeocodingAddress(false);
+    setGpsStatus({ type: 'idle', message: '' });
     setEditingRetailer({
       storeName: '',
       ownerName: '',
@@ -511,7 +540,9 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
       status: 'active',
       creditEnabled: false,
       verificationStatus: 'verified', // Admin/salesman created is verified by default
-      shopPhotoUrl: ''
+      shopPhotoUrl: '',
+      lat: undefined,
+      lng: undefined
     });
     setIsModalOpen(true);
   };
@@ -520,11 +551,162 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
     setModalError(null);
     setIsSaving(false);
     setIsAddingBeatInline(false);
+    setIsDetectingGps(false);
+    setIsGeocodingAddress(false);
+    if (retailer.lat !== undefined && retailer.lng !== undefined) {
+      setGpsStatus({
+        type: 'success',
+        message: `✓ Pinned GPS Location: ${retailer.lat}, ${retailer.lng}`
+      });
+    } else {
+      setGpsStatus({ type: 'idle', message: '' });
+    }
     setEditingRetailer({
       ...retailer,
       creditEnabled: Boolean(retailer.creditEnabled)
     });
     setIsModalOpen(true);
+  };
+
+  // 1. Detect Live Device GPS (from salesman/agent mobile device or laptop)
+  const handleDetectGpsLocation = async () => {
+    if (typeof window === 'undefined' || !navigator?.geolocation) {
+      setGpsStatus({
+        type: 'error',
+        message: 'Geolocation is not supported by your browser or device.'
+      });
+      return;
+    }
+
+    setIsDetectingGps(true);
+    setGpsStatus({
+      type: 'locating',
+      message: '📡 Connecting to device GPS satellites & network location...'
+    });
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = Number(pos.coords.latitude.toFixed(6));
+        const lng = Number(pos.coords.longitude.toFixed(6));
+        const accuracy = Math.round(pos.coords.accuracy);
+
+        setEditingRetailer(prev => prev ? { ...prev, lat, lng } : prev);
+        setGpsStatus({
+          type: 'success',
+          message: `✓ Live GPS Locked (${lat}, ${lng})${accuracy ? ` • Accuracy: ±${accuracy}m` : ''}`,
+          accuracy
+        });
+        setIsDetectingGps(false);
+
+        // Auto-fill address if shop address is empty or short
+        try {
+          const revRes = await api.reverseGeoLocation(lat, lng);
+          if (revRes && revRes.data) {
+            const parts = [revRes.data.road, revRes.data.city, revRes.data.state, revRes.data.pincode].filter(Boolean);
+            const formatted = parts.join(', ');
+            if (formatted) {
+              setEditingRetailer(prev => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  address: prev.address?.trim() ? prev.address : formatted,
+                  area: prev.area?.trim() ? prev.area : (revRes.data?.city || prev.area)
+                };
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('[Reverse Geocode Note]:', e);
+        }
+      },
+      async (err) => {
+        console.warn('[Geolocation Error]:', err);
+        // Try regional IP location fallback
+        try {
+          setGpsStatus({
+            type: 'locating',
+            message: 'GPS device permission denied. Attempting regional network IP location...'
+          });
+          const ipLoc = await api.getIpLocation();
+          if (ipLoc && ipLoc.data?.lat && ipLoc.data?.lng) {
+            const lat = Number(ipLoc.data.lat.toFixed(6));
+            const lng = Number(ipLoc.data.lng.toFixed(6));
+            setEditingRetailer(prev => prev ? { ...prev, lat, lng } : prev);
+            setGpsStatus({
+              type: 'info',
+              message: `✓ Regional Location (${ipLoc.data.city || 'Balrampur'} Depot: ${lat}, ${lng})`
+            });
+            setIsDetectingGps(false);
+            return;
+          }
+        } catch {}
+
+        setGpsStatus({
+          type: 'error',
+          message: 'Could not access GPS. Please choose a regional preset below or enter coordinates manually.'
+        });
+        setIsDetectingGps(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
+
+  // 2. Geocode from typed shop address
+  const handleGeocodeFromAddress = async () => {
+    const query = [editingRetailer?.address, editingRetailer?.area, 'Uttar Pradesh'].filter(Boolean).join(', ').trim();
+    if (!query) {
+      setGpsStatus({
+        type: 'error',
+        message: 'Please enter a shop address or area first to pin location.'
+      });
+      return;
+    }
+
+    setIsGeocodingAddress(true);
+    setGpsStatus({
+      type: 'locating',
+      message: `🔍 Searching map coordinates for "${editingRetailer?.address || editingRetailer?.area}"...`
+    });
+
+    try {
+      const geo = await api.searchGeoLocation(query);
+      if (geo && geo.results && geo.results.length > 0) {
+        const first = geo.results[0];
+        const lat = Number(first.lat.toFixed(6));
+        const lng = Number(first.lng.toFixed(6));
+        setEditingRetailer(prev => prev ? { ...prev, lat, lng } : prev);
+        setGpsStatus({
+          type: 'success',
+          message: `✓ Coordinates pinned from address (${first.city || first.displayName?.slice(0, 30)}: ${lat}, ${lng})`
+        });
+      } else {
+        // Fallback to Utraula center
+        const defaultLat = 27.3167;
+        const defaultLng = 82.4210;
+        setEditingRetailer(prev => prev ? { ...prev, lat: defaultLat, lng: defaultLng } : prev);
+        setGpsStatus({
+          type: 'info',
+          message: `Pinned to Utraula Central Market Hub (${defaultLat}, ${defaultLng})`
+        });
+      }
+    } catch (e: any) {
+      setGpsStatus({
+        type: 'error',
+        message: 'Address search lookup unavailable. Use Live GPS or Preset.'
+      });
+    } finally {
+      setIsGeocodingAddress(false);
+    }
+  };
+
+  // 3. Clear GPS pin
+  const handleClearGpsPin = () => {
+    setEditingRetailer(prev => prev ? { ...prev, lat: undefined, lng: undefined } : null);
+    setGpsStatus({ type: 'idle', message: '' });
   };
 
   // Compress and save shop photo captured from camera/file
@@ -596,7 +778,9 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
 
       const toSave = {
         ...editingRetailer,
-        beatName: editingRetailer.beatName || beats[0]
+        beatName: editingRetailer.beatName || beats[0],
+        lat: editingRetailer.lat !== undefined && !isNaN(Number(editingRetailer.lat)) ? Number(editingRetailer.lat) : undefined,
+        lng: editingRetailer.lng !== undefined && !isNaN(Number(editingRetailer.lng)) ? Number(editingRetailer.lng) : undefined
       };
 
       await onSaveRetailer(toSave);
@@ -977,8 +1161,21 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                     <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                     <span className="font-semibold text-slate-800">{retailer.beatName}</span>
                   </div>
-                  <div className="flex items-center space-x-1.5 text-[11px] text-slate-500 truncate">
-                    <span>{retailer.address}</span>
+                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                    <span className="truncate">{retailer.address}</span>
+                    {retailer.lat !== undefined && retailer.lng !== undefined && (
+                      <a
+                        href={`https://www.google.com/maps?q=${retailer.lat},${retailer.lng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="ml-1.5 shrink-0 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 flex items-center space-x-1"
+                        title={`View GPS on Google Maps: ${retailer.lat}, ${retailer.lng}`}
+                      >
+                        <MapPin className="w-2.5 h-2.5 text-rose-500" />
+                        <span>GPS Pin</span>
+                        <ExternalLink className="w-2.5 h-2.5" />
+                      </a>
+                    )}
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="flex items-center text-slate-600">
@@ -1432,17 +1629,220 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                 </div>
               </div>
 
-              {/* Full Address */}
-              <div>
-                <label className="block text-slate-700 font-semibold mb-1">Full Shop Address *</label>
-                <input
-                  type="text"
-                  required
-                  value={editingRetailer.address || ''}
-                  onChange={(e) => setEditingRetailer({ ...editingRetailer, address: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
-                  placeholder="#12, Main Market, Utraula, Balrampur, UP"
-                />
+              {/* Full Address & GPS Location Pinning */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block text-slate-700 font-semibold text-xs sm:text-sm">
+                    Full Shop Address *
+                  </label>
+                  {editingRetailer.lat !== undefined && editingRetailer.lng !== undefined ? (
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center space-x-1 shadow-2xs">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>GPS Pinned ({Number(editingRetailer.lat).toFixed(4)}, {Number(editingRetailer.lng).toFixed(4)})</span>
+                    </span>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200 flex items-center space-x-1">
+                      <MapPin className="w-3.5 h-3.5 text-rose-500" />
+                      <span>GPS Pin Optional</span>
+                    </span>
+                  )}
+                </div>
+
+                {/* Input with Quick Pin from Address button */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={editingRetailer.address || ''}
+                    onChange={(e) => setEditingRetailer({ ...editingRetailer, address: e.target.value })}
+                    className="w-full px-3 py-2 pr-28 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs sm:text-sm"
+                    placeholder="#12, Main Market, Utraula, Balrampur, UP"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleGeocodeFromAddress}
+                    disabled={isGeocodingAddress || !editingRetailer.address?.trim()}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 text-[11px] font-bold rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors disabled:opacity-40 flex items-center space-x-1 cursor-pointer"
+                    title="Auto-pin GPS coordinates matching this typed address"
+                  >
+                    {isGeocodingAddress ? (
+                      <Loader2 className="w-3 h-3 animate-spin text-blue-700" />
+                    ) : (
+                      <Search className="w-3 h-3 text-blue-700" />
+                    )}
+                    <span>Pin Address</span>
+                  </button>
+                </div>
+
+                {/* GPS Location Pinning Control Card */}
+                <div className="p-3 bg-gradient-to-br from-slate-50 to-blue-50/50 border border-slate-200 rounded-xl space-y-2.5 shadow-2xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center space-x-1.5">
+                      <div className="w-6 h-6 rounded-md bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                        <Navigation className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wide block">
+                          GPS Location Pinning (Live / Map)
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          Pin exact store coordinates for delivery dispatch & van routing
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      {/* Live GPS Button */}
+                      <button
+                        type="button"
+                        onClick={handleDetectGpsLocation}
+                        disabled={isDetectingGps}
+                        className="px-3 py-1.5 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-2xs flex items-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                        title="Acquire live GPS coordinates from this phone or tablet"
+                      >
+                        {isDetectingGps ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
+                        ) : (
+                          <LocateFixed className="w-3.5 h-3.5 text-white" />
+                        )}
+                        <span>{isDetectingGps ? 'Locating...' : '📡 Pin Current GPS'}</span>
+                      </button>
+
+                      {/* Clear Button if coordinates present */}
+                      {(editingRetailer.lat !== undefined || editingRetailer.lng !== undefined) && (
+                        <button
+                          type="button"
+                          onClick={handleClearGpsPin}
+                          className="px-2 py-1.5 text-xs font-semibold rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
+                          title="Reset pinned GPS coordinates"
+                        >
+                          Clear Pin
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Manual / Pinned Lat & Lng Input Fields */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-[10px] text-slate-500 font-semibold block mb-0.5">Latitude (GPS Lat)</span>
+                      <input
+                        type="number"
+                        step="any"
+                        value={editingRetailer.lat !== undefined ? editingRetailer.lat : ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? undefined : Number(e.target.value);
+                          setEditingRetailer({ ...editingRetailer, lat: val });
+                        }}
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="e.g. 27.316700"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-slate-500 font-semibold block mb-0.5">Longitude (GPS Lng)</span>
+                      <input
+                        type="number"
+                        step="any"
+                        value={editingRetailer.lng !== undefined ? editingRetailer.lng : ''}
+                        onChange={(e) => {
+                          const val = e.target.value === '' ? undefined : Number(e.target.value);
+                          setEditingRetailer({ ...editingRetailer, lng: val });
+                        }}
+                        className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        placeholder="e.g. 82.421000"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Status Banner / Feedback */}
+                  {gpsStatus.message && (
+                    <div className={`p-2 rounded-lg text-[11px] font-semibold flex items-center justify-between gap-2 ${
+                      gpsStatus.type === 'success' 
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' 
+                        : gpsStatus.type === 'error'
+                        ? 'bg-rose-50 text-rose-800 border border-rose-200'
+                        : 'bg-blue-50 text-blue-800 border border-blue-200'
+                    }`}>
+                      <div className="flex items-center space-x-1.5 min-w-0">
+                        {gpsStatus.type === 'success' ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        ) : gpsStatus.type === 'error' ? (
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                        ) : (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-600 shrink-0" />
+                        )}
+                        <span className="truncate">{gpsStatus.message}</span>
+                      </div>
+
+                      {editingRetailer.lat !== undefined && editingRetailer.lng !== undefined && (
+                        <a
+                          href={`https://www.google.com/maps?q=${editingRetailer.lat},${editingRetailer.lng}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-2 py-0.5 rounded bg-white border border-slate-200 text-blue-700 hover:text-blue-900 font-bold shrink-0 flex items-center space-x-1"
+                        >
+                          <span>Google Maps</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Interactive OpenStreetMap preview when coordinates are pinned */}
+                  {editingRetailer.lat !== undefined && editingRetailer.lng !== undefined && !isNaN(Number(editingRetailer.lat)) && !isNaN(Number(editingRetailer.lng)) && (
+                    <div className="rounded-lg overflow-hidden border border-slate-200 relative bg-slate-100 h-28 shadow-inner">
+                      <iframe
+                        title="Store GPS Location Map"
+                        width="100%"
+                        height="100%"
+                        frameBorder="0"
+                        scrolling="no"
+                        marginHeight={0}
+                        marginWidth={0}
+                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(editingRetailer.lng) - 0.005}%2C${Number(editingRetailer.lat) - 0.004}%2C${Number(editingRetailer.lng) + 0.005}%2C${Number(editingRetailer.lat) + 0.004}&layer=mapnik&marker=${editingRetailer.lat}%2C${editingRetailer.lng}`}
+                        className="w-full h-full pointer-events-none"
+                      />
+                      <div className="absolute bottom-1 right-1 bg-white/95 backdrop-blur-xs px-2 py-0.5 rounded text-[10px] font-bold text-slate-800 shadow-xs border border-slate-200 flex items-center space-x-1">
+                        <MapPin className="w-3 h-3 text-rose-600" />
+                        <span>Pinned: {Number(editingRetailer.lat).toFixed(4)}, {Number(editingRetailer.lng).toFixed(4)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 1-Tap Aryan Agency Regional Beat Territory Presets */}
+                  <div className="pt-1.5 border-t border-slate-200/60">
+                    <span className="text-[10px] text-slate-500 font-semibold block mb-1.5">
+                      📍 1-Tap Aryan Agency Regional Beat Territory Presets:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {REGIONAL_BEAT_GPS_PRESETS.map((preset) => (
+                        <button
+                          key={preset.name}
+                          type="button"
+                          onClick={() => {
+                            setEditingRetailer(prev => prev ? ({
+                              ...prev,
+                              lat: preset.lat,
+                              lng: preset.lng,
+                              area: prev.area?.trim() ? prev.area : preset.area
+                            }) : null);
+                            setGpsStatus({
+                              type: 'success',
+                              message: `✓ Preset Pinned: ${preset.name} (${preset.lat}, ${preset.lng})`
+                            });
+                          }}
+                          className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
+                            editingRetailer.lat === preset.lat && editingRetailer.lng === preset.lng
+                              ? 'bg-blue-600 text-white border-blue-700 shadow-2xs'
+                              : 'bg-white text-slate-700 hover:bg-slate-100 border-slate-200'
+                          }`}
+                        >
+                          {preset.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Tax Information */}

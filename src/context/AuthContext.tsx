@@ -30,6 +30,21 @@ interface AuthContextType {
   isAuthModalOpen: boolean;
   openAuthModal: () => void;
   closeAuthModal: () => void;
+  signInWithOtp: (phone: string) => Promise<{ success: boolean; error?: string; message?: string }>;
+  verifyOtp: (phone: string, token: string) => Promise<{ success: boolean; user?: User; isNewUser?: boolean; retailer?: any; error?: string }>;
+  completeRetailerRegistration: (data: {
+    phone: string;
+    storeName?: string;
+    ownerName?: string;
+    email?: string;
+    address?: string;
+    area?: string;
+    beatName?: string;
+    gstin?: string;
+    panNumber?: string;
+    lat?: number;
+    lng?: number;
+  }) => Promise<{ success: boolean; user?: User; error?: string }>;
   signInWithEmail: (email: string, pass: string) => Promise<{ success: boolean; user?: User; error?: string }>;
   signUpWithEmail: (email: string, pass: string, profile: { name: string; phone: string; role?: UserRole; salesmanId?: string; retailerId?: string; deliveryId?: string }) => Promise<{ success: boolean; user?: User; error?: string }>;
   resetPassword: (email: string) => Promise<{ success: boolean; message?: string; error?: string }>;
@@ -95,26 +110,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           );
           const session = await Promise.race([sessionPromise, timeoutPromise]);
 
-          if (session?.user?.email) {
+          const userIdentifier = session?.user?.email || session?.user?.phone;
+          if (userIdentifier) {
             setIsAuthenticatedWithSupabase(true);
             let dbProfile: User | null = null;
             try {
-              const profilePromise = supabaseService.getUserByEmail(session.user.email);
-              const profileTimeout = new Promise<null>((resolve) =>
-                setTimeout(() => resolve(null), 2000)
-              );
-              dbProfile = await Promise.race([profilePromise, profileTimeout]);
+              if (session.user.email) {
+                const profilePromise = supabaseService.getUserByEmail(session.user.email);
+                const profileTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000));
+                dbProfile = await Promise.race([profilePromise, profileTimeout]);
+              }
+              if (!dbProfile && session.user.phone) {
+                const profilePromise = supabaseService.getUserByPhone(session.user.phone);
+                const profileTimeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000));
+                dbProfile = await Promise.race([profilePromise, profileTimeout]);
+              }
             } catch (e) {
               console.warn('Could not fetch DB profile:', e);
             }
 
             if (!dbProfile && session.user) {
+              const safePhone = session.user.phone || session.user.user_metadata?.phone || '+91 98000 00000';
               dbProfile = {
                 id: session.user.id,
-                name: session.user.user_metadata?.name || session.user.email.split('@')[0],
-                email: session.user.email,
-                phone: session.user.user_metadata?.phone || '+91 98000 00000',
-                role: (session.user.user_metadata?.role as any) || 'salesman'
+                name: session.user.user_metadata?.name || (session.user.email ? session.user.email.split('@')[0] : `Retailer (${safePhone.slice(-4)})`),
+                email: session.user.email || `retailer.${safePhone.replace(/\D/g, '').slice(-10)}@aryanagency.in`,
+                phone: safePhone,
+                role: (session.user.user_metadata?.role as any) || 'retailer'
               };
             }
             if (dbProfile) {
@@ -136,6 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (!dbProfile.businessName && dbProfile.role === 'admin') {
                   dbProfile.businessName = 'Aryan Agency FMCG Distribution';
                 }
+                localStorage.setItem('aryan_session_user', JSON.stringify(dbProfile));
               } catch {}
 
               setAuthenticatedUser(dbProfile);
@@ -153,6 +176,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.warn('Supabase auth session verification failed:', e);
         }
       }
+
+      // Check persistent local session cache across app restarts
+      try {
+        const savedSession = localStorage.getItem('aryan_session_user');
+        if (savedSession) {
+          const parsed = JSON.parse(savedSession);
+          if (parsed && parsed.id && parsed.role) {
+            setAuthenticatedUser(parsed);
+            setCurrentUser(parsed);
+            setApiAuthContext(null, parsed.id, parsed.role, parsed.retailerId || null);
+            setIsAuthenticatedWithSupabase(false);
+            return;
+          }
+        }
+      } catch {}
 
       // No active session found: User must authenticate
       setAuthenticatedUser(null);
@@ -181,16 +219,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen to Supabase auth state changes if client is ready
     if (isSupabaseConfigured) {
       const { data: { subscription } } = supabaseService.onAuthStateChange(async (event, session) => {
-        if (session?.user?.email) {
+        const userIdentifier = session?.user?.email || session?.user?.phone;
+        if (userIdentifier) {
           setIsAuthenticatedWithSupabase(true);
-          let profile = await supabaseService.getUserByEmail(session.user.email).catch(() => null);
+          let profile: User | null = null;
+          if (session.user.email) {
+            profile = await supabaseService.getUserByEmail(session.user.email).catch(() => null);
+          }
+          if (!profile && session.user.phone) {
+            profile = await supabaseService.getUserByPhone(session.user.phone).catch(() => null);
+          }
           if (!profile && session.user) {
+            const safePhone = session.user.phone || session.user.user_metadata?.phone || '+91 98000 00000';
             profile = {
               id: session.user.id,
-              name: session.user.user_metadata?.name || session.user.email.split('@')[0],
-              email: session.user.email,
-              phone: session.user.user_metadata?.phone || '+91 98000 00000',
-              role: (session.user.user_metadata?.role as any) || 'salesman'
+              name: session.user.user_metadata?.name || (session.user.email ? session.user.email.split('@')[0] : `Retailer (${safePhone.slice(-4)})`),
+              email: session.user.email || `retailer.${safePhone.replace(/\D/g, '').slice(-10)}@aryanagency.in`,
+              phone: safePhone,
+              role: (session.user.user_metadata?.role as any) || 'retailer'
             };
           }
           if (profile) {
@@ -591,6 +637,126 @@ const signInWithEmail = async (email: string, pass: string): Promise<{ success: 
     }
   };
 
+  const signInWithOtp = async (phone: string): Promise<{ success: boolean; error?: string; message?: string }> => {
+    try {
+      const cleanDigits = phone.replace(/\D/g, '').slice(-10);
+      if (cleanDigits.length !== 10) {
+        return { success: false, error: 'Please enter a valid 10-digit Indian mobile number.' };
+      }
+      const formattedPhone = `+91${cleanDigits}`;
+
+      if (isSupabaseConfigured && supabaseService) {
+        try {
+          const res = await supabaseService.signInWithOtp(formattedPhone);
+          if (res && res.success) {
+            return res;
+          }
+        } catch (supaErr) {
+          console.warn('[Supabase signInWithOtp exception, falling back]:', supaErr);
+        }
+      }
+
+      const res = await api.sendOtp(formattedPhone);
+      return res;
+    } catch (err: any) {
+      console.error('[AuthContext] Error in signInWithOtp:', err);
+      return { success: false, error: err?.message || 'Failed to send OTP. Please try again.' };
+    }
+  };
+
+  const verifyOtp = async (phone: string, token: string): Promise<{ success: boolean; user?: User; isNewUser?: boolean; retailer?: any; error?: string }> => {
+    try {
+      const cleanDigits = phone.replace(/\D/g, '').slice(-10);
+      const formattedPhone = `+91${cleanDigits}`;
+      const cleanToken = token.trim();
+
+      if (cleanToken.length < 4) {
+        return { success: false, error: 'Please enter a valid 6-digit OTP.' };
+      }
+
+      // 1. Try Supabase verification if configured
+      if (isSupabaseConfigured && supabaseService) {
+        try {
+          const supaRes = await supabaseService.verifyOtp(formattedPhone, cleanToken);
+          if (supaRes && supaRes.success) {
+            if (supaRes.user) {
+              setAuthenticatedUser(supaRes.user);
+              setCurrentUser(supaRes.user);
+              setIsAuthenticatedWithSupabase(true);
+              setApiAuthContext(
+                supaRes.session?.access_token || null,
+                supaRes.user.id,
+                supaRes.user.role,
+                supaRes.user.retailerId || null
+              );
+              try {
+                localStorage.setItem('aryan_session_user', JSON.stringify(supaRes.user));
+              } catch {}
+              return { success: true, isNewUser: false, user: supaRes.user, retailer: supaRes.retailer };
+            } else if (supaRes.isNewUser) {
+              return { success: true, isNewUser: true };
+            }
+          }
+        } catch (supaErr) {
+          console.warn('[Supabase verifyOtp exception, trying server API fallback]:', supaErr);
+        }
+      }
+
+      // 2. Server API verification
+      const res = await api.verifyOtp(formattedPhone, cleanToken);
+      if (res && res.success) {
+        if (res.user) {
+          setAuthenticatedUser(res.user);
+          setCurrentUser(res.user);
+          setIsAuthenticatedWithSupabase(false);
+          setApiAuthContext(null, res.user.id, res.user.role, res.user.retailerId || null);
+          try {
+            localStorage.setItem('aryan_session_user', JSON.stringify(res.user));
+          } catch {}
+          return { success: true, isNewUser: false, user: res.user, retailer: res.retailer };
+        }
+        return { success: true, isNewUser: true, retailer: res.retailer };
+      }
+
+      return { success: false, error: res?.error || 'Invalid or expired OTP. Please try again.' };
+    } catch (err: any) {
+      console.error('[AuthContext] Error in verifyOtp:', err);
+      return { success: false, error: err?.message || 'Failed to verify OTP. Please try again.' };
+    }
+  };
+
+  const completeRetailerRegistration = async (data: {
+    phone: string;
+    storeName?: string;
+    ownerName?: string;
+    email?: string;
+    address?: string;
+    area?: string;
+    beatName?: string;
+    gstin?: string;
+    panNumber?: string;
+    lat?: number;
+    lng?: number;
+  }): Promise<{ success: boolean; user?: User; error?: string }> => {
+    try {
+      const res = await api.registerRetailerWithOtp(data);
+      if (res && res.success && res.user) {
+        setAuthenticatedUser(res.user);
+        setCurrentUser(res.user);
+        setIsAuthenticatedWithSupabase(false);
+        setApiAuthContext(null, res.user.id, res.user.role, res.user.retailerId || null);
+        try {
+          localStorage.setItem('aryan_session_user', JSON.stringify(res.user));
+        } catch {}
+        return { success: true, user: res.user };
+      }
+      return { success: false, error: res?.error || 'Failed to complete registration. Please try again.' };
+    } catch (err: any) {
+      console.error('[AuthContext] Error in completeRetailerRegistration:', err);
+      return { success: false, error: err?.message || 'Registration error' };
+    }
+  };
+
   const currentRole: UserRole | '' = currentUser?.role || '';
   const isAdmin = currentRole === 'admin';
   const isSalesman = currentRole === 'salesman';
@@ -635,6 +801,9 @@ const signInWithEmail = async (email: string, pass: string): Promise<{ success: 
         isAuthModalOpen,
         openAuthModal: () => setIsAuthModalOpen(true),
         closeAuthModal: () => setIsAuthModalOpen(false),
+        signInWithOtp,
+        verifyOtp,
+        completeRetailerRegistration,
         signInWithEmail,
         signUpWithEmail,
         resetPassword,

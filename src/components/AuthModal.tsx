@@ -57,8 +57,8 @@ export const AuthModal: React.FC = () => {
           setTimeout(() => closeAuthModal(), 500);
         }
       } else if (mode === 'signup') {
-        if (!email || !password || !name) {
-          setError('Please fill in your name, email, and password.');
+        if (!password || !name) {
+          setError('Please fill in your name and password.');
           setLoading(false);
           return;
         }
@@ -67,9 +67,12 @@ export const AuthModal: React.FC = () => {
           setLoading(false);
           return;
         }
-        const res = await signUpWithEmail(email, password, {
+        const cleanDigits = (phoneNumber || '').replace(/\D/g, '').slice(-10) || Date.now().toString().slice(-10);
+        const effectiveEmail = email.trim() || `retailer.${cleanDigits}@aryanagency.in`;
+
+        const res = await signUpWithEmail(effectiveEmail, password, {
           name,
-          phone: phoneNumber || '+91 98000 00000'
+          phone: phoneNumber || `+91 ${cleanDigits}`
         });
         if (!res.success) {
           setError(res.error || 'Failed to create account. Please try again.');
@@ -210,16 +213,23 @@ export const AuthModal: React.FC = () => {
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Email Address</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">Email Address</label>
+                  {mode === 'signup' && (
+                    <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">
+                      Optional (वैकल्पिक)
+                    </span>
+                  )}
+                </div>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@aryanagency.in"
+                    placeholder={mode === 'signup' ? "Optional (यदि हो तो डालें)" : "name@aryanagency.in"}
                     className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                    required
+                    required={mode === 'signin'}
                   />
                 </div>
               </div>
