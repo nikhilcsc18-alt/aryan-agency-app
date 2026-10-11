@@ -89,20 +89,22 @@ export function applyVerificationOverrides(retailers: Retailer[]): Retailer[] {
   const overrides = getAllVerificationOverrides();
 
   return retailers.map(retailer => {
-    const override = overrides[retailer.id];
-    if (!override) return retailer;
+    // If retailer was verified in database/server, it should stay verified!
+    const effectiveStatus = (retailer.verificationStatus === 'verified' || override?.verificationStatus === 'verified')
+      ? 'verified'
+      : (override?.verificationStatus || retailer.verificationStatus || 'pending');
 
     return {
       ...retailer,
-      verificationStatus: override.verificationStatus,
-      verificationRemarks: override.verificationRemarks !== undefined ? override.verificationRemarks : retailer.verificationRemarks,
-      verificationReasonCode: override.verificationReasonCode !== undefined ? override.verificationReasonCode : retailer.verificationReasonCode,
-      verifiedAt: override.verifiedAt !== undefined ? override.verifiedAt : retailer.verifiedAt,
-      verifiedBy: override.verifiedBy !== undefined ? override.verifiedBy : retailer.verifiedBy,
-      creditLimit: override.creditLimit !== undefined ? override.creditLimit : retailer.creditLimit,
-      creditEnabled: override.creditEnabled !== undefined ? override.creditEnabled : retailer.creditEnabled,
-      creditDaysAllowed: override.creditDaysAllowed !== undefined ? override.creditDaysAllowed : retailer.creditDaysAllowed,
-      beatName: override.beatName || retailer.beatName
+      verificationStatus: effectiveStatus,
+      verificationRemarks: override?.verificationRemarks !== undefined ? override.verificationRemarks : retailer.verificationRemarks,
+      verificationReasonCode: override?.verificationReasonCode !== undefined ? override.verificationReasonCode : retailer.verificationReasonCode,
+      verifiedAt: override?.verifiedAt !== undefined ? override.verifiedAt : retailer.verifiedAt,
+      verifiedBy: override?.verifiedBy !== undefined ? override.verifiedBy : retailer.verifiedBy,
+      creditLimit: override?.creditLimit !== undefined ? override.creditLimit : retailer.creditLimit,
+      creditEnabled: override?.creditEnabled !== undefined ? override.creditEnabled : retailer.creditEnabled,
+      creditDaysAllowed: override?.creditDaysAllowed !== undefined ? override.creditDaysAllowed : retailer.creditDaysAllowed,
+      beatName: override?.beatName || retailer.beatName
     };
   });
 }

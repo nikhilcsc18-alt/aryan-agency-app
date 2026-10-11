@@ -40,10 +40,53 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
 
   const [orderMode, setOrderMode] = useState<'catalog' | 'ai_parser'>('catalog');
   
+  const isPurgedStore = (r: Retailer) => {
+    const name = (r.storeName || '').toLowerCase();
+    const owner = (r.ownerName || '').toLowerCase();
+    const phone = (r.phone || '').replace(/\D/g, '');
+    const id = (r.id || '').toLowerCase();
+    return (
+      name.includes('laxmi supermarket') ||
+      name.includes('ganesh daily') ||
+      name.includes('ganesh provision') ||
+      name.includes('sapthagiri') ||
+      name.includes('test salesman') ||
+      name.includes('kisan traders') ||
+      name.includes('kirana store (6655)') ||
+      name.includes('gupta kirana') ||
+      name.includes('verma provision') ||
+      name.includes('paras kirana') ||
+      name.includes('maa durga') ||
+      name.includes('shri ram traders') ||
+      name.includes('shiv shakti') ||
+      name.includes('agarwal general') ||
+      owner.includes('retailer 6655') ||
+      owner.includes('ram lal') ||
+      owner.includes('mohan lal') ||
+      owner.includes('sanjay gupta') ||
+      owner.includes('mahesh verma') ||
+      owner.includes('paras kirana') ||
+      phone.endsWith('9988776655') ||
+      phone.endsWith('9123456789') ||
+      phone.endsWith('9123488888') ||
+      phone.endsWith('9838012345') ||
+      phone.endsWith('9415098765') ||
+      phone.endsWith('9865986532') ||
+      id === 'ret_672eaf9602624692' ||
+      id === 'ret_1791274745127_5lbh1' ||
+      id === 'ret_1791369179248' ||
+      id === 'ret_1791362412268' ||
+      id === 'ret_1791652231310' ||
+      id === 'ret_1791652248963'
+    );
+  };
+
+  const validRetailers = retailers.filter(r => !isPurgedStore(r));
+
   // Selected Retailer
   const [selectedRetailerId, setSelectedRetailerId] = useState<string>(() => {
     if (isRetailer && currentUser?.retailerId) return currentUser.retailerId;
-    return retailers[0]?.id || '';
+    return validRetailers[0]?.id || retailers[0]?.id || '';
   });
 
   // Selected Salesman
@@ -66,13 +109,13 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
   const [orderNotes, setOrderNotes] = useState('');
 
   // AI Parser state
-  const [aiTextPrompt, setAiTextPrompt] = useState('5 cases Parle-G 80g, 2 peti Tata Tea 500g, 4 cases Maggi 70g for Maa Durga Kirana Store');
+  const [aiTextPrompt, setAiTextPrompt] = useState('5 cases Parle-G 80g, 2 peti Tata Tea 500g, 4 cases Maggi 70g for Jaljeere kirana store');
   const [isParsingAI, setIsParsingAI] = useState(false);
   const [aiParseResult, setAiParseResult] = useState<any>(null);
 
   if (!isOpen) return null;
 
-  const currentRetailer = retailers.find(r => r.id === selectedRetailerId);
+  const currentRetailer = validRetailers.find(r => r.id === selectedRetailerId) || retailers.find(r => r.id === selectedRetailerId);
   const isRetailerUnverified = Boolean(currentRetailer && currentRetailer.verificationStatus !== 'verified');
   const currentSalesman = salesmen.find(s => s.id === selectedSalesmanId);
 
@@ -340,7 +383,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                   rows={2}
                   value={aiTextPrompt}
                   onChange={(e) => setAiTextPrompt(e.target.value)}
-                  placeholder="e.g. 5 cases Parle-G, 2 peti Tata Tea 500g, 4 cases Maggi for Maa Durga Kirana Store"
+                  placeholder="e.g. 5 cases Parle-G, 2 peti Tata Tea 500g, 4 cases Maggi for Jaljeere kirana store"
                   className="w-full p-2.5 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] font-sans text-xs"
                 />
 
@@ -349,10 +392,10 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                     <span className="text-slate-500">Quick Samples:</span>
                     <button
                       type="button"
-                      onClick={() => setAiTextPrompt('10 cases Good Day Butter, 2 cases Surf Excel 1kg for Paras Kirana Store')}
+                      onClick={() => setAiTextPrompt('10 cases Good Day Butter, 2 cases Surf Excel 1kg for Jaljeere kirana store')}
                       className="text-[#2563eb] underline cursor-pointer"
                     >
-                      Paras Kirana Order
+                      Jaljeere Kirana Order
                     </button>
                     <span>•</span>
                     <button
@@ -401,7 +444,7 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
                 className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:ring-1 focus:ring-[#2563eb] focus:outline-none"
                 required
               >
-                {retailers.map(r => (
+                {validRetailers.map(r => (
                   <option key={r.id} value={r.id}>
                     {r.storeName} ({r.beatName}) • Outstanding: {formatINR(r.currentOutstanding)}
                   </option>

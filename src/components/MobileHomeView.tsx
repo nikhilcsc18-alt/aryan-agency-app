@@ -32,7 +32,8 @@ import {
   Smartphone,
   RefreshCw,
   Download,
-  ScanLine
+  ScanLine,
+  MapPin
 } from 'lucide-react';
 import { Product, Order, ProductCategory, CartItem, ProductPackingOption, PromotionalBanner } from '../types';
 import { formatINR } from '../lib/api';
@@ -90,7 +91,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
   onQuickOrder,
   onOpenBarcodeScanner
 }) => {
-  const { isAdmin, isSalesman, isRetailer } = useAuth();
+  const { isAdmin, isSalesman, isRetailer, currentUser } = useAuth();
   const { config: appConfig } = useAppDownloadConfig();
 
   // Category filter state
@@ -546,6 +547,61 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* VERIFIED RETAILER OUTLET PROFILE BANNER (RETAILER VIEW)                   */}
+      {/* Displays actual shop name, owner, beat, verification status, and credit   */}
+      {/* ========================================================================= */}
+      {isRetailer && (
+        <div className="w-full bg-gradient-to-r from-slate-900 via-[#0B1E3F] to-blue-950 text-white rounded-2xl p-4 border border-blue-800/80 shadow-lg space-y-3">
+          <div className="flex items-start justify-between gap-2.5">
+            <div className="flex items-start space-x-3 min-w-0">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center text-white shrink-0 shadow-md">
+                <Store className="w-6 h-6" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center space-x-2 flex-wrap">
+                  <h2 className="text-base font-black text-white tracking-tight truncate">
+                    {currentUser?.businessName || 'Kirana Retail Partner'}
+                  </h2>
+                  <span className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full flex items-center space-x-1 border ${
+                    currentUser?.verificationStatus === 'verified'
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40'
+                      : 'bg-amber-500/20 text-amber-300 border-amber-400/40'
+                  }`}>
+                    <ShieldCheck className="w-3 h-3 mr-0.5 text-emerald-400" />
+                    <span>{currentUser?.verificationStatus === 'verified' ? 'Verified Outlet' : 'Pending Verification'}</span>
+                  </span>
+                </div>
+                <p className="text-xs text-blue-200 mt-0.5 truncate">
+                  Proprietor: <span className="font-semibold text-white">{currentUser?.name || 'Retail Owner'}</span>
+                  {currentUser?.phone && ` • ${currentUser.phone}`}
+                </p>
+                <div className="flex items-center space-x-2 text-[11px] text-blue-300/80 mt-1 flex-wrap gap-y-1">
+                  <span className="flex items-center">
+                    <MapPin className="w-3 h-3 mr-1 text-rose-400 shrink-0" />
+                    <span className="truncate">{currentUser?.address || 'Utraula, Balrampur (UP)'}</span>
+                  </span>
+                  <span className="text-blue-400/60">•</span>
+                  <span className="text-amber-300 font-semibold">
+                    Beat: {currentUser?.city ? `${currentUser.city} Beat` : 'Utraula Retail Beat'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {onOpenAccountModal && (
+              <button
+                type="button"
+                onClick={onOpenAccountModal}
+                className="px-3 py-1.5 rounded-xl bg-blue-600/80 hover:bg-blue-600 text-white font-bold text-xs shrink-0 active:scale-95 transition-all cursor-pointer shadow-sm border border-blue-400/30"
+              >
+                Store KYC
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 1. AUTO-SLIDING PROMOTIONAL BANNER CAROUSEL                               */}

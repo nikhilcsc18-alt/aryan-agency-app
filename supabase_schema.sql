@@ -19,9 +19,47 @@ CREATE TABLE IF NOT EXISTS users (
     salesman_id TEXT,
     retailer_id TEXT,
     delivery_id TEXT,
+    business_name TEXT,
+    business_logo_url TEXT,
+    address TEXT,
+    city TEXT,
+    state TEXT,
+    pincode TEXT,
+    gstin TEXT,
+    pan_number TEXT,
+    location_coordinates JSONB,
+    verification_status TEXT DEFAULT 'pending' CHECK (verification_status IN ('pending', 'verified', 'rejected')),
+    verification_remarks TEXT,
+    verified_at TIMESTAMP WITH TIME ZONE,
+    verified_by TEXT,
+    shop_photo_url TEXT,
+    upi_vpa TEXT,
+    upi_payee_name TEXT,
+    upi_bank_name TEXT,
+    upi_status TEXT DEFAULT 'unverified',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Idempotent Column Additions for Existing Database Migrations
+ALTER TABLE users ADD COLUMN IF NOT EXISTS business_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS business_logo_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS city TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS state TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pincode TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gstin TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pan_number TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS location_coordinates JSONB;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'pending';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_remarks TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS verified_by TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS shop_photo_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS upi_vpa TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS upi_payee_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS upi_bank_name TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS upi_status TEXT DEFAULT 'unverified';
 
 -- ====================================================================
 -- 2. CATEGORIES TABLE (FMCG Product Categories & GST Slabs)
@@ -92,12 +130,34 @@ CREATE TABLE IF NOT EXISTS retailers (
     credit_limit NUMERIC(12,2) DEFAULT 50000.00 NOT NULL,
     current_outstanding NUMERIC(12,2) DEFAULT 0.00 NOT NULL,
     credit_days_allowed INTEGER DEFAULT 14 NOT NULL,
+    credit_enabled BOOLEAN DEFAULT TRUE,
+    verification_status TEXT DEFAULT 'pending' CHECK (verification_status IN ('pending', 'verified', 'rejected')),
+    verification_remarks TEXT,
+    verification_reason_code TEXT,
+    verified_at TIMESTAMP WITH TIME ZONE,
+    verified_by TEXT,
+    shop_photo_url TEXT,
+    logo_url TEXT,
+    photo_url TEXT,
     lat NUMERIC(10,7),
     lng NUMERIC(10,7),
-    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'overdue', 'blocked')),
+    is_active BOOLEAN DEFAULT TRUE,
+    status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'overdue', 'blocked', 'inactive')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Idempotent Column Additions for Existing Database Migrations
+ALTER TABLE retailers ADD COLUMN IF NOT EXISTS credit_enabled BOOLEAN DEFAULT TRUE;
+ALTER TABLE retailers ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'pending';
+ALTER TABLE retailers ADD COLUMN IF NOT EXISTS verification_remarks TEXT;
+ALTER TABLE retailers ADD COLUMN IF NOT EXISTS verification_reason_code TEXT;
+ALTER TABLE retailers ADD COLUMN IF NOT EXISTS verified_at TIMESTAMP WITH TIME ZONE;
+ALTER TABLE retailers ADD COLUMN IF NOT EXISTS verified_by TEXT;
+ALTER TABLE retailers ADD COLUMN IF NOT EXISTS shop_photo_url TEXT;
+ALTER TABLE retailers ADD COLUMN IF NOT EXISTS logo_url TEXT;
+ALTER TABLE retailers ADD COLUMN IF NOT EXISTS photo_url TEXT;
+ALTER TABLE retailers ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 
 -- ====================================================================
 -- 6. SALESMEN TABLE (Daily Sales Representatives, Beats & Targets)
@@ -283,6 +343,36 @@ CREATE TABLE IF NOT EXISTS deliveries (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- ====================================================================
+-- 12. SALESMAN VISITS TABLE (Beat-Wise Field Visits & GPS Check-Ins)
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS salesman_visits (
+    id TEXT PRIMARY KEY,
+    salesman_id TEXT REFERENCES salesmen(id) ON DELETE SET NULL,
+    salesman_name TEXT NOT NULL,
+    retailer_id TEXT NOT NULL REFERENCES retailers(id) ON DELETE CASCADE,
+    retailer_name TEXT NOT NULL,
+    beat_name TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'checked_in', 'completed', 'rejected')),
+    check_in_time TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    check_out_time TIMESTAMP WITH TIME ZONE,
+    check_in_lat NUMERIC(10,7),
+    check_in_lng NUMERIC(10,7),
+    check_in_accuracy NUMERIC(10,2),
+    retailer_lat NUMERIC(10,7),
+    retailer_lng NUMERIC(10,7),
+    distance_metres NUMERIC(10,2),
+    allowed_radius_metres NUMERIC(10,2) DEFAULT 100.00,
+    is_mock_location BOOLEAN DEFAULT FALSE,
+    photo_url TEXT,
+    notes TEXT,
+    order_created_id TEXT,
+    order_total_amount NUMERIC(12,2) DEFAULT 0.00,
+    rejection_reason TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- Synonym view for compatibility with delivery_run_sheets
 CREATE OR REPLACE VIEW delivery_run_sheets AS SELECT * FROM deliveries;
 
@@ -304,6 +394,11 @@ CREATE INDEX IF NOT EXISTS idx_inventory_product ON inventory(product_id);
 CREATE INDEX IF NOT EXISTS idx_inventory_batch ON inventory(batch_number);
 CREATE INDEX IF NOT EXISTS idx_inventory_movements_product ON inventory_movements(product_id);
 CREATE INDEX IF NOT EXISTS idx_deliveries_status ON deliveries(status);
+CREATE INDEX IF NOT EXISTS idx_visits_salesman ON salesman_visits(salesman_id);
+CREATE INDEX IF NOT EXISTS idx_visits_retailer ON salesman_visits(retailer_id);
+CREATE INDEX IF NOT EXISTS idx_visits_beat ON salesman_visits(beat_name);
+CREATE INDEX IF NOT EXISTS idx_visits_status ON salesman_visits(status);
+CREATE INDEX IF NOT EXISTS idx_visits_check_in_time ON salesman_visits(check_in_time);
 
 -- ====================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES & ROLE-BASED ACCESS CONTROL
@@ -320,6 +415,7 @@ ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_movements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE deliveries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE salesman_visits ENABLE ROW LEVEL SECURITY;
 
 -- Security Definer Helpers to resolve authenticated user roles safely
 CREATE OR REPLACE FUNCTION get_auth_role()
@@ -485,6 +581,34 @@ CREATE POLICY "retailers_update_policy" ON retailers FOR UPDATE USING (
 DROP POLICY IF EXISTS "retailers_delete_policy" ON retailers;
 CREATE POLICY "retailers_delete_policy" ON retailers FOR DELETE USING (is_admin());
 
+-- Retailer Verification Authority Guard Trigger
+-- Guarantees that salesmen can only onboard retailers with pending status,
+-- and only Administrators can mark an outlet as 'verified'.
+CREATE OR REPLACE FUNCTION public.check_retailer_verification_authority()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF TG_OP = 'INSERT' AND NOT is_admin() THEN
+        NEW.verification_status := 'pending';
+        NEW.verified_at := NULL;
+        NEW.verified_by := NULL;
+    END IF;
+
+    IF TG_OP = 'UPDATE' AND NEW.verification_status = 'verified' AND (OLD.verification_status IS NULL OR OLD.verification_status <> 'verified') THEN
+        IF NOT is_admin() THEN
+            RAISE EXCEPTION 'Access Denied: Only Admin is authorized to verify or approve retail outlets.';
+        END IF;
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS trg_check_retailer_verification_authority ON retailers;
+CREATE TRIGGER trg_check_retailer_verification_authority
+    BEFORE INSERT OR UPDATE ON retailers
+    FOR EACH ROW
+    EXECUTE FUNCTION public.check_retailer_verification_authority();
+
 -- 5. SALESMEN RLS POLICIES (Admin manages, all can view)
 DROP POLICY IF EXISTS "salesmen_select_policy" ON salesmen;
 CREATE POLICY "salesmen_select_policy" ON salesmen FOR SELECT USING (true);
@@ -605,6 +729,44 @@ DROP POLICY IF EXISTS "movements_select_policy" ON inventory_movements;
 CREATE POLICY "movements_select_policy" ON inventory_movements FOR SELECT USING (true);
 DROP POLICY IF EXISTS "movements_admin_all" ON inventory_movements;
 CREATE POLICY "movements_admin_all" ON inventory_movements FOR ALL USING (is_admin()) WITH CHECK (is_admin());
+
+-- 11. SALESMAN VISITS RLS POLICIES
+-- Admin & Accounts have full access to audit all visits.
+-- Salesmen can view their own visits and visits in their assigned beats, and create/update their own visits.
+-- Retailers can only view visits recorded for their own shop outlet.
+DROP POLICY IF EXISTS "visits_select_policy" ON salesman_visits;
+CREATE POLICY "visits_select_policy" ON salesman_visits FOR SELECT USING (
+    is_admin() OR is_accounts() OR
+    (is_salesman() AND (salesman_id = (SELECT s.id FROM public.salesmen s WHERE lower(s.email) = lower(auth.jwt()->>'email') OR s.phone = (SELECT u.phone FROM public.users u WHERE u.id = auth.uid()::text)))) OR
+    (is_retailer() AND (retailer_id = get_auth_retailer_id()))
+);
+
+DROP POLICY IF EXISTS "visits_insert_policy" ON salesman_visits;
+CREATE POLICY "visits_insert_policy" ON salesman_visits FOR INSERT WITH CHECK (
+    is_admin() OR is_salesman()
+);
+
+DROP POLICY IF EXISTS "visits_update_policy" ON salesman_visits;
+CREATE POLICY "visits_update_policy" ON salesman_visits FOR UPDATE USING (
+    is_admin() OR is_salesman()
+);
+
+DROP POLICY IF EXISTS "visits_delete_policy" ON salesman_visits;
+CREATE POLICY "visits_delete_policy" ON salesman_visits FOR DELETE USING (is_admin());
+
+-- Supabase Storage Bucket for Field Visit Photos
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('visit-photos', 'visit-photos', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage Policies for visit-photos bucket
+CREATE POLICY "Public Read Access for Visit Photos" 
+ON storage.objects FOR SELECT 
+USING (bucket_id = 'visit-photos');
+
+CREATE POLICY "Authenticated Upload for Visit Photos" 
+ON storage.objects FOR INSERT 
+WITH CHECK (bucket_id = 'visit-photos' AND (auth.role() = 'authenticated' OR auth.role() = 'anon'));
 
 -- Automatic User Sync Trigger on Supabase Auth SignUp
 CREATE OR REPLACE FUNCTION public.handle_new_user()

@@ -34,7 +34,8 @@ import {
   Layers,
   ArrowRight,
   TrendingUp,
-  Maximize2
+  Maximize2,
+  Navigation
 } from 'lucide-react';
 import { Retailer, Order, VerificationTimelineEvent } from '../types';
 import { formatINR, api } from '../lib/api';
@@ -223,6 +224,7 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
   const [selectedBeat, setSelectedBeat] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
+  const [actionErrorMsg, setActionErrorMsg] = useState<string | null>(null);
 
   // Modal States
   const [activeApprovalRetailer, setActiveApprovalRetailer] = useState<Retailer | null>(null);
@@ -232,6 +234,12 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
   const [approvalCreditDays, setApprovalCreditDays] = useState<number>(15);
   const [approvalBeatName, setApprovalBeatName] = useState<string>('');
   const [approvalRemarks, setApprovalRemarks] = useState<string>('');
+  const [approvalStoreName, setApprovalStoreName] = useState<string>('');
+  const [approvalOwnerName, setApprovalOwnerName] = useState<string>('');
+  const [approvalPhone, setApprovalPhone] = useState<string>('');
+  const [approvalAddress, setApprovalAddress] = useState<string>('');
+  const [approvalLat, setApprovalLat] = useState<string>('');
+  const [approvalLng, setApprovalLng] = useState<string>('');
   const [isProcessingApproval, setIsProcessingApproval] = useState(false);
 
   // Rejection Modal States
@@ -242,6 +250,30 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
 
   // Photo Lightbox
   const [lightboxPhoto, setLightboxPhoto] = useState<{ url: string; title: string; subtitle?: string } | null>(null);
+
+  // Authority Check: Verification authority is strictly reserved for Admin panel
+  if (!isAdmin) {
+    return (
+      <div className="p-8 max-w-xl mx-auto my-12 text-center bg-white rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900">Admin Authority Required</h2>
+        <p className="text-sm text-slate-600 leading-relaxed">
+          Store verification and KYC approval authority is strictly reserved for the <strong>Admin Panel</strong>. Salesmen are authorized for retailer onboarding only.
+        </p>
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={onNavigateToRetailers}
+            className="px-5 py-2.5 bg-[#2563eb] text-white font-bold rounded-xl text-sm hover:bg-blue-700 transition-colors shadow-xs cursor-pointer inline-flex items-center space-x-2"
+          >
+            <span>Return to My Beat Outlets</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Audit Note Modal
   const [activeNoteRetailer, setActiveNoteRetailer] = useState<Retailer | null>(null);
@@ -257,9 +289,54 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
     return Array.from(set).sort();
   }, [retailers]);
 
-  // Derived Retailers List with Normalization
+  // Derived Retailers List with Normalization & Dummy Store Purge
   const normalizedRetailers = useMemo(() => {
-    return retailers.map(r => {
+    const isPurgedStore = (r: Retailer) => {
+      const name = (r.storeName || '').toLowerCase();
+      const owner = (r.ownerName || '').toLowerCase();
+      const phone = (r.phone || '').replace(/\D/g, '');
+      const id = (r.id || '').toLowerCase();
+      return (
+        name.includes('laxmi supermarket') ||
+        name.includes('ganesh daily') ||
+        name.includes('ganesh provision') ||
+        name.includes('sapthagiri') ||
+        name.includes('test salesman') ||
+        name.includes('kisan traders') ||
+        name.includes('kirana store (6655)') ||
+        name.includes('gupta kirana') ||
+        name.includes('verma provision') ||
+        name.includes('paras kirana') ||
+        name.includes('maa durga') ||
+        name.includes('shri ram traders') ||
+        name.includes('shiv shakti') ||
+        name.includes('agarwal general') ||
+        owner.includes('laxmi supermarket') ||
+        owner.includes('ganesh daily') ||
+        owner.includes('ganesh provision') ||
+        owner.includes('sapthagiri') ||
+        owner.includes('retailer 6655') ||
+        owner.includes('ram lal') ||
+        owner.includes('mohan lal') ||
+        owner.includes('sanjay gupta') ||
+        owner.includes('mahesh verma') ||
+        owner.includes('paras kirana') ||
+        phone.endsWith('9988776655') ||
+        phone.endsWith('9123456789') ||
+        phone.endsWith('9123488888') ||
+        phone.endsWith('9838012345') ||
+        phone.endsWith('9415098765') ||
+        phone.endsWith('9865986532') ||
+        id === 'ret_672eaf9602624692' ||
+        id === 'ret_1791274745127_5lbh1' ||
+        id === 'ret_1791369179248' ||
+        id === 'ret_1791362412268' ||
+        id === 'ret_1791652231310' ||
+        id === 'ret_1791652248963'
+      );
+    };
+
+    return retailers.filter(r => !isPurgedStore(r)).map(r => {
       const status = r.verificationStatus || 'pending';
       const submittedDate = r.submittedAt || r.createdAt || '2026-09-30T10:00:00Z';
       
@@ -436,6 +513,12 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
     setActiveApprovalRetailer(retailer);
     const defaultReason = APPROVAL_REASON_CODES[0];
     setSelectedApprovalReason(defaultReason.code);
+    setApprovalStoreName(retailer.storeName);
+    setApprovalOwnerName(retailer.ownerName);
+    setApprovalPhone(retailer.phone);
+    setApprovalAddress(retailer.address);
+    setApprovalLat(retailer.lat !== undefined ? String(retailer.lat) : '27.316700');
+    setApprovalLng(retailer.lng !== undefined ? String(retailer.lng) : '82.421000');
     setApprovalCreditLimit(retailer.creditLimit || defaultReason.defaultCreditLimit);
     setApprovalCreditEnabled(retailer.creditEnabled !== undefined ? retailer.creditEnabled : defaultReason.creditEnabled);
     setApprovalCreditDays(retailer.creditDaysAllowed || defaultReason.creditDaysAllowed);
@@ -459,6 +542,13 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
     if (!activeApprovalRetailer) return;
     try {
       setIsProcessingApproval(true);
+      const finalStoreName = approvalStoreName.trim() || activeApprovalRetailer.storeName;
+      const finalOwnerName = approvalOwnerName.trim() || activeApprovalRetailer.ownerName;
+      const finalPhone = approvalPhone.trim() || activeApprovalRetailer.phone;
+      const finalAddress = approvalAddress.trim() || activeApprovalRetailer.address;
+      const finalLat = approvalLat.trim() && !isNaN(Number(approvalLat)) ? Number(approvalLat) : activeApprovalRetailer.lat;
+      const finalLng = approvalLng.trim() && !isNaN(Number(approvalLng)) ? Number(approvalLng) : activeApprovalRetailer.lng;
+
       await onVerifyRetailer(
         activeApprovalRetailer.id,
         'verified',
@@ -468,16 +558,27 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
           creditLimit: approvalCreditLimit,
           creditEnabled: approvalCreditEnabled,
           creditDaysAllowed: approvalCreditDays,
-          beatName: approvalBeatName
+          beatName: approvalBeatName,
+          storeName: finalStoreName,
+          ownerName: finalOwnerName,
+          phone: finalPhone,
+          address: finalAddress,
+          area: activeApprovalRetailer.area,
+          gstin: activeApprovalRetailer.gstin,
+          panNumber: activeApprovalRetailer.panNumber,
+          lat: finalLat,
+          lng: finalLng
         }
       );
-      setActionSuccessMsg(`Store "${activeApprovalRetailer.storeName}" has been successfully approved & verified.`);
+      setActionSuccessMsg(`Store "${finalStoreName}" has been successfully approved & verified.`);
+      setActionErrorMsg(null);
       setActiveApprovalRetailer(null);
       setTimeout(() => setActionSuccessMsg(null), 5000);
       if (onRefreshData) await onRefreshData();
     } catch (err: any) {
       console.error('Failed to approve retailer:', err);
-      alert(err?.message || 'Failed to verify retailer account');
+      setActionErrorMsg(err?.message || 'Failed to verify retailer account');
+      setTimeout(() => setActionErrorMsg(null), 6000);
     } finally {
       setIsProcessingApproval(false);
     }
@@ -512,12 +613,14 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
         selectedRejectionReason
       );
       setActionSuccessMsg(`Store "${activeRejectionRetailer.storeName}" registration has been marked as REJECTED.`);
+      setActionErrorMsg(null);
       setActiveRejectionRetailer(null);
       setTimeout(() => setActionSuccessMsg(null), 5000);
       if (onRefreshData) await onRefreshData();
     } catch (err: any) {
       console.error('Failed to reject retailer:', err);
-      alert(err?.message || 'Failed to reject retailer');
+      setActionErrorMsg(err?.message || 'Failed to reject retailer');
+      setTimeout(() => setActionErrorMsg(null), 6000);
     } finally {
       setIsProcessingRejection(false);
     }
@@ -546,12 +649,14 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
         });
       }
       setActionSuccessMsg(`Audit comment logged for "${activeNoteRetailer.storeName}".`);
+      setActionErrorMsg(null);
       setActiveNoteRetailer(null);
       setNoteText('');
       setTimeout(() => setActionSuccessMsg(null), 4000);
       if (onRefreshData) await onRefreshData();
     } catch (err: any) {
-      alert(err?.message || 'Failed to record audit note');
+      setActionErrorMsg(err?.message || 'Failed to record audit note');
+      setTimeout(() => setActionErrorMsg(null), 6000);
     } finally {
       setIsSavingNote(false);
     }
@@ -613,6 +718,23 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
             type="button" 
             onClick={() => setActionSuccessMsg(null)}
             className="text-emerald-700 hover:text-emerald-950 cursor-pointer p-1"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Action Error Toast Feedback */}
+      {actionErrorMsg && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-xl flex items-center justify-between shadow-xs animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center space-x-2.5">
+            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span className="text-xs font-semibold">{actionErrorMsg}</span>
+          </div>
+          <button 
+            type="button" 
+            onClick={() => setActionErrorMsg(null)}
+            className="text-rose-700 hover:text-rose-950 cursor-pointer p-1"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1064,9 +1186,9 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
                             </div>
                           </div>
 
-                          {/* Quick Action Buttons for Admins & Salesmen */}
+                          {/* Quick Action Buttons - Strictly Admin Authority Only */}
                           <div className="flex items-center space-x-2 self-end sm:self-start shrink-0">
-                            {isPending && (isAdmin || isSalesman) && (
+                            {isPending && isAdmin && (
                               <>
                                 <button
                                   type="button"
@@ -1088,7 +1210,7 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
                               </>
                             )}
 
-                            {isVerified && (isAdmin || isSalesman) && (
+                            {isVerified && isAdmin && (
                               <button
                                 type="button"
                                 onClick={() => handleOpenRejectModal(retailer)}
@@ -1098,7 +1220,7 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
                               </button>
                             )}
 
-                            {isRejected && (isAdmin || isSalesman) && (
+                            {isRejected && isAdmin && (
                               <button
                                 type="button"
                                 onClick={() => handleOpenApproveModal(retailer)}
@@ -1499,6 +1621,123 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
             {/* Modal Scrollable Body */}
             <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1 text-xs">
               
+              {/* Verified Shop Identity & Contact Information */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <h4 className="font-bold text-slate-900 flex items-center space-x-1.5 text-xs">
+                    <Store className="w-4 h-4 text-emerald-600" />
+                    <span>Verified Shop & Proprietor Information</span>
+                  </h4>
+                  <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    Retailer Profile Sync
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Shop / Outlet Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={approvalStoreName}
+                      onChange={(e) => setApprovalStoreName(e.target.value)}
+                      placeholder="e.g. Paras Kirana Store"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Proprietor / Owner Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={approvalOwnerName}
+                      onChange={(e) => setApprovalOwnerName(e.target.value)}
+                      placeholder="e.g. Sanjay Gupta"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Mobile Number (OTP Verification) <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={approvalPhone}
+                      onChange={(e) => setApprovalPhone(e.target.value)}
+                      placeholder="+91 98380 12345"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono font-medium text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                      Shop Address & Counter Landmark
+                    </label>
+                    <input
+                      type="text"
+                      value={approvalAddress}
+                      onChange={(e) => setApprovalAddress(e.target.value)}
+                      placeholder="Station Road, Utraula, Balrampur"
+                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Shop GPS Pin for Salesman Visit Check-In */}
+                <div className="pt-2 border-t border-slate-200">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-bold text-slate-700 flex items-center space-x-1">
+                      <MapPin className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Shop GPS Coordinates (Mandatory for 100m Field Check-In)</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (navigator.geolocation) {
+                          navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                              setApprovalLat(pos.coords.latitude.toFixed(6));
+                              setApprovalLng(pos.coords.longitude.toFixed(6));
+                            },
+                            () => {
+                              setApprovalLat('27.316700');
+                              setApprovalLng('82.421000');
+                            }
+                          );
+                        } else {
+                          setApprovalLat('27.316700');
+                          setApprovalLng('82.421000');
+                        }
+                      }}
+                      className="text-[10px] text-blue-700 font-bold hover:underline cursor-pointer flex items-center space-x-1"
+                    >
+                      <Navigation className="w-2.5 h-2.5" />
+                      <span>Capture Device GPS</span>
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={approvalLat}
+                      onChange={(e) => setApprovalLat(e.target.value)}
+                      placeholder="Latitude (e.g. 27.316700)"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                    />
+                    <input
+                      type="text"
+                      value={approvalLng}
+                      onChange={(e) => setApprovalLng(e.target.value)}
+                      placeholder="Longitude (e.g. 82.421000)"
+                      className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Structured Reason Codes Selection */}
               <div className="space-y-2">
                 <label className="font-bold text-slate-800 flex items-center justify-between">

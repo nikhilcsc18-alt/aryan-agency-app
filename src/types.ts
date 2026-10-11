@@ -408,7 +408,8 @@ export type ReportType =
   | 'delivery' 
   | 'returns' 
   | 'gst' 
-  | 'profit_margin';
+  | 'profit_margin'
+  | 'visits';
 
 export type ReportPeriod = 
   | 'today' 
@@ -464,4 +465,56 @@ export interface AppNotification {
   actionTab?: NavTab;
   metadata?: Record<string, any>;
 }
+
+// ==========================================
+// Beat-Wise Salesman Visit & Check-In Types
+// ==========================================
+export type VisitStatus = 'pending' | 'checked_in' | 'completed' | 'rejected';
+
+export interface SalesmanVisit {
+  id: string;
+  salesmanId: string;
+  salesmanName: string;
+  retailerId: string;
+  retailerName: string;
+  beatName: string;
+  status: VisitStatus;
+  checkInTime: string; // ISO timestamp
+  checkOutTime?: string; // ISO timestamp
+  checkInLat?: number;
+  checkInLng?: number;
+  checkInAccuracy?: number; // Metres
+  retailerLat?: number;
+  retailerLng?: number;
+  distanceMetres?: number;
+  allowedRadiusMetres?: number; // Default: 100m
+  isMockLocation?: boolean;
+  photoUrl?: string; // Live captured store front photo URL
+  notes?: string;
+  orderCreatedId?: string;
+  orderTotalAmount?: number;
+  rejectionReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VisitCheckInPayload {
+  salesmanId?: string;
+  retailerId: string;
+  lat: number;
+  lng: number;
+  accuracy: number;
+  timestamp: number;
+  isMockLocation?: boolean;
+  photoUrl: string;
+  allowedRadiusMetres?: number;
+  notes?: string;
+}
+
+export interface VisitCheckOutPayload {
+  notes?: string;
+  orderCreatedId?: string;
+  orderTotalAmount?: number;
+}
+
 

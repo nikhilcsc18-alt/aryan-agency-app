@@ -790,7 +790,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                         type="text"
                         value={onboardStoreName}
                         onChange={(e) => setOnboardStoreName(e.target.value)}
-                        placeholder="e.g. Maa Durga Kirana Store"
+                        placeholder="e.g. Jaljeere kirana store"
                         className="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-600"
                       />
                     </div>

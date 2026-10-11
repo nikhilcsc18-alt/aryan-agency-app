@@ -128,15 +128,23 @@ export const Header: React.FC<HeaderProps> = ({
             {currentUser?.name ? currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2) : 'AA'}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-black text-slate-900 truncate">{currentUser?.name}</p>
-            <p className="text-[11px] text-slate-500 truncate">{currentUser?.email || currentUser?.phone}</p>
+            <p className="text-xs font-black text-slate-900 truncate">
+              {currentRole === 'retailer' && currentUser?.businessName ? currentUser.businessName : currentUser?.name}
+            </p>
+            <p className="text-[11px] text-slate-500 truncate">
+              {currentRole === 'retailer' ? `Prop: ${currentUser?.name}` : (currentUser?.email || currentUser?.phone)}
+            </p>
             <div className="mt-1.5 flex items-center space-x-1.5 flex-wrap gap-y-1">
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 uppercase tracking-wide">
                 {badge.label}
               </span>
-              <span className="text-[10px] text-slate-500 flex items-center">
-                <Lock className="w-3 h-3 mr-0.5 text-slate-400" />
-                Verified
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center ${
+                currentUser?.verificationStatus === 'verified'
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                  : 'bg-amber-100 text-amber-800 border border-amber-200'
+              }`}>
+                <ShieldCheck className="w-3 h-3 mr-0.5 text-emerald-600" />
+                {currentUser?.verificationStatus === 'verified' ? 'Verified Outlet' : 'Verification Pending'}
               </span>
             </div>
           </div>
@@ -426,8 +434,12 @@ export const Header: React.FC<HeaderProps> = ({
                   {currentUser?.name ? currentUser.name.split(' ').map(n => n[0]).join('').slice(0, 2) : 'AA'}
                 </div>
                 <div className="text-left hidden sm:block">
-                  <div className="font-semibold leading-tight text-slate-100 max-w-[120px] truncate">{currentUser?.name}</div>
-                  <div className="text-[10px] text-blue-200">{badge.label}</div>
+                  <div className="font-semibold leading-tight text-slate-100 max-w-[150px] truncate">
+                    {currentRole === 'retailer' && currentUser?.businessName ? currentUser.businessName : currentUser?.name}
+                  </div>
+                  <div className="text-[10px] text-blue-200">
+                    {currentRole === 'retailer' ? 'Kirana Outlet' : badge.label}
+                  </div>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-blue-300" />
               </button>

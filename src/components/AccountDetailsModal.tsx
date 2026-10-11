@@ -120,11 +120,13 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
       setEmail(currentUser.email || '');
       setPhone(currentUser.phone || linkedRetailer?.phone || '');
       setAvatarUrl(currentUser.avatarUrl || linkedRetailer?.shopPhotoUrl || linkedRetailer?.photoUrl || '');
-      setBusinessName(
-        currentUser.businessName || 
-        linkedRetailer?.storeName || 
-        (currentUser.role === 'admin' ? 'Aryan Agency FMCG Distribution' : '')
-      );
+      const cleanInitStoreName = (currentUser.businessName && !currentUser.businessName.includes('Registered Retail Outlet'))
+        ? currentUser.businessName
+        : (linkedRetailer?.storeName && !linkedRetailer.storeName.includes('Registered Retail Outlet'))
+        ? linkedRetailer.storeName
+        : (currentUser.role === 'admin' ? 'Aryan Agency FMCG Distribution' : (currentUser.name ? `${currentUser.name} Kirana Store` : 'Gupta Kirana Store'));
+
+      setBusinessName(cleanInitStoreName);
       setBusinessLogoUrl(currentUser.businessLogoUrl || linkedRetailer?.shopPhotoUrl || linkedRetailer?.logoUrl || '');
       setAddress(currentUser.address || linkedRetailer?.address || '');
       setCity(currentUser.city || 'Utraula');

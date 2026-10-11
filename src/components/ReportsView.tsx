@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Order, 
   Retailer, 
@@ -10,8 +10,10 @@ import {
   ReportType, 
   ReportPeriod, 
   GstSubReportType, 
-  ReportFilterOptions 
+  ReportFilterOptions,
+  SalesmanVisit
 } from '../types';
+import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { 
   formatINR, 
@@ -65,7 +67,14 @@ import {
   Clock,
   ChevronRight,
   ShieldCheck,
-  ChevronLeft
+  ChevronLeft,
+  MapPin,
+  Eye,
+  Camera,
+  ExternalLink,
+  Compass,
+  AlertTriangle,
+  X
 } from 'lucide-react';
 
 interface ReportsViewProps {
@@ -93,6 +102,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   // Active Report Type State
   const [activeReportType, setActiveReportType] = useState<ReportType>('sales');
+
+  // Salesman Visits State
+  const [visits, setVisits] = useState<SalesmanVisit[]>([]);
+  const [isLoadingVisits, setIsLoadingVisits] = useState(false);
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<{ url: string; title: string } | null>(null);
+
+  useEffect(() => {
+    if (activeReportType === 'visits') {
+      setIsLoadingVisits(true);
+      api.getVisits()
+        .then(res => setVisits(res || []))
+        .catch(err => console.warn('Failed to load visits for report:', err))
+        .finally(() => setIsLoadingVisits(false));
+    }
+  }, [activeReportType]);
 
   // Period & Date Filter State
   const [selectedPeriod, setSelectedPeriod] = useState<ReportPeriod>('this_month');
@@ -361,6 +385,52 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           title: 'Warehouse Stock Inward & Purchase Register',
           ...generatePurchaseReportData(inventoryLogs, products, filterOptions)
         };
+      case 'visits': {
+        const { fromDate, toDate } = getDateRangeForPeriod(filterOptions.period, filterOptions.fromDate, filterOptions.toDate);
+        let filteredVisits = visits;
+        if (fromDate) filteredVisits = filteredVisits.filter(v => (v.checkInTime || '').slice(0, 10) >= fromDate);
+        if (toDate) filteredVisits = filteredVisits.filter(v => (v.checkInTime || '').slice(0, 10) <= toDate);
+        if (filterOptions.beatName && filterOptions.beatName !== 'all') {
+          filteredVisits = filteredVisits.filter(v => v.beatName?.toLowerCase() === filterOptions.beatName?.toLowerCase());
+        }
+        if (filterOptions.salesmanId && filterOptions.salesmanId !== 'all') {
+          filteredVisits = filteredVisits.filter(v => v.salesmanId === filterOptions.salesmanId);
+        }
+        if (filterOptions.retailerId && filterOptions.retailerId !== 'all') {
+          filteredVisits = filteredVisits.filter(v => v.retailerId === filterOptions.retailerId);
+        }
+        if (filterOptions.searchTerm) {
+          const s = filterOptions.searchTerm.toLowerCase();
+          filteredVisits = filteredVisits.filter(v => 
+            v.retailerName.toLowerCase().includes(s) ||
+            v.salesmanName.toLowerCase().includes(s) ||
+            v.beatName.toLowerCase().includes(s) ||
+            (v.notes && v.notes.toLowerCase().includes(s))
+          );
+        }
+
+        const totalVisits = filteredVisits.length;
+        const completedVisits = filteredVisits.filter(v => v.status === 'completed').length;
+        const checkedInVisits = filteredVisits.filter(v => v.status === 'checked_in').length;
+        const rejectedVisits = filteredVisits.filter(v => v.status === 'rejected').length;
+        const totalDistance = filteredVisits.reduce((acc, v) => acc + (v.distanceMetres || 0), 0);
+        const avgDistance = totalVisits > 0 ? Math.round(totalDistance / totalVisits) : 0;
+        const totalOrderBooked = filteredVisits.reduce((acc, v) => acc + (v.orderTotalAmount || 0), 0);
+
+        return {
+          type: 'visits',
+          title: 'Beat-Wise Salesman Visit & Field Check-In Report',
+          summary: {
+            totalRecords: totalVisits,
+            completedVisits,
+            checkedInVisits,
+            rejectedVisits,
+            avgDistance,
+            totalOrderBooked
+          },
+          rows: filteredVisits
+        };
+      }
       default:
         return {
           type: 'sales',
@@ -377,6 +447,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     deliveries,
     payments,
     inventoryLogs,
+    visits,
     filterOptions,
     ledgerRetailerId,
     selectedPeriod,
@@ -821,6 +892,43 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         { label: 'Total Loose Pcs', value: String(data.summary.totalLoose) },
         { label: 'Warehouse Stock Value', value: formatINR(data.summary.totalValuation) }
       ];
+    } else if (activeReportType === 'visits') {
+      const data = reportData as { rows: any[]; summary: any; title: string };
+      columns = [
+        { header: 'Date & Time', dataKey: 'dateTimeFormatted', width: 22 },
+        { header: 'Salesman', dataKey: 'salesmanName', width: 26 },
+        { header: 'Store Name', dataKey: 'retailerName', width: 32 },
+        { header: 'Beat Route', dataKey: 'beatName', width: 24 },
+        { header: 'Status', dataKey: 'statusFormatted', align: 'center', width: 18 },
+        { header: 'GPS Distance', dataKey: 'distanceFormatted', align: 'center', width: 20 },
+        { header: 'Time at Store', dataKey: 'durationFormatted', align: 'center', width: 18 },
+        { header: 'Order Value (₹)', dataKey: 'orderFormatted', align: 'right', width: 20 },
+        { header: 'Photo Proof', dataKey: 'photoFormatted', align: 'center', width: 18 },
+        { header: 'Notes / Reason', dataKey: 'notesOrReason', width: 40 }
+      ];
+      rows = (data.rows || []).map(v => {
+        const durMins = v.checkOutTime 
+          ? Math.max(1, Math.round((new Date(v.checkOutTime).getTime() - new Date(v.checkInTime).getTime()) / 60000))
+          : (v.status === 'checked_in' ? 'Ongoing' : '-');
+        return {
+          ...v,
+          dateTimeFormatted: new Date(v.checkInTime).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' }),
+          statusFormatted: v.status.toUpperCase(),
+          distanceFormatted: v.distanceMetres !== undefined ? `${v.distanceMetres}m` : '-',
+          durationFormatted: typeof durMins === 'number' ? `${durMins}m` : durMins,
+          orderFormatted: formatINR(v.orderTotalAmount || 0),
+          photoFormatted: v.photoUrl ? 'Photo Available' : 'No Photo',
+          notesOrReason: v.rejectionReason || v.notes || '-'
+        };
+      });
+      summaryCards = [
+        { label: 'Total Visits', value: String(data.summary?.totalRecords || 0) },
+        { label: 'Completed Visits', value: String(data.summary?.completedVisits || 0) },
+        { label: 'Checked In Active', value: String(data.summary?.checkedInVisits || 0) },
+        { label: 'Rejected / Out-of-Radius', value: String(data.summary?.rejectedVisits || 0) },
+        { label: 'Average GPS Distance', value: `${data.summary?.avgDistance || 0}m` },
+        { label: 'Total Orders Booked', value: formatINR(data.summary?.totalOrderBooked || 0) }
+      ];
     }
 
     return { columns, rows, summaryCards };
@@ -878,6 +986,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   // Report Navigation Categories definition
   const reportTabs: { id: ReportType; label: string; icon: React.ReactNode; badgeText?: string }[] = [
     { id: 'sales', label: 'Sales Report', icon: <ShoppingBag className="w-4 h-4" /> },
+    { id: 'visits', label: 'Salesman Visits & Check-Ins', icon: <MapPin className="w-4 h-4" />, badgeText: 'Live GPS' },
     { id: 'gst', label: 'GST Reports', icon: <Receipt className="w-4 h-4" />, badgeText: 'GSTR-1' },
     { id: 'customer_ledger', label: 'Customer Ledger', icon: <BookOpen className="w-4 h-4" /> },
     { id: 'outstanding', label: 'Outstanding / Dues', icon: <AlertCircle className="w-4 h-4" /> },
@@ -1486,15 +1595,65 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                                 {val}
                               </span>
                             ) : col.dataKey === 'statusFormatted' ? (
-                              <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                                  val === 'OVERDUE'
-                                    ? 'bg-rose-100 text-rose-800 font-bold animate-pulse'
-                                    : 'bg-slate-100 text-slate-700'
-                                }`}
-                              >
-                                {val}
-                              </span>
+                              activeReportType === 'visits' ? (
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    val === 'CHECKED_IN'
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                      : val === 'COMPLETED'
+                                      ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                      : val === 'REJECTED'
+                                      ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                                      : 'bg-slate-100 text-slate-700'
+                                  }`}
+                                >
+                                  {val === 'CHECKED_IN' ? '● Checked-In' : val === 'COMPLETED' ? '✓ Completed' : val === 'REJECTED' ? '✕ Rejected' : String(val)}
+                                </span>
+                              ) : (
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                    val === 'OVERDUE'
+                                      ? 'bg-rose-100 text-rose-800 font-bold animate-pulse'
+                                      : 'bg-slate-100 text-slate-700'
+                                  }`}
+                                >
+                                  {val}
+                                </span>
+                              )
+                            ) : col.dataKey === 'photoFormatted' && activeReportType === 'visits' ? (
+                              row.photoUrl ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewPhotoUrl({ url: row.photoUrl, title: `${row.retailerName} · Visit Photo Proof` })}
+                                  className="p-1 border border-slate-300 hover:border-blue-500 rounded bg-white cursor-pointer inline-flex items-center space-x-1 text-[10px] font-bold text-blue-600"
+                                >
+                                  <Camera className="w-3 h-3 text-blue-600" />
+                                  <span>View Photo</span>
+                                </button>
+                              ) : (
+                                <span className="text-slate-400 text-[10px]">No Photo</span>
+                              )
+                            ) : col.dataKey === 'distanceFormatted' && activeReportType === 'visits' ? (
+                              <div className="flex items-center justify-center space-x-1">
+                                <span className={`font-mono font-bold ${
+                                  row.distanceMetres !== undefined && row.distanceMetres <= (row.allowedRadiusMetres || 100)
+                                    ? 'text-emerald-700'
+                                    : 'text-rose-700'
+                                }`}>
+                                  {val}
+                                </span>
+                                {row.checkInLat && row.checkInLng && (
+                                  <a
+                                    href={`https://www.google.com/maps?q=${row.checkInLat},${row.checkInLng}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-blue-500 hover:text-blue-700 p-0.5"
+                                    title="View GPS on Google Maps"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
                             ) : (
                               val !== undefined && val !== null ? String(val) : '-'
                             )}
@@ -1567,6 +1726,45 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           )}
         </div>
       </div>
+      {/* Visit Photo Lightbox Preview */}
+      {previewPhotoUrl && (
+        <div 
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setPreviewPhotoUrl(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 bg-slate-900 text-white flex items-center justify-between">
+              <span className="font-bold text-sm truncate">{previewPhotoUrl.title}</span>
+              <button
+                type="button"
+                onClick={() => setPreviewPhotoUrl(null)}
+                className="p-1 rounded-lg text-white/80 hover:text-white hover:bg-white/10 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-2 bg-slate-950 flex items-center justify-center aspect-video">
+              <img
+                src={previewPhotoUrl.url}
+                alt={previewPhotoUrl.title}
+                className="max-h-[70vh] w-auto object-contain rounded-lg"
+              />
+            </div>
+            <div className="p-3 bg-slate-50 border-t border-slate-200 text-right">
+              <button
+                type="button"
+                onClick={() => setPreviewPhotoUrl(null)}
+                className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -66,7 +66,48 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   const pendingDispatches = displayOrders.filter(o => o.status === 'confirmed' || o.status === 'packed');
   const deliveredToday = displayOrders.filter(o => o.status === 'delivered' && o.orderDate.startsWith(todayDateStr));
-  const pendingVerificationsCount = retailers.filter(r => r.verificationStatus === 'pending').length;
+  const isPurgedStore = (r: Retailer) => {
+    const name = (r.storeName || '').toLowerCase();
+    const owner = (r.ownerName || '').toLowerCase();
+    const phone = (r.phone || '').replace(/\D/g, '');
+    const id = (r.id || '').toLowerCase();
+    return (
+      name.includes('laxmi supermarket') ||
+      name.includes('ganesh daily') ||
+      name.includes('ganesh provision') ||
+      name.includes('sapthagiri') ||
+      name.includes('test salesman') ||
+      name.includes('kisan traders') ||
+      name.includes('kirana store (6655)') ||
+      name.includes('gupta kirana') ||
+      name.includes('verma provision') ||
+      name.includes('paras kirana') ||
+      name.includes('maa durga') ||
+      name.includes('shri ram traders') ||
+      name.includes('shiv shakti') ||
+      name.includes('agarwal general') ||
+      owner.includes('retailer 6655') ||
+      owner.includes('ram lal') ||
+      owner.includes('mohan lal') ||
+      owner.includes('sanjay gupta') ||
+      owner.includes('mahesh verma') ||
+      owner.includes('paras kirana') ||
+      phone.endsWith('9988776655') ||
+      phone.endsWith('9123456789') ||
+      phone.endsWith('9123488888') ||
+      phone.endsWith('9838012345') ||
+      phone.endsWith('9415098765') ||
+      phone.endsWith('9865986532') ||
+      id === 'ret_672eaf9602624692' ||
+      id === 'ret_1791274745127_5lbh1' ||
+      id === 'ret_1791369179248' ||
+      id === 'ret_1791362412268' ||
+      id === 'ret_1791652231310' ||
+      id === 'ret_1791652248963'
+    );
+  };
+  const activeValidRetailers = retailers.filter(r => !isPurgedStore(r));
+  const pendingVerificationsCount = activeValidRetailers.filter(r => r.verificationStatus === 'pending').length;
 
   // Current salesman profile
   const mySalesmanProfile = salesmen.find(s => s.id === currentUser?.salesmanId || s.name === currentUser?.name);

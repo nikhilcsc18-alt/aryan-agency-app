@@ -12,7 +12,8 @@ import {
   User,
   UserRole,
   Category,
-  Brand
+  Brand,
+  SalesmanVisit
 } from '../types';
 import { getRetailerCreditSettings, setRetailerCreditControl, applyCreditControlsToRetailers } from './retailerCredit';
 import { getRetailerVerificationOverride, setRetailerVerificationOverride, applyVerificationOverrides } from './retailerVerification';
@@ -1268,9 +1269,9 @@ export const supabaseService = {
     if (!supabase) throw new Error('Supabase client is not configured.');
 
     // If partial update for an existing retailer, fetch existing record to merge
-    if (retailer.id && (!retailer.storeName || !retailer.phone || !retailer.ownerName || !retailer.address)) {
+    if (retailer.id) {
       try {
-        const { data: existing } = await supabase.from('retailers').select('*').eq('id', retailer.id).single();
+        const { data: existing } = await supabase.from('retailers').select('*').eq('id', retailer.id).maybeSingle();
         if (existing) {
           retailer = {
             ...mapDbRetailer(existing),
@@ -1283,22 +1284,35 @@ export const supabaseService = {
     }
 
     // 1. Validate required fields for FMCG business workflow
-    const storeName = retailer.storeName?.trim();
-    if (!storeName) {
-      throw new Error('Retail Outlet / Store Name is required.');
-    }
-    const ownerName = retailer.ownerName?.trim();
-    if (!ownerName) {
-      throw new Error('Owner / Proprietor Name is required.');
-    }
-    const rawPhone = retailer.phone?.trim() || '';
-    const digitsOnlyPhone = rawPhone.replace(/\D/g, '');
-    if (!digitsOnlyPhone || digitsOnlyPhone.length < 10) {
-      throw new Error('A valid 10-digit mobile phone number is required for retailer order and payment tracking.');
-    }
-    const address = retailer.address?.trim();
-    if (!address) {
-      throw new Error('Shop address is required for delivery routing.');
+    let storeName = retailer.storeName?.trim();
+    let ownerName = retailer.ownerName?.trim();
+    let rawPhone = retailer.phone?.trim() || '';
+    let digitsOnlyPhone = rawPhone.replace(/\D/g, '');
+    let address = retailer.address?.trim();
+
+    if (retailer.id) {
+      // Existing retailer updates: ensure non-destructive fallbacks so credit toggles or partial edits never crash
+      if (!storeName) storeName = 'Retail Partner Outlet';
+      if (!ownerName) ownerName = storeName;
+      if (!digitsOnlyPhone || digitsOnlyPhone.length < 10) {
+        rawPhone = rawPhone && rawPhone.length >= 10 ? rawPhone : '+91 98000 00000';
+        digitsOnlyPhone = rawPhone.replace(/\D/g, '');
+      }
+      if (!address) address = 'Utraula, Balrampur (UP)';
+    } else {
+      // New retailer registration: require core fields
+      if (!storeName) {
+        throw new Error('Retail Outlet / Store Name is required.');
+      }
+      if (!ownerName) {
+        throw new Error('Owner / Proprietor Name is required.');
+      }
+      if (!digitsOnlyPhone || digitsOnlyPhone.length < 10) {
+        throw new Error('A valid 10-digit mobile phone number is required for retailer order and payment tracking.');
+      }
+      if (!address) {
+        throw new Error('Shop address is required for delivery routing.');
+      }
     }
 
     const area = retailer.area?.trim() || 'Utraula Central';
@@ -1306,39 +1320,41 @@ export const supabaseService = {
     const gstin = retailer.gstin?.trim().toUpperCase() || '';
     const panNumber = retailer.panNumber?.trim().toUpperCase() || '';
 
-    // 2. Prevent duplicate retailer creation by checking existing records in Supabase
-    const { data: existingRetailers, error: fetchErr } = await supabase
-      .from('retailers')
-      .select('id, store_name, phone, gstin');
+    // 2. Prevent duplicate retailer creation when registering a new outlet
+    if (!retailer.id) {
+      const { data: existingRetailers, error: fetchErr } = await supabase
+        .from('retailers')
+        .select('id, store_name, phone, gstin');
 
-    if (!fetchErr && Array.isArray(existingRetailers)) {
-      // Check phone number collision (matching last 10 digits to be safe across +91 prefixes)
-      const targetPhoneSuffix = digitsOnlyPhone.slice(-10);
-      const phoneDuplicate = existingRetailers.find(r => {
-        if (retailer.id && r.id === retailer.id) return false;
-        const existingDigits = (r.phone || '').replace(/\D/g, '');
-        return existingDigits.endsWith(targetPhoneSuffix);
-      });
-
-      if (phoneDuplicate) {
-        throw new Error(
-          `A retailer outlet with phone ${rawPhone} already exists (${phoneDuplicate.store_name}). ` +
-          `Please verify the phone number or edit the existing outlet.`
-        );
-      }
-
-      // Check GSTIN collision if GSTIN is provided and valid (not blank)
-      if (gstin && gstin.length >= 15) {
-        const gstinDuplicate = existingRetailers.find(r => {
+      if (!fetchErr && Array.isArray(existingRetailers)) {
+        // Check phone number collision (matching last 10 digits to be safe across +91 prefixes)
+        const targetPhoneSuffix = digitsOnlyPhone.slice(-10);
+        const phoneDuplicate = existingRetailers.find(r => {
           if (retailer.id && r.id === retailer.id) return false;
-          return (r.gstin || '').trim().toUpperCase() === gstin;
+          const existingDigits = (r.phone || '').replace(/\D/g, '');
+          return existingDigits.endsWith(targetPhoneSuffix);
         });
 
-        if (gstinDuplicate) {
+        if (phoneDuplicate) {
           throw new Error(
-            `A retailer outlet with GSTIN ${gstin} already exists (${gstinDuplicate.store_name}). ` +
-            `Each GSTIN must be uniquely registered.`
+            `A retailer outlet with phone ${rawPhone} already exists (${phoneDuplicate.store_name}). ` +
+            `Please verify the phone number or edit the existing outlet.`
           );
+        }
+
+        // Check GSTIN collision if GSTIN is provided and valid (not blank)
+        if (gstin && gstin.length >= 15) {
+          const gstinDuplicate = existingRetailers.find(r => {
+            if (retailer.id && r.id === retailer.id) return false;
+            return (r.gstin || '').trim().toUpperCase() === gstin;
+          });
+
+          if (gstinDuplicate) {
+            throw new Error(
+              `A retailer outlet with GSTIN ${gstin} already exists (${gstinDuplicate.store_name}). ` +
+              `Each GSTIN must be uniquely registered.`
+            );
+          }
         }
       }
     }
@@ -1459,12 +1475,33 @@ export const supabaseService = {
     return count;
   },
 
-  async verifyRetailer(id: string, status: 'pending' | 'verified' | 'rejected', remarks?: string): Promise<Retailer | null> {
+  async verifyRetailer(
+    id: string, 
+    status: 'pending' | 'verified' | 'rejected', 
+    remarks?: string,
+    options?: {
+      storeName?: string;
+      ownerName?: string;
+      phone?: string;
+      address?: string;
+      area?: string;
+      beatName?: string;
+      creditLimit?: number;
+      creditEnabled?: boolean;
+      creditDaysAllowed?: number;
+      lat?: number;
+      lng?: number;
+    }
+  ): Promise<Retailer | null> {
     // 1. Immediately store persistent local override
     setRetailerVerificationOverride(id, {
       verificationStatus: status,
       verificationRemarks: remarks || '',
-      verifiedAt: status === 'verified' ? new Date().toISOString() : undefined
+      verifiedAt: status === 'verified' ? new Date().toISOString() : undefined,
+      creditLimit: options?.creditLimit,
+      creditEnabled: options?.creditEnabled,
+      creditDaysAllowed: options?.creditDaysAllowed,
+      beatName: options?.beatName
     });
 
     if (!supabase) return null;
@@ -1472,8 +1509,26 @@ export const supabaseService = {
       const payload: any = {
         verification_status: status,
         verification_remarks: remarks || '',
-        verified_at: status === 'verified' ? new Date().toISOString() : null
+        verified_at: status === 'verified' ? new Date().toISOString() : null,
+        status: status === 'rejected' ? 'inactive' : 'active'
       };
+
+      if (options?.storeName && !options.storeName.includes('Registered Retail Outlet')) {
+        payload.store_name = options.storeName.trim();
+      }
+      if (options?.ownerName && !options.ownerName.includes('Retail Owner')) {
+        payload.owner_name = options.ownerName.trim();
+      }
+      if (options?.phone) payload.phone = options.phone.trim();
+      if (options?.address) payload.address = options.address.trim();
+      if (options?.area) payload.area = options.area.trim();
+      if (options?.beatName) payload.beat_name = options.beatName.trim();
+      if (options?.creditLimit !== undefined) payload.credit_limit = options.creditLimit;
+      if (options?.creditEnabled !== undefined) payload.credit_enabled = Boolean(options.creditEnabled);
+      if (options?.creditDaysAllowed !== undefined) payload.credit_days_allowed = options.creditDaysAllowed;
+      if (options?.lat !== undefined) payload.lat = options.lat;
+      if (options?.lng !== undefined) payload.lng = options.lng;
+
       const { data, error } = await supabase
         .from('retailers')
         .update(payload)
@@ -1483,12 +1538,13 @@ export const supabaseService = {
       if (!error && data) {
         return mapDbRetailer(data);
       }
-      // If verification_status column doesn't exist, update standard status to 'active' or 'inactive'
-      if (error && error.code === 'PGRST204') {
+      // If custom columns don't exist, update standard status to 'active' or 'inactive'
+      if (error) {
         const fallbackPayload: any = {
           status: status === 'rejected' ? 'inactive' : 'active',
           updated_at: new Date().toISOString()
         };
+        if (options?.storeName) fallbackPayload.store_name = options.storeName;
         const fallbackResult = await supabase
           .from('retailers')
           .update(fallbackPayload)
@@ -1503,6 +1559,87 @@ export const supabaseService = {
       console.warn('[Supabase verifyRetailer notice]:', e);
     }
     return null;
+  },
+
+  // ==========================================
+  // Salesman Visits & Field Check-Ins
+  // ==========================================
+  async getVisits(salesmanId?: string): Promise<SalesmanVisit[] | null> {
+    if (!supabase) return null;
+    try {
+      let query = supabase.from('salesman_visits').select('*').order('check_in_time', { ascending: false });
+      if (salesmanId) {
+        query = query.eq('salesman_id', salesmanId);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        salesmanId: row.salesman_id,
+        salesmanName: row.salesman_name,
+        retailerId: row.retailer_id,
+        retailerName: row.retailer_name,
+        beatName: row.beat_name,
+        status: row.status,
+        checkInTime: row.check_in_time,
+        checkOutTime: row.check_out_time,
+        checkInLat: row.check_in_lat ? Number(row.check_in_lat) : undefined,
+        checkInLng: row.check_in_lng ? Number(row.check_in_lng) : undefined,
+        checkInAccuracy: row.check_in_accuracy ? Number(row.check_in_accuracy) : undefined,
+        retailerLat: row.retailer_lat ? Number(row.retailer_lat) : undefined,
+        retailerLng: row.retailer_lng ? Number(row.retailer_lng) : undefined,
+        distanceMetres: row.distance_metres ? Number(row.distance_metres) : undefined,
+        allowedRadiusMetres: row.allowed_radius_metres ? Number(row.allowed_radius_metres) : 100,
+        isMockLocation: Boolean(row.is_mock_location),
+        photoUrl: row.photo_url,
+        notes: row.notes,
+        orderCreatedId: row.order_created_id,
+        orderTotalAmount: row.order_total_amount ? Number(row.order_total_amount) : 0,
+        rejectionReason: row.rejection_reason,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }));
+    } catch (e) {
+      console.warn('Supabase getVisits fallback notice:', e);
+      return null;
+    }
+  },
+
+  async saveVisit(visit: SalesmanVisit): Promise<SalesmanVisit | null> {
+    if (!supabase) return null;
+    try {
+      const payload: any = {
+        id: visit.id,
+        salesman_id: visit.salesmanId,
+        salesman_name: visit.salesmanName,
+        retailer_id: visit.retailerId,
+        retailer_name: visit.retailerName,
+        beat_name: visit.beatName,
+        status: visit.status,
+        check_in_time: visit.checkInTime,
+        check_out_time: visit.checkOutTime || null,
+        check_in_lat: visit.checkInLat,
+        check_in_lng: visit.checkInLng,
+        check_in_accuracy: visit.checkInAccuracy,
+        retailer_lat: visit.retailerLat,
+        retailer_lng: visit.retailerLng,
+        distance_metres: visit.distanceMetres,
+        allowed_radius_metres: visit.allowedRadiusMetres,
+        is_mock_location: visit.isMockLocation,
+        photo_url: visit.photoUrl,
+        notes: visit.notes,
+        order_created_id: visit.orderCreatedId || null,
+        order_total_amount: visit.orderTotalAmount || 0,
+        rejection_reason: visit.rejectionReason || null,
+        updated_at: new Date().toISOString()
+      };
+      const { data, error } = await supabase.from('salesman_visits').upsert(payload).select().single();
+      if (error) throw error;
+      return visit;
+    } catch (e) {
+      console.warn('Supabase saveVisit notice:', e);
+      return visit;
+    }
   },
 
   // 6. Salesmen

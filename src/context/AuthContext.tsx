@@ -680,19 +680,26 @@ const signInWithEmail = async (email: string, pass: string): Promise<{ success: 
           const supaRes = await supabaseService.verifyOtp(formattedPhone, cleanToken);
           if (supaRes && supaRes.success) {
             if (supaRes.user) {
-              setAuthenticatedUser(supaRes.user);
-              setCurrentUser(supaRes.user);
+              const enrichedUser = {
+                ...supaRes.user,
+                businessName: (supaRes.retailer?.storeName && !supaRes.retailer.storeName.includes('Registered Retail Outlet'))
+                  ? supaRes.retailer.storeName 
+                  : (supaRes.user.businessName || supaRes.retailer?.storeName),
+                retailerId: supaRes.user.retailerId || supaRes.retailer?.id
+              };
+              setAuthenticatedUser(enrichedUser);
+              setCurrentUser(enrichedUser);
               setIsAuthenticatedWithSupabase(true);
               setApiAuthContext(
                 supaRes.session?.access_token || null,
-                supaRes.user.id,
-                supaRes.user.role,
-                supaRes.user.retailerId || null
+                enrichedUser.id,
+                enrichedUser.role,
+                enrichedUser.retailerId || null
               );
               try {
-                localStorage.setItem('aryan_session_user', JSON.stringify(supaRes.user));
+                localStorage.setItem('aryan_session_user', JSON.stringify(enrichedUser));
               } catch {}
-              return { success: true, isNewUser: false, user: supaRes.user, retailer: supaRes.retailer };
+              return { success: true, isNewUser: false, user: enrichedUser, retailer: supaRes.retailer };
             } else if (supaRes.isNewUser) {
               return { success: true, isNewUser: true };
             }
@@ -706,14 +713,21 @@ const signInWithEmail = async (email: string, pass: string): Promise<{ success: 
       const res = await api.verifyOtp(formattedPhone, cleanToken);
       if (res && res.success) {
         if (res.user) {
-          setAuthenticatedUser(res.user);
-          setCurrentUser(res.user);
+          const enrichedUser = {
+            ...res.user,
+            businessName: (res.retailer?.storeName && !res.retailer.storeName.includes('Registered Retail Outlet'))
+              ? res.retailer.storeName 
+              : (res.user.businessName || res.retailer?.storeName),
+            retailerId: res.user.retailerId || res.retailer?.id
+          };
+          setAuthenticatedUser(enrichedUser);
+          setCurrentUser(enrichedUser);
           setIsAuthenticatedWithSupabase(false);
-          setApiAuthContext(null, res.user.id, res.user.role, res.user.retailerId || null);
+          setApiAuthContext(null, enrichedUser.id, enrichedUser.role, enrichedUser.retailerId || null);
           try {
-            localStorage.setItem('aryan_session_user', JSON.stringify(res.user));
+            localStorage.setItem('aryan_session_user', JSON.stringify(enrichedUser));
           } catch {}
-          return { success: true, isNewUser: false, user: res.user, retailer: res.retailer };
+          return { success: true, isNewUser: false, user: enrichedUser, retailer: res.retailer };
         }
         return { success: true, isNewUser: true, retailer: res.retailer };
       }

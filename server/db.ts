@@ -9,7 +9,8 @@ import {
   PaymentRecord, 
   InventoryMovement, 
   User,
-  PromotionalBanner
+  PromotionalBanner,
+  SalesmanVisit
 } from '../src/types';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -39,6 +40,7 @@ export interface DatabaseSchema {
   banners?: PromotionalBanner[];
   appVersionConfig?: AppVersionConfig;
   beats?: string[];
+  visits?: SalesmanVisit[];
 }
 
 function getBannerMainImageUrl(): string {
@@ -54,26 +56,11 @@ function getBannerMainImageUrl(): string {
 
 const INITIAL_RETAILERS: Retailer[] = [
   {
-    id: 'ret_672eaf9602624692',
-    storeName: 'Paras Kirana Store',
-    ownerName: 'Paras Kirana Store',
-    phone: '+91 98659 86532',
-    address: 'Station Road, Utraula, Balrampur',
-    area: 'Utraula Central',
-    beatName: 'Utraula Retail Beat',
-    status: 'active',
-    verificationStatus: 'verified',
-    creditLimit: 75000,
-    currentOutstanding: 0,
-    creditDaysAllowed: 15,
-    creditEnabled: true
-  },
-  {
-    id: 'ret_utraula_01',
-    storeName: 'Maa Durga Kirana & General Store',
-    ownerName: 'Ram Kumar Gupta',
-    phone: '+91 98391 23456',
-    address: 'Main Market, Station Road, Utraula',
+    id: 'ret_1791275454028_g7oc0',
+    storeName: 'Jaljeere kirana store',
+    ownerName: 'Jaljeere',
+    phone: '+91 9044393678',
+    address: 'Utraula, Balrampur',
     area: 'Utraula',
     beatName: 'Utraula Retail Beat',
     status: 'active',
@@ -81,22 +68,9 @@ const INITIAL_RETAILERS: Retailer[] = [
     creditLimit: 50000,
     currentOutstanding: 0,
     creditDaysAllowed: 15,
-    creditEnabled: true
-  },
-  {
-    id: 'ret_balrampur_02',
-    storeName: 'Shri Ram Traders & Provision',
-    ownerName: 'Anil Kumar',
-    phone: '+91 94520 67890',
-    address: 'Veer Vinay Chauraha, Balrampur',
-    area: 'Balrampur',
-    beatName: 'Balrampur Beat',
-    status: 'active',
-    verificationStatus: 'verified',
-    creditLimit: 100000,
-    currentOutstanding: 0,
-    creditDaysAllowed: 21,
-    creditEnabled: true
+    creditEnabled: true,
+    lat: 27.317662352509668,
+    lng: 82.42373253561384
   }
 ];
 
@@ -688,15 +662,177 @@ class Database {
           const originalLen = parsed.retailers.length;
           const isDummyRetailer = (r: any) => {
             const name = (r.storeName || '').toLowerCase();
+            const owner = (r.ownerName || '').toLowerCase();
+            const phone = (r.phone || '').replace(/\D/g, '');
+            const id = (r.id || '').toLowerCase();
             return (
               name.includes('laxmi supermarket') ||
               name.includes('ganesh daily') ||
               name.includes('ganesh provision') ||
-              name.includes('sapthagiri')
+              name.includes('sapthagiri') ||
+              name.includes('test salesman') ||
+              name.includes('kisan traders') ||
+              name.includes('kirana store (6655)') ||
+              name.includes('gupta kirana') ||
+              name.includes('verma provision') ||
+              name.includes('paras kirana') ||
+              name.includes('maa durga') ||
+              name.includes('shri ram traders') ||
+              name.includes('shiv shakti') ||
+              name.includes('agarwal general') ||
+              owner.includes('retailer 6655') ||
+              owner.includes('ram lal') ||
+              owner.includes('mohan lal') ||
+              owner.includes('sanjay gupta') ||
+              owner.includes('mahesh verma') ||
+              owner.includes('paras kirana') ||
+              phone.endsWith('9988776655') ||
+              phone.endsWith('9123456789') ||
+              phone.endsWith('9123488888') ||
+              phone.endsWith('9838012345') ||
+              phone.endsWith('9415098765') ||
+              phone.endsWith('9865986532') ||
+              id === 'ret_672eaf9602624692' ||
+              id === 'ret_1791274745127_5lbh1' ||
+              id === 'ret_1791369179248' ||
+              id === 'ret_1791362412268' ||
+              id === 'ret_1791652231310' ||
+              id === 'ret_1791652248963'
             );
           };
           parsed.retailers = parsed.retailers.filter((r: any) => !isDummyRetailer(r));
           if (parsed.retailers.length !== originalLen) modified = true;
+
+          // Purge dummy user profiles associated with dummy stores
+          if (Array.isArray(parsed.users)) {
+            const origUserLen = parsed.users.length;
+            const isDummyUser = (u: any) => {
+              const name = (u.name || '').toLowerCase();
+              const phone = (u.phone || '').replace(/\D/g, '');
+              const bName = (u.businessName || '').toLowerCase();
+              const id = (u.id || '').toLowerCase();
+              const retId = (u.retailerId || '').toLowerCase();
+              return (
+                id === 'usr_ret_gupta' ||
+                id === 'usr_ret_verma' ||
+                id === 'usr_ret_02624692' ||
+                id === 'usr_ret_52231310' ||
+                id === 'usr_ret_52248963' ||
+                id === 'usr_1791362412273' ||
+                retId === 'ret_672eaf9602624692' ||
+                retId === 'ret_1791274745127_5lbh1' ||
+                retId === 'ret_1791369179248' ||
+                retId === 'ret_1791362412268' ||
+                retId === 'ret_1791652231310' ||
+                retId === 'ret_1791652248963' ||
+                name.includes('retailer 6655') ||
+                name.includes('sanjay gupta') ||
+                name.includes('mahesh verma') ||
+                name.includes('ram lal') ||
+                name.includes('mohan lal') ||
+                name.includes('paras kirana') ||
+                bName.includes('paras kirana') ||
+                bName.includes('gupta kirana') ||
+                bName.includes('verma provision') ||
+                bName.includes('kirana store (6655)') ||
+                bName.includes('test salesman') ||
+                bName.includes('kisan traders') ||
+                phone.endsWith('9988776655') ||
+                phone.endsWith('9123456789') ||
+                phone.endsWith('9123488888') ||
+                phone.endsWith('9838012345') ||
+                phone.endsWith('9415098765') ||
+                phone.endsWith('9865986532')
+              );
+            };
+            parsed.users = parsed.users.filter((u: any) => !isDummyUser(u));
+            if (parsed.users.length !== origUserLen) modified = true;
+          }
+
+          // Auto-heal placeholder names using authentic user profiles only
+          if (Array.isArray(parsed.retailers)) {
+            parsed.retailers.forEach((r: any) => {
+              const hasPlaceholder = !r.storeName || 
+                r.storeName.includes('Registered Retail Outlet') || 
+                r.storeName.includes('Retail Partner Outlet');
+
+              if (hasPlaceholder) {
+                const linked = Array.isArray(parsed.users) ? parsed.users.find((u: any) => 
+                  (u.retailerId && u.retailerId === r.id) ||
+                  (u.phone && r.phone && u.phone.replace(/\D/g, '').slice(-10) === r.phone.replace(/\D/g, '').slice(-10))
+                ) : null;
+
+                if (linked && (linked.businessName || linked.name)) {
+                  r.storeName = linked.businessName || linked.name;
+                  if (linked.name && (!r.ownerName || r.ownerName.includes('Retail Owner'))) {
+                    r.ownerName = linked.name;
+                  }
+                  if (linked.phone && !r.phone) {
+                    r.phone = linked.phone;
+                  }
+                  modified = true;
+                }
+              }
+
+              // Ensure GPS coordinates exist for Utraula beat retailers if missing
+              if (r.lat === undefined || r.lng === undefined) {
+                if (r.beatName?.includes('Utraula')) {
+                  r.lat = 27.3167 + (Math.random() * 0.005);
+                  r.lng = 82.4210 + (Math.random() * 0.005);
+                  modified = true;
+                } else if (r.beatName?.includes('Balrampur')) {
+                  r.lat = 27.4297 + (Math.random() * 0.005);
+                  r.lng = 82.1818 + (Math.random() * 0.005);
+                  modified = true;
+                }
+              }
+            });
+
+            // Ensure linked users exist in parsed.users for each verified retailer
+            if (Array.isArray(parsed.users)) {
+              parsed.retailers.forEach((r: any) => {
+                const existingUser = parsed.users.find((u: any) => 
+                  u.retailerId === r.id ||
+                  (u.phone && r.phone && u.phone.replace(/\D/g, '').slice(-10) === r.phone.replace(/\D/g, '').slice(-10))
+                );
+                if (!existingUser && r.phone) {
+                  parsed.users.push({
+                    id: `usr_ret_${r.id.replace(/[^a-zA-Z0-9]/g, '').slice(-8)}`,
+                    name: r.ownerName,
+                    phone: r.phone,
+                    email: `${r.id}@retailer.aryanagency.in`,
+                    role: 'retailer',
+                    businessName: r.storeName,
+                    address: r.address,
+                    city: r.area || 'Utraula',
+                    state: 'Uttar Pradesh',
+                    pincode: '271604',
+                    gstin: r.gstin,
+                    panNumber: r.panNumber,
+                    retailerId: r.id,
+                    verificationStatus: r.verificationStatus || 'verified',
+                    verifiedAt: r.verifiedAt || new Date().toISOString(),
+                    verifiedBy: r.verifiedBy || 'NIkhil'
+                  });
+                  modified = true;
+                } else if (existingUser) {
+                  // Keep user businessName and verification status synchronized
+                  if (existingUser.businessName !== r.storeName) {
+                    existingUser.businessName = r.storeName;
+                    modified = true;
+                  }
+                  if (existingUser.verificationStatus !== r.verificationStatus) {
+                    existingUser.verificationStatus = r.verificationStatus;
+                    modified = true;
+                  }
+                  if (!existingUser.retailerId) {
+                    existingUser.retailerId = r.id;
+                    modified = true;
+                  }
+                }
+              });
+            }
+          }
 
           if (parsed.retailers.length === 0) {
             parsed.retailers = [...INITIAL_RETAILERS];
@@ -704,6 +840,11 @@ class Database {
           }
         } else {
           parsed.retailers = [...INITIAL_RETAILERS];
+          modified = true;
+        }
+
+        if (!Array.isArray(parsed.visits)) {
+          parsed.visits = [];
           modified = true;
         }
 
@@ -728,16 +869,29 @@ class Database {
 
         if (Array.isArray(parsed.orders)) {
           const originalLen = parsed.orders.length;
+          const validRetIds = new Set((parsed.retailers || []).map((r: any) => r.id));
           parsed.orders = parsed.orders.filter((o: any) => 
-            !['ord_1001', 'ord_1002', 'ord_1003', 'ord_1004'].includes(o.id)
+            !['ord_1001', 'ord_1002', 'ord_1003', 'ord_1004'].includes(o.id) &&
+            o.retailerId !== 'ret_672eaf9602624692' &&
+            !['laxmi supermarket', 'ganesh daily', 'ganesh provision', 'sapthagiri', 'paras kirana', 'kisan traders', 'maa durga'].some((bad: string) => (o.retailerName || '').toLowerCase().includes(bad))
           );
           if (parsed.orders.length !== originalLen) modified = true;
+        }
+
+        if (Array.isArray(parsed.visits)) {
+          const origVisitLen = parsed.visits.length;
+          parsed.visits = parsed.visits.filter((v: any) => 
+            v.retailerId !== 'ret_672eaf9602624692' &&
+            !['laxmi supermarket', 'ganesh daily', 'ganesh provision', 'sapthagiri', 'paras kirana'].some((bad: string) => (v.retailerName || '').toLowerCase().includes(bad))
+          );
+          if (parsed.visits.length !== origVisitLen) modified = true;
         }
 
         if (Array.isArray(parsed.payments)) {
           const originalLen = parsed.payments.length;
           parsed.payments = parsed.payments.filter((p: any) => 
-            !['pay_501', 'pay_502'].includes(p.id)
+            !['pay_501', 'pay_502'].includes(p.id) &&
+            p.retailerId !== 'ret_672eaf9602624692'
           );
           if (parsed.payments.length !== originalLen) modified = true;
         }
@@ -992,6 +1146,47 @@ class Database {
       this.saveData(this.data);
     }
     return this.data.beats;
+  }
+
+  // ==========================================
+  // Salesman Visits & Field Check-Ins
+  // ==========================================
+  public getVisits(): SalesmanVisit[] {
+    if (!this.data.visits) {
+      this.data.visits = [];
+    }
+    return this.data.visits;
+  }
+
+  public getVisitById(id: string): SalesmanVisit | undefined {
+    return this.getVisits().find(v => v.id === id);
+  }
+
+  public saveVisit(visit: SalesmanVisit): SalesmanVisit {
+    if (!this.data.visits) {
+      this.data.visits = [];
+    }
+    const idx = this.data.visits.findIndex(v => v.id === visit.id);
+    if (idx >= 0) {
+      this.data.visits[idx] = { ...visit, updatedAt: new Date().toISOString() };
+    } else {
+      this.data.visits.unshift({ ...visit, createdAt: visit.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString() });
+    }
+    this.saveData(this.data);
+    return visit;
+  }
+
+  public deleteVisit(id: string): boolean {
+    if (!this.data.visits) {
+      this.data.visits = [];
+    }
+    const initLen = this.data.visits.length;
+    this.data.visits = this.data.visits.filter(v => v.id !== id);
+    if (this.data.visits.length !== initLen) {
+      this.saveData(this.data);
+      return true;
+    }
+    return false;
   }
 
   public deleteBeat(beatName: string): { affectedRetailers: number; affectedSalesmen: number; beats: string[] } {

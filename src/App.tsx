@@ -27,6 +27,7 @@ import { RetailerVerificationPendingModal } from './components/RetailerVerificat
 import { RetailerVerificationDashboard } from './components/RetailerVerificationDashboard';
 import { UpiConnectModal } from './components/UpiConnectModal';
 import { ReportsView } from './components/ReportsView';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { 
   buildLiveNotifications, 
   saveReadNotificationId, 
@@ -50,7 +51,8 @@ import {
   PaymentStatus,
   ProductPackingOption,
   AppNotification,
-  PromotionalBanner
+  PromotionalBanner,
+  SalesmanVisit
 } from './types';
 import { getProductPackingOptions } from './lib/packingUtils';
 import { AlertCircle, CheckCircle2, Building2, Loader2 } from 'lucide-react';
@@ -70,6 +72,7 @@ function MainApp() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [retailers, setRetailers] = useState<Retailer[]>([]);
   const [salesmen, setSalesmen] = useState<Salesman[]>([]);
+  const [visits, setVisits] = useState<SalesmanVisit[]>([]);
   const [deliveryRunSheets, setDeliveryRunSheets] = useState<DeliveryRunSheet[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [inventoryLogs, setInventoryLogs] = useState<InventoryMovement[]>([]);
@@ -152,6 +155,13 @@ function MainApp() {
       setDashboardMetrics(data.dashboardMetrics || null);
       if (data.retailers && data.retailers.length > 0 && !selectedCartRetailerId) {
         setSelectedCartRetailerId(data.retailers[0].id);
+      }
+      // Load salesman visits
+      try {
+        const visitsData = await api.getVisits();
+        setVisits(visitsData || []);
+      } catch (vErr) {
+        console.warn('Could not fetch salesman visits:', vErr);
       }
       // Load promotional banners
       try {
@@ -651,13 +661,35 @@ function MainApp() {
     status: 'verified' | 'rejected', 
     remarks?: string,
     reasonCode?: string,
-    options?: { creditLimit?: number; creditEnabled?: boolean; creditDaysAllowed?: number; beatName?: string }
+    options?: { 
+      creditLimit?: number; 
+      creditEnabled?: boolean; 
+      creditDaysAllowed?: number; 
+      beatName?: string;
+      storeName?: string;
+      ownerName?: string;
+      phone?: string;
+      address?: string;
+      area?: string;
+      gstin?: string;
+      panNumber?: string;
+      lat?: number;
+      lng?: number;
+    }
   ) => {
+    if (!isAdmin) {
+      showToast('Permission Denied: Store verification authority is reserved for Admin panel. Salesmen are authorized for retailer onboarding only.', 'error');
+      return;
+    }
     try {
       setRetailers(prev => prev.map(r => r.id === retailerId ? {
         ...r,
+        storeName: options?.storeName || r.storeName,
+        ownerName: options?.ownerName || r.ownerName,
+        phone: options?.phone || r.phone,
+        address: options?.address || r.address,
         verificationStatus: status,
-        verificationRemarks: remarks || (status === 'verified' ? 'Approved by Admin / Salesman' : 'Rejected'),
+        verificationRemarks: remarks || (status === 'verified' ? 'Approved by Admin' : 'Rejected by Admin'),
         verificationReasonCode: reasonCode,
         verifiedAt: status === 'verified' ? new Date().toISOString() : undefined,
         verifiedBy: currentUser?.name || 'Admin',
@@ -667,7 +699,7 @@ function MainApp() {
         beatName: options?.beatName || r.beatName
       } : r));
       await api.verifyRetailer(retailerId, status, remarks, reasonCode, options);
-      showToast(`Retailer ${status === 'verified' ? 'verified & approved' : 'rejected'} successfully!`, 'success');
+      showToast(`Retailer ${status === 'verified' ? 'verified & approved' : 'rejected'} successfully by Admin!`, 'success');
       await loadData();
     } catch (err: any) {
       showToast(err?.message || 'Failed to update retailer verification status', 'error');
@@ -814,7 +846,48 @@ function MainApp() {
 
   // Pending counts
   const pendingOrdersCount = orders.filter(o => o.status === 'booked' || o.status === 'confirmed').length;
-  const pendingVerificationsCount = retailers.filter(r => r.verificationStatus === 'pending').length;
+  const isPurgedStore = (r: Retailer) => {
+    const name = (r.storeName || '').toLowerCase();
+    const owner = (r.ownerName || '').toLowerCase();
+    const phone = (r.phone || '').replace(/\D/g, '');
+    const id = (r.id || '').toLowerCase();
+    return (
+      name.includes('laxmi supermarket') ||
+      name.includes('ganesh daily') ||
+      name.includes('ganesh provision') ||
+      name.includes('sapthagiri') ||
+      name.includes('test salesman') ||
+      name.includes('kisan traders') ||
+      name.includes('kirana store (6655)') ||
+      name.includes('gupta kirana') ||
+      name.includes('verma provision') ||
+      name.includes('paras kirana') ||
+      name.includes('maa durga') ||
+      name.includes('shri ram traders') ||
+      name.includes('shiv shakti') ||
+      name.includes('agarwal general') ||
+      owner.includes('retailer 6655') ||
+      owner.includes('ram lal') ||
+      owner.includes('mohan lal') ||
+      owner.includes('sanjay gupta') ||
+      owner.includes('mahesh verma') ||
+      owner.includes('paras kirana') ||
+      phone.endsWith('9988776655') ||
+      phone.endsWith('9123456789') ||
+      phone.endsWith('9123488888') ||
+      phone.endsWith('9838012345') ||
+      phone.endsWith('9415098765') ||
+      phone.endsWith('9865986532') ||
+      id === 'ret_672eaf9602624692' ||
+      id === 'ret_1791274745127_5lbh1' ||
+      id === 'ret_1791369179248' ||
+      id === 'ret_1791362412268' ||
+      id === 'ret_1791652231310' ||
+      id === 'ret_1791652248963'
+    );
+  };
+  const activeValidRetailers = retailers.filter(r => !isPurgedStore(r));
+  const pendingVerificationsCount = activeValidRetailers.filter(r => r.verificationStatus === 'pending').length;
   const criticalBatchesCount = products.reduce((acc, p) => {
     const today = new Date();
     const count = p.batches.filter(b => {
@@ -1003,21 +1076,23 @@ function MainApp() {
           </ProtectedRoute>
         )}
 
-        {/* Retailer Verification Dashboard - Protected */}
+        {/* Retailer Verification Dashboard - Admin Only Authority */}
         {activeTab === 'verifications' && (
           <ProtectedRoute 
             pageName="Retailer Verification Dashboard"
-            allowedRoles={['admin', 'salesman', 'accounts']}
+            allowedRoles={['admin']}
             onNavigateHome={() => setActiveTab(getRoleHomeTab())}
           >
-            <RetailerVerificationDashboard
-              retailers={retailers}
-              orders={orders}
-              onVerifyRetailer={handleVerifyRetailer}
-              onSaveRetailer={handleSaveRetailer}
-              onNavigateToRetailers={() => setActiveTab('retailers')}
-              onRefreshData={loadData}
-            />
+            <ErrorBoundary fallbackTitle="Retailer Verification Dashboard">
+              <RetailerVerificationDashboard
+                retailers={retailers}
+                orders={orders}
+                onVerifyRetailer={handleVerifyRetailer}
+                onSaveRetailer={handleSaveRetailer}
+                onNavigateToRetailers={() => setActiveTab('retailers')}
+                onRefreshData={loadData}
+              />
+            </ErrorBoundary>
           </ProtectedRoute>
         )}
 
@@ -1031,6 +1106,9 @@ function MainApp() {
             <RetailersView
               retailers={retailers}
               orders={orders}
+              salesmen={salesmen}
+              visits={visits}
+              onRefreshVisits={loadData}
               onSaveRetailer={handleSaveRetailer}
               onVerifyRetailer={handleVerifyRetailer}
               onDeleteRetailer={handleDeleteRetailer}

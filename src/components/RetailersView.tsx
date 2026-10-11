@@ -38,14 +38,19 @@ import {
   Globe,
   Compass
 } from 'lucide-react';
-import { Retailer, Order } from '../types';
+import { Retailer, Order, Salesman, SalesmanVisit } from '../types';
 import { formatINR, formatINRDecimals, api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { setRetailerCreditControl, isCreditEnabledForRetailer } from '../lib/retailerCredit';
+import { VisitCheckInModal } from './VisitCheckInModal';
+import { VisitCheckOutModal } from './VisitCheckOutModal';
 
 interface RetailersViewProps {
   retailers: Retailer[];
   orders?: Order[];
+  salesmen?: Salesman[];
+  visits?: SalesmanVisit[];
+  onRefreshVisits?: () => Promise<void>;
   onSaveRetailer: (retailer: Partial<Retailer>) => Promise<void>;
   onVerifyRetailer?: (
     id: string, 
@@ -145,21 +150,54 @@ export const isCandidateTestAccount = (r: Retailer) => {
 const isPurgedStore = (r: Retailer) => {
   const name = (r.storeName || '').toLowerCase();
   const owner = (r.ownerName || '').toLowerCase();
+  const phone = (r.phone || '').replace(/\D/g, '');
+  const id = (r.id || '').toLowerCase();
   return (
     name.includes('laxmi supermarket') ||
     name.includes('ganesh daily') ||
     name.includes('ganesh provision') ||
     name.includes('sapthagiri') ||
+    name.includes('test salesman') ||
+    name.includes('kisan traders') ||
+    name.includes('kirana store (6655)') ||
+    name.includes('gupta kirana') ||
+    name.includes('verma provision') ||
+    name.includes('paras kirana') ||
+    name.includes('maa durga') ||
+    name.includes('shri ram traders') ||
+    name.includes('shiv shakti') ||
+    name.includes('agarwal general') ||
     owner.includes('laxmi supermarket') ||
     owner.includes('ganesh daily') ||
     owner.includes('ganesh provision') ||
-    owner.includes('sapthagiri')
+    owner.includes('sapthagiri') ||
+    owner.includes('retailer 6655') ||
+    owner.includes('ram lal') ||
+    owner.includes('mohan lal') ||
+    owner.includes('sanjay gupta') ||
+    owner.includes('mahesh verma') ||
+    owner.includes('paras kirana') ||
+    phone.endsWith('9988776655') ||
+    phone.endsWith('9123456789') ||
+    phone.endsWith('9123488888') ||
+    phone.endsWith('9838012345') ||
+    phone.endsWith('9415098765') ||
+    phone.endsWith('9865986532') ||
+    id === 'ret_672eaf9602624692' ||
+    id === 'ret_1791274745127_5lbh1' ||
+    id === 'ret_1791369179248' ||
+    id === 'ret_1791362412268' ||
+    id === 'ret_1791652231310' ||
+    id === 'ret_1791652248963'
   );
 };
 
 export const RetailersView: React.FC<RetailersViewProps> = ({
   retailers,
   orders = [],
+  salesmen = [],
+  visits = [],
+  onRefreshVisits,
   onSaveRetailer,
   onVerifyRetailer,
   onDeleteRetailer,
@@ -177,6 +215,16 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   useEffect(() => {
     setLocalRetailers(retailers.filter(r => !isPurgedStore(r)));
   }, [retailers]);
+
+  // Local Visits State
+  const [localVisits, setLocalVisits] = useState<SalesmanVisit[]>(visits);
+  useEffect(() => {
+    setLocalVisits(visits);
+  }, [visits]);
+
+  // Active Visit Modals
+  const [activeCheckInRetailer, setActiveCheckInRetailer] = useState<Retailer | null>(null);
+  const [activeCheckOutVisit, setActiveCheckOutVisit] = useState<SalesmanVisit | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBeat, setSelectedBeat] = useState<string>('all');
@@ -407,16 +455,28 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
     }
   };
 
+  const currentSalesman = (currentUser?.role === 'salesman' && salesmen.length > 0) ? salesmen.find(s => 
+    (currentUser.salesmanId && s.id === currentUser.salesmanId) ||
+    s.id === currentUser.id ||
+    (currentUser.phone && s.phone && s.phone.replace(/\D/g, '').slice(-10) === currentUser.phone.replace(/\D/g, '').slice(-10)) ||
+    (currentUser.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase())
+  ) || salesmen[0] : undefined;
+
   const visibleRetailers = currentUser?.role === 'retailer'
     ? localRetailers.filter(r => 
         (currentUser.retailerId && r.id === currentUser.retailerId) ||
+        (currentUser.businessName && r.storeName.toLowerCase() === currentUser.businessName.toLowerCase()) ||
         (currentUser.name && (
           r.storeName.toLowerCase() === currentUser.name.toLowerCase() ||
-          r.storeName.toLowerCase().includes(currentUser.name.toLowerCase()) ||
-          currentUser.name.toLowerCase().includes(r.storeName.toLowerCase())
+          r.ownerName.toLowerCase() === currentUser.name.toLowerCase()
         )) ||
-        (currentUser.phone && r.phone && r.phone.includes(currentUser.phone.replace(/\D/g, '').slice(-10)))
+        (currentUser.phone && r.phone && r.phone.replace(/\D/g, '').slice(-10) === currentUser.phone.replace(/\D/g, '').slice(-10))
       )
+    : (currentUser?.role === 'salesman' && currentSalesman && Array.isArray(currentSalesman.assignedBeats) && currentSalesman.assignedBeats.length > 0)
+    ? localRetailers.filter(r => {
+        const beatsLower = currentSalesman.assignedBeats.map(b => b.toLowerCase().trim());
+        return r.beatName && beatsLower.includes(r.beatName.toLowerCase().trim());
+      })
     : localRetailers;
 
   const filteredRetailers = visibleRetailers.filter(r => {
@@ -450,7 +510,7 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   });
 
   const handleVerifyRetailer = async (retailerId: string, status: 'verified' | 'rejected', remarks?: string) => {
-    if (!isAdmin && !isSalesman) return;
+    if (!isAdmin) return; // Strict: Only Admin panel holds verification authority. Salesman can only onboard retailers.
     try {
       setVerifyingRetailerId(retailerId);
       
@@ -458,7 +518,7 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
       setLocalRetailers(prev => prev.map(r => r.id === retailerId ? {
         ...r,
         verificationStatus: status,
-        verificationRemarks: remarks || (status === 'verified' ? 'Verified by Admin / Salesman' : 'Rejected'),
+        verificationRemarks: remarks || (status === 'verified' ? 'Verified by Admin' : 'Rejected by Admin'),
         verifiedAt: status === 'verified' ? new Date().toISOString() : undefined,
         verifiedBy: currentUser?.name || 'Admin'
       } : r));
@@ -494,20 +554,13 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
     setLocalRetailers(prev => prev.map(r => r.id === retailer.id ? { ...r, creditEnabled: newStatus } : r));
 
     try {
+      const cleanPhone = (retailer.phone && retailer.phone.replace(/\D/g, '').length >= 10)
+        ? retailer.phone
+        : '+91 98000 00000';
+
       await onSaveRetailer({
-        id: retailer.id,
-        storeName: retailer.storeName,
-        ownerName: retailer.ownerName,
-        phone: retailer.phone,
-        address: retailer.address,
-        area: retailer.area,
-        beatName: retailer.beatName,
-        gstin: retailer.gstin,
-        panNumber: retailer.panNumber,
-        creditLimit: retailer.creditLimit,
-        currentOutstanding: retailer.currentOutstanding,
-        creditDaysAllowed: retailer.creditDaysAllowed,
-        status: retailer.status,
+        ...retailer,
+        phone: cleanPhone,
         creditEnabled: newStatus
       });
     } catch (err: any) {
@@ -539,7 +592,7 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
       creditDaysAllowed: 15,
       status: 'active',
       creditEnabled: false,
-      verificationStatus: 'verified', // Admin/salesman created is verified by default
+      verificationStatus: isAdmin ? 'verified' : 'pending', // Salesman onboarded stores are pending admin verification
       shopPhotoUrl: '',
       lat: undefined,
       lng: undefined
@@ -776,8 +829,19 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
       setIsSaving(true);
       setModalError(null);
 
+      // Business Rule: Salesmen can only onboard retailers. Verification authority is Admin-only.
+      const resolvedVerificationStatus = isAdmin 
+        ? (editingRetailer.verificationStatus || 'pending')
+        : (editingRetailer.id 
+            ? (localRetailers.find(r => r.id === editingRetailer.id)?.verificationStatus || 'pending')
+            : 'pending');
+
       const toSave = {
         ...editingRetailer,
+        verificationStatus: resolvedVerificationStatus,
+        verificationRemarks: isAdmin 
+          ? editingRetailer.verificationRemarks 
+          : (editingRetailer.id ? editingRetailer.verificationRemarks : 'Onboarded by Salesman · Awaiting Admin Verification'),
         beatName: editingRetailer.beatName || beats[0],
         lat: editingRetailer.lat !== undefined && !isNaN(Number(editingRetailer.lat)) ? Number(editingRetailer.lat) : undefined,
         lng: editingRetailer.lng !== undefined && !isNaN(Number(editingRetailer.lng)) ? Number(editingRetailer.lng) : undefined
@@ -875,8 +939,8 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
         </div>
 
         <div className="flex items-center space-x-2.5 flex-wrap gap-y-2">
-          {/* Verification Dashboard Quick Link */}
-          {onNavigateToVerifications && (
+          {/* Verification Dashboard Quick Link - Admin Authority Only */}
+          {isAdmin && onNavigateToVerifications && (
             <button
               type="button"
               onClick={onNavigateToVerifications}
@@ -1231,6 +1295,88 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* Salesman Field Visit & GPS Check-In Action Section */}
+                {(isSalesman || isAdmin) && (() => {
+                  const todayStr = new Date().toISOString().slice(0, 10);
+                  const retailerVisitsToday = localVisits.filter(v => 
+                    v.retailerId === retailer.id && 
+                    (v.checkInTime || '').slice(0, 10) === todayStr
+                  );
+                  const activeVisit = retailerVisitsToday.find(v => v.status === 'checked_in');
+                  const completedVisit = retailerVisitsToday.find(v => v.status === 'completed');
+                  const rejectedVisit = retailerVisitsToday.find(v => v.status === 'rejected');
+
+                  return (
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 bg-slate-50/80 p-2.5 rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-1.5">
+                          <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                          <span className="text-[11px] font-bold text-slate-800">Visit Check-In:</span>
+                        </div>
+
+                        {/* Visit Status Badge */}
+                        {activeVisit ? (
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center space-x-1 animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-ping mr-1" />
+                            <span>Active Check-In</span>
+                          </span>
+                        ) : completedVisit ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200 flex items-center space-x-1">
+                            <CheckCircle2 className="w-3 h-3 text-blue-600 mr-0.5" />
+                            <span>Visited Today</span>
+                          </span>
+                        ) : rejectedVisit ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-200 flex items-center space-x-1">
+                            <AlertTriangle className="w-3 h-3 text-rose-600 mr-0.5" />
+                            <span>Check-In Rejected</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                            Pending Visit
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Action Button: Check-Out or Check-In */}
+                      <div className="pt-0.5">
+                        {activeVisit ? (
+                          <button
+                            type="button"
+                            onClick={() => setActiveCheckOutVisit(activeVisit)}
+                            className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer active:scale-95 transition-all"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Check-Out Visit</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (retailer.lat === undefined || retailer.lng === undefined) {
+                                alert(`Shop GPS Missing: "${retailer.storeName}" does not have registered GPS coordinates yet. An authorized Admin must capture shop coordinates first.`);
+                                return;
+                              }
+                              setActiveCheckInRetailer(retailer);
+                            }}
+                            className={`w-full py-2 px-3 rounded-lg font-bold text-xs flex items-center justify-center space-x-1.5 shadow-xs cursor-pointer active:scale-95 transition-all ${
+                              retailer.lat !== undefined && retailer.lng !== undefined
+                                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                : 'bg-amber-50 text-amber-900 border border-amber-300'
+                            }`}
+                          >
+                            <Navigation className="w-3.5 h-3.5" />
+                            <span>
+                              {retailer.lat !== undefined && retailer.lng !== undefined 
+                                ? (completedVisit ? 'Repeat Visit Check-In' : 'Start Shop Check-In')
+                                : 'GPS Missing (Setup Needed)'}
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Action Buttons */}
@@ -1245,18 +1391,28 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                 </button>
 
                 <div className="flex items-center space-x-1.5">
-                  {/* Verification Quick Action for Admin & Salesman */}
-                  {(isAdmin || isSalesman) && !isVerified && (
+                  {/* Verification Quick Action - Strictly Admin Authority Only */}
+                  {isAdmin && !isVerified && (
                     <button
                       type="button"
                       disabled={verifyingRetailerId === retailer.id}
                       onClick={() => handleVerifyRetailer(retailer.id, 'verified')}
                       className="px-2.5 py-1 text-[11px] font-bold rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer flex items-center space-x-1 shadow-xs"
-                      title="Approve & Verify Retailer Store"
+                      title="Approve & Verify Retailer Store (Admin Authority Only)"
                     >
                       <CheckCircle2 className="w-3 h-3" />
                       <span>{verifyingRetailerId === retailer.id ? '...' : 'Verify Store'}</span>
                     </button>
+                  )}
+
+                  {isSalesman && !isVerified && (
+                    <span 
+                      className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-amber-50 text-amber-800 border border-amber-200 flex items-center space-x-1"
+                      title="Onboarded Outlet: Verification authority lies with Admin Panel"
+                    >
+                      <Clock className="w-3 h-3 text-amber-600" />
+                      <span>Awaiting Admin Approval</span>
+                    </span>
                   )}
 
                   {!isRetailer && (
@@ -1525,7 +1681,7 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                     value={editingRetailer.storeName || ''}
                     onChange={(e) => setEditingRetailer({ ...editingRetailer, storeName: e.target.value })}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
-                    placeholder="e.g. Maa Durga Kirana Store"
+                    placeholder="e.g. Jaljeere kirana store"
                   />
                 </div>
                 <div>
@@ -1869,8 +2025,8 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                 </div>
               </div>
 
-              {/* Verification & KYC Status */}
-              {(isAdmin || isSalesman) && (
+              {/* Verification & KYC Status - Admin Authority Only */}
+              {isAdmin ? (
                 <div className="p-3 rounded-xl border border-indigo-200 bg-indigo-50/40 space-y-2">
                   <div className="flex items-center space-x-2">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
@@ -1884,10 +2040,10 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-slate-900">
-                        Retailer KYC Verification & Order Access
+                        Retailer KYC Verification & Order Access (Admin Authority)
                       </h4>
                       <p className="text-[10px] text-slate-500">
-                        Retailers cannot place wholesale orders until status is marked Verified
+                        Retailers cannot place wholesale orders until verified by Admin
                       </p>
                     </div>
                   </div>
@@ -1912,13 +2068,33 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                         type="text"
                         value={editingRetailer.verificationRemarks || ''}
                         onChange={(e) => setEditingRetailer({ ...editingRetailer, verificationRemarks: e.target.value })}
-                        placeholder="e.g. Shop photo & physical verification confirmed"
+                        placeholder="e.g. Shop physical verification confirmed"
                         className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs"
                       />
                     </div>
                   </div>
                 </div>
-              )}
+              ) : isSalesman ? (
+                <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/70 space-y-2">
+                  <div className="flex items-start space-x-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 mt-0.5">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">
+                        Salesman Onboarding Mode · Admin Verification Required
+                      </h4>
+                      <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">
+                        Salesman authority is limited to onboarding new retailer outlets. After submitting, shop details, contact info, and GPS coordinates are queued for <strong>Admin Panel verification and approval</strong>.
+                      </p>
+                      <div className="mt-2 inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-amber-100 text-amber-900 text-[11px] font-bold border border-amber-300">
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Status: Pending Admin Approval</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               {/* Credit Control & Limits Box */}
               <div className="p-3 rounded-xl border border-blue-200 bg-blue-50/40 space-y-3">
@@ -2612,6 +2788,37 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
           </div>
         );
       })()}
+
+      {/* Salesman Field Visit Check-In Modal */}
+      {activeCheckInRetailer && (
+        <VisitCheckInModal
+          isOpen={Boolean(activeCheckInRetailer)}
+          onClose={() => setActiveCheckInRetailer(null)}
+          retailer={activeCheckInRetailer}
+          salesman={currentSalesman}
+          allowedRadiusMetres={100}
+          onCheckInSuccess={(newVisit) => {
+            setLocalVisits(prev => [newVisit, ...prev]);
+            setActiveCheckInRetailer(null);
+            if (onRefreshVisits) onRefreshVisits();
+          }}
+        />
+      )}
+
+      {/* Salesman Field Visit Check-Out Modal */}
+      {activeCheckOutVisit && (
+        <VisitCheckOutModal
+          isOpen={Boolean(activeCheckOutVisit)}
+          onClose={() => setActiveCheckOutVisit(null)}
+          visit={activeCheckOutVisit}
+          orders={orders}
+          onCheckOutSuccess={(updatedVisit) => {
+            setLocalVisits(prev => prev.map(v => v.id === updatedVisit.id ? updatedVisit : v));
+            setActiveCheckOutVisit(null);
+            if (onRefreshVisits) onRefreshVisits();
+          }}
+        />
+      )}
 
     </div>
   );

@@ -85,7 +85,6 @@ export const Navigation: React.FC<NavigationProps> = ({
   } else if (currentRole === 'salesman') {
     navItems.push(
       { id: 'dashboard', label: 'Beat Overview', icon: <LayoutDashboard className="w-5 h-5" /> },
-      { id: 'verifications', label: 'KYC Approvals', icon: <ShieldCheck className="w-5 h-5" />, badge: pendingVerificationsBadge },
       { id: 'orders', label: 'Booked Orders', icon: <ShoppingCart className="w-5 h-5" /> },
       { id: 'retailers', label: 'My Beat Outlets', icon: <Store className="w-5 h-5" /> },
       { id: 'reports', label: 'Reports & Intelligence', icon: <BarChart3 className="w-5 h-5" /> },

@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { db } from './server/db';
 import { parseNaturalLanguageOrder, generateFMCGInsights, lookupProductByBarcode } from './server/gemini';
-import { User, Order, OrderItem, PaymentRecord, DeliveryRunSheet, Retailer, ReportFilterOptions, ReportType, ReportPeriod, GstSubReportType } from './src/types';
+import { User, Order, OrderItem, PaymentRecord, DeliveryRunSheet, Retailer, Salesman, ReportFilterOptions, ReportType, ReportPeriod, GstSubReportType, SalesmanVisit } from './src/types';
 import { 
   generateSalesReportData, 
   generateCustomerLedgerData, 
@@ -595,7 +595,33 @@ app.get('/api/auth/users', (req, res) => {
 
 app.get('/api/auth/current', (req, res) => {
   const users = db.getUsers();
-  const user = req.user || users.find(u => u.id === currentActiveUserId) || users[0];
+  let user = req.user || users.find(u => u.id === currentActiveUserId) || users[0];
+  if (user && user.role === 'retailer') {
+    const retailers = db.getRetailers();
+    const matchedRetailer = retailers.find(r => 
+      (user.retailerId && r.id === user.retailerId) ||
+      (user.phone && r.phone && user.phone.replace(/\D/g, '').slice(-10) === r.phone.replace(/\D/g, '').slice(-10))
+    );
+    if (matchedRetailer) {
+      user = {
+        ...user,
+        retailerId: matchedRetailer.id,
+        businessName: (matchedRetailer.storeName && !matchedRetailer.storeName.includes('Registered Retail Outlet'))
+          ? matchedRetailer.storeName
+          : (user.businessName || matchedRetailer.storeName),
+        name: (matchedRetailer.ownerName && !matchedRetailer.ownerName.includes('Retail Owner'))
+          ? matchedRetailer.ownerName
+          : user.name,
+        phone: matchedRetailer.phone || user.phone,
+        address: matchedRetailer.address || user.address,
+        city: matchedRetailer.area || user.city || 'Utraula',
+        state: 'Uttar Pradesh',
+        verificationStatus: matchedRetailer.verificationStatus || user.verificationStatus || 'verified',
+        verifiedAt: matchedRetailer.verifiedAt || user.verifiedAt,
+        verifiedBy: matchedRetailer.verifiedBy || user.verifiedBy
+      };
+    }
+  }
   res.json(user);
 });
 
@@ -1038,8 +1064,16 @@ app.post('/api/upi/verify-vpa', (req, res) => {
   });
 });
 
-// Admin & Salesman Verification Endpoint for Retailer Onboarding / KYC Verification
-app.put('/api/retailers/:id/verify', requireRoles(['admin', 'salesman', 'accounts']), (req, res) => {
+// Admin-Only Verification Endpoint for Retailer Onboarding / KYC Verification
+// Business Rule: Salesmen can onboard retailers, but ONLY Admin panel has authority to approve or reject verification.
+app.put('/api/retailers/:id/verify', async (req, res) => {
+  const actorRole = req.userRole || 'admin';
+  if (actorRole !== 'admin') {
+    return res.status(403).json({ 
+      error: "Access Denied: Store verification authority is strictly reserved for Admin panel. Salesmen are authorized for retailer onboarding only." 
+    });
+  }
+
   const retailerId = req.params.id;
   const { status, remarks, reasonCode, creditLimit, creditEnabled, creditDaysAllowed, beatName } = req.body;
 
@@ -1048,20 +1082,95 @@ app.put('/api/retailers/:id/verify', requireRoles(['admin', 'salesman', 'account
   }
 
   const actorName = req.user?.name || (req.headers['x-user-name'] as string) || 'Admin';
-  const actorRole = req.userRole || 'admin';
   const nowIso = new Date().toISOString();
 
   let retailer = db.getRetailerById(retailerId);
+
+  // If not found in memory, attempt lookup in Supabase
+  if (!retailer && supabaseServer) {
+    try {
+      const { data: sbRetailer } = await supabaseServer
+        .from('retailers')
+        .select('*')
+        .eq('id', retailerId)
+        .maybeSingle();
+      if (sbRetailer) {
+        retailer = {
+          id: sbRetailer.id,
+          storeName: sbRetailer.store_name,
+          ownerName: sbRetailer.owner_name,
+          phone: sbRetailer.phone,
+          email: sbRetailer.email,
+          address: sbRetailer.address,
+          area: sbRetailer.area || 'Utraula Central',
+          beatName: sbRetailer.beat_name || 'Utraula Retail Beat',
+          gstin: sbRetailer.gstin,
+          panNumber: sbRetailer.pan_number,
+          creditLimit: Number(sbRetailer.credit_limit || 50000),
+          currentOutstanding: Number(sbRetailer.current_outstanding || 0),
+          creditDaysAllowed: Number(sbRetailer.credit_days_allowed || 14),
+          creditEnabled: sbRetailer.credit_enabled !== undefined ? Boolean(sbRetailer.credit_enabled) : true,
+          status: sbRetailer.status || 'active',
+          lat: sbRetailer.lat ? Number(sbRetailer.lat) : undefined,
+          lng: sbRetailer.lng ? Number(sbRetailer.lng) : undefined,
+          verificationStatus: sbRetailer.verification_status || 'pending',
+          verificationRemarks: sbRetailer.verification_remarks || '',
+          verifiedAt: sbRetailer.verified_at,
+          verifiedBy: sbRetailer.verified_by,
+          createdAt: sbRetailer.created_at || nowIso
+        };
+      }
+    } catch (e) {
+      console.warn('[Verify Retailer] Supabase fetch lookup notice:', e);
+    }
+  }
+
+  // Find linked user for profile preservation
+  const users = db.getUsers();
+  const linkedUser = users.find(u => 
+    u.retailerId === retailerId || 
+    (retailer && u.retailerId === retailer.id) ||
+    (u.phone && req.body.phone && u.phone.replace(/\D/g, '').slice(-10) === String(req.body.phone).replace(/\D/g, '').slice(-10)) ||
+    (retailer && u.phone && retailer.phone && u.phone.replace(/\D/g, '').slice(-10) === retailer.phone.replace(/\D/g, '').slice(-10))
+  );
+
+  const cleanStoreName = (req.body.storeName && req.body.storeName.trim() && !req.body.storeName.includes('Registered Retail Outlet'))
+    ? req.body.storeName.trim()
+    : (retailer?.storeName && !retailer.storeName.includes('Registered Retail Outlet'))
+    ? retailer.storeName
+    : (linkedUser?.businessName && !linkedUser.businessName.includes('Registered Retail Outlet'))
+    ? linkedUser.businessName
+    : (req.body.storeName && req.body.storeName.trim())
+    ? req.body.storeName.trim()
+    : (linkedUser?.name ? `${linkedUser.name} Kirana Store` : 'Gupta Kirana Store');
+
+  const cleanOwnerName = (req.body.ownerName && req.body.ownerName.trim() && !req.body.ownerName.includes('Retail Owner'))
+    ? req.body.ownerName.trim()
+    : (retailer?.ownerName && !retailer.ownerName.includes('Retail Owner'))
+    ? retailer.ownerName
+    : (linkedUser?.name && !linkedUser.name.includes('Retail Owner'))
+    ? linkedUser.name
+    : (req.body.ownerName && req.body.ownerName.trim())
+    ? req.body.ownerName.trim()
+    : cleanStoreName.replace(/ (Kirana|Store|General|Traders|Provision).*/i, '');
+
+  const cleanPhone = req.body.phone?.trim() || retailer?.phone || linkedUser?.phone || '+91 98380 12345';
+  const cleanAddress = req.body.address?.trim() || retailer?.address || linkedUser?.address || 'Station Road, Utraula, Balrampur (UP)';
+  const cleanBeat = beatName || req.body.beatName || retailer?.beatName || 'Utraula Retail Beat';
+
   if (!retailer) {
     retailer = {
       id: retailerId,
-      storeName: req.body.storeName || 'Registered Retail Outlet',
-      ownerName: req.body.ownerName || 'Retail Owner',
-      phone: req.body.phone || '',
-      address: req.body.address || 'Utraula, Balrampur',
-      area: req.body.area || 'Utraula',
-      beatName: beatName || req.body.beatName || 'Utraula Retail Beat',
-      status: 'active',
+      storeName: cleanStoreName,
+      ownerName: cleanOwnerName,
+      phone: cleanPhone,
+      email: req.body.email || linkedUser?.email || `${retailerId}@retailer.aryanagency.in`,
+      address: cleanAddress,
+      area: req.body.area || 'Utraula Central',
+      beatName: cleanBeat,
+      gstin: req.body.gstin || '',
+      panNumber: req.body.panNumber || '',
+      status: status === 'rejected' ? 'inactive' : 'active',
       creditLimit: creditLimit !== undefined ? Number(creditLimit) : 50000,
       currentOutstanding: 0,
       creditDaysAllowed: creditDaysAllowed !== undefined ? Number(creditDaysAllowed) : 15,
@@ -1072,18 +1181,32 @@ app.put('/api/retailers/:id/verify', requireRoles(['admin', 'salesman', 'account
       verifiedAt: status === 'verified' ? nowIso : undefined,
       verifiedBy: status === 'verified' ? actorName : undefined,
       submittedAt: req.body.submittedAt || nowIso,
+      lat: req.body.lat !== undefined && !isNaN(Number(req.body.lat)) ? Number(req.body.lat) : 27.3167,
+      lng: req.body.lng !== undefined && !isNaN(Number(req.body.lng)) ? Number(req.body.lng) : 82.4210,
       verificationTimeline: []
     };
   } else {
+    // Preserve authentic shop information
+    retailer.storeName = cleanStoreName;
+    retailer.ownerName = cleanOwnerName;
+    retailer.phone = cleanPhone;
+    retailer.address = cleanAddress;
+    retailer.beatName = cleanBeat;
+    if (req.body.area) retailer.area = req.body.area.trim();
+    if (req.body.gstin) retailer.gstin = req.body.gstin.trim().toUpperCase();
+    if (req.body.panNumber) retailer.panNumber = req.body.panNumber.trim().toUpperCase();
+    if (req.body.lat !== undefined && !isNaN(Number(req.body.lat))) retailer.lat = Number(req.body.lat);
+    if (req.body.lng !== undefined && !isNaN(Number(req.body.lng))) retailer.lng = Number(req.body.lng);
+
     retailer.verificationStatus = status;
     retailer.verificationRemarks = remarks || '';
     retailer.verificationReasonCode = reasonCode || retailer.verificationReasonCode || '';
     retailer.verifiedAt = status === 'verified' ? nowIso : undefined;
     retailer.verifiedBy = status === 'verified' ? actorName : undefined;
+    retailer.status = status === 'rejected' ? 'inactive' : 'active';
     if (creditLimit !== undefined) retailer.creditLimit = Number(creditLimit);
     if (creditEnabled !== undefined) retailer.creditEnabled = Boolean(creditEnabled);
     if (creditDaysAllowed !== undefined) retailer.creditDaysAllowed = Number(creditDaysAllowed);
-    if (beatName) retailer.beatName = beatName;
   }
 
   // Create timeline event
@@ -1106,16 +1229,12 @@ app.put('/api/retailers/:id/verify', requireRoles(['admin', 'salesman', 'account
 
   db.saveRetailer(retailer);
 
-  // Also sync user verification if user account is linked
-  const users = db.getUsers();
-  const linkedUser = users.find(u => 
-    u.retailerId === retailer?.id || 
-    (u.phone && retailer?.phone && u.phone.replace(/\D/g, '').slice(-10) === retailer.phone.replace(/\D/g, '').slice(-10)) || 
-    (retailer?.email && u.email && u.email.toLowerCase() === retailer.email.toLowerCase()) ||
-    (retailer?.ownerName && u.name && u.name.toLowerCase() === retailer.ownerName.toLowerCase()) ||
-    (retailer?.storeName && u.name && u.name.toLowerCase() === retailer.storeName.toLowerCase())
-  );
+  // Sync or create linked user profile so the retailer always sees their real shop details
   if (linkedUser) {
+    linkedUser.businessName = retailer.storeName;
+    linkedUser.name = retailer.ownerName;
+    linkedUser.phone = retailer.phone;
+    linkedUser.address = retailer.address;
     linkedUser.verificationStatus = status;
     linkedUser.verificationRemarks = remarks || '';
     linkedUser.verifiedAt = retailer.verifiedAt;
@@ -1125,12 +1244,15 @@ app.put('/api/retailers/:id/verify', requireRoles(['admin', 'salesman', 'account
     }
     db.saveUser(linkedUser);
 
-    // Sync to Supabase users table if connected
     if (supabaseServer) {
       Promise.resolve(
         supabaseServer
           .from('users')
           .update({ 
+            business_name: retailer.storeName,
+            name: retailer.ownerName,
+            phone: retailer.phone,
+            address: retailer.address,
             verification_status: status, 
             verified_at: retailer.verifiedAt,
             verified_by: retailer.verifiedBy,
@@ -1140,22 +1262,60 @@ app.put('/api/retailers/:id/verify', requireRoles(['admin', 'salesman', 'account
           .eq('id', linkedUser.id)
       ).catch((err: any) => console.warn('[Supabase User Verification Sync Notice]:', err?.message));
     }
+  } else {
+    // Create new authorized linked user account for this retailer
+    const newRetailerUser: User = {
+      id: `usr_ret_${retailer.id.replace(/[^a-zA-Z0-9]/g, '').slice(-8)}`,
+      name: retailer.ownerName,
+      phone: retailer.phone,
+      email: `${retailer.id}@retailer.aryanagency.in`,
+      role: 'retailer',
+      businessName: retailer.storeName,
+      address: retailer.address,
+      city: retailer.area || 'Utraula',
+      state: 'Uttar Pradesh',
+      pincode: '271604',
+      gstin: retailer.gstin,
+      panNumber: retailer.panNumber,
+      retailerId: retailer.id,
+      verificationStatus: status,
+      verifiedAt: retailer.verifiedAt,
+      verifiedBy: retailer.verifiedBy
+    };
+    db.saveUser(newRetailerUser);
   }
 
-  // Also sync standard status to Supabase retailers table if connected
+  // Sync all verified fields to Supabase retailers table
   if (supabaseServer) {
     Promise.resolve(
       supabaseServer
         .from('retailers')
-        .update({ 
+        .upsert({ 
+          id: retailer.id,
+          store_name: retailer.storeName,
+          owner_name: retailer.ownerName,
+          phone: retailer.phone,
+          address: retailer.address,
+          area: retailer.area,
+          beat_name: retailer.beatName,
+          gstin: retailer.gstin,
+          pan_number: retailer.panNumber,
+          credit_limit: retailer.creditLimit,
+          credit_enabled: retailer.creditEnabled,
+          credit_days_allowed: retailer.creditDaysAllowed,
+          lat: retailer.lat,
+          lng: retailer.lng,
+          verification_status: status,
+          verification_remarks: remarks || '',
+          verified_at: retailer.verifiedAt,
+          verified_by: retailer.verifiedBy,
           status: status === 'rejected' ? 'inactive' : 'active',
           updated_at: nowIso 
         })
-        .eq('id', retailer.id)
-    ).catch(() => {});
+    ).catch((err: any) => console.warn('[Supabase Retailer Full Verification Sync Notice]:', err?.message));
   }
 
-  res.json({ success: true, retailer, message: `Retailer verification status updated to ${status.toUpperCase()}` });
+  res.json({ success: true, retailer, message: `Retailer "${retailer.storeName}" verification status updated to ${status.toUpperCase()}` });
 });
 
 // ==========================================
@@ -1433,13 +1593,95 @@ app.get('/api/retailers', (req, res) => {
         matched.verifiedBy = u.verifiedBy;
         db.saveRetailer(matched);
       }
+
+      // Auto-heal placeholder names with authentic user profile
+      const isPlaceholder = !matched.storeName || 
+        matched.storeName.includes('Registered Retail Outlet') || 
+        matched.storeName.includes('Retail Partner Outlet');
+      if (isPlaceholder && (u.businessName || u.name)) {
+        matched.storeName = u.businessName || u.name;
+        if (u.name && (!matched.ownerName || matched.ownerName.includes('Retail Owner'))) {
+          matched.ownerName = u.name;
+        }
+        db.saveRetailer(matched);
+      }
     }
   });
 
   const filtered = retailers.filter(r => {
     const n = (r.storeName || '').toLowerCase();
-    return !n.includes('laxmi supermarket') && !n.includes('ganesh daily') && !n.includes('ganesh provision') && !n.includes('sapthagiri');
+    const o = (r.ownerName || '').toLowerCase();
+    const p = (r.phone || '').replace(/\D/g, '');
+    const id = (r.id || '').toLowerCase();
+    return (
+      !n.includes('laxmi supermarket') &&
+      !n.includes('ganesh daily') &&
+      !n.includes('ganesh provision') &&
+      !n.includes('sapthagiri') &&
+      !n.includes('test salesman') &&
+      !n.includes('kisan traders') &&
+      !n.includes('kirana store (6655)') &&
+      !n.includes('gupta kirana') &&
+      !n.includes('verma provision') &&
+      !n.includes('paras kirana') &&
+      !n.includes('maa durga') &&
+      !n.includes('shri ram traders') &&
+      !n.includes('shiv shakti') &&
+      !n.includes('agarwal general') &&
+      !o.includes('retailer 6655') &&
+      !o.includes('ram lal') &&
+      !o.includes('mohan lal') &&
+      !o.includes('sanjay gupta') &&
+      !o.includes('mahesh verma') &&
+      !o.includes('paras kirana') &&
+      !p.endsWith('9988776655') &&
+      !p.endsWith('9123456789') &&
+      !p.endsWith('9123488888') &&
+      !p.endsWith('9838012345') &&
+      !p.endsWith('9415098765') &&
+      !p.endsWith('9865986532') &&
+      id !== 'ret_672eaf9602624692' &&
+      id !== 'ret_1791274745127_5lbh1' &&
+      id !== 'ret_1791369179248' &&
+      id !== 'ret_1791362412268' &&
+      id !== 'ret_1791652231310' &&
+      id !== 'ret_1791652248963'
+    );
   });
+
+  // Strict Data Isolation: If authenticated user is a retailer, return ONLY their own shop record!
+  if (req.userRole === 'retailer' && req.user) {
+    const activeUserId = req.user.id;
+    const activeUser = activeUserId ? db.getUserById(activeUserId) : null;
+    const targetRetailerId = req.user.retailerId || activeUser?.retailerId;
+    const userPhoneSuffix = req.user.phone ? req.user.phone.replace(/\D/g, '').slice(-10) : '';
+
+    const ownRetailers = filtered.filter(r => 
+      (targetRetailerId && r.id === targetRetailerId) ||
+      (userPhoneSuffix && r.phone && r.phone.replace(/\D/g, '').endsWith(userPhoneSuffix)) ||
+      (req.user.email && r.email && r.email.toLowerCase() === req.user.email.toLowerCase())
+    );
+    return res.json(ownRetailers);
+  }
+
+  // Salesman Beat Isolation: If authenticated user is a salesman, return ONLY retailers mapped to their assigned beats!
+  if (req.userRole === 'salesman' && req.user) {
+    const salesmen = db.getSalesmen();
+    const currentSalesman = salesmen.find(s => 
+      (req.user.salesmanId && s.id === req.user.salesmanId) ||
+      s.id === req.user.id ||
+      (req.user.phone && s.phone && s.phone.replace(/\D/g, '').slice(-10) === req.user.phone.replace(/\D/g, '').slice(-10)) ||
+      (req.user.email && s.email && s.email.toLowerCase() === req.user.email.toLowerCase())
+    );
+    if (currentSalesman && Array.isArray(currentSalesman.assignedBeats) && currentSalesman.assignedBeats.length > 0) {
+      const assignedBeatsLower = currentSalesman.assignedBeats.map(b => b.toLowerCase().trim());
+      const salesmanRetailers = filtered.filter(r => 
+        r.beatName && assignedBeatsLower.includes(r.beatName.toLowerCase().trim())
+      );
+      return res.json(salesmanRetailers);
+    }
+  }
+
   res.json(filtered);
 });
 
@@ -1516,6 +1758,21 @@ app.post('/api/retailers', requireRoles(['admin', 'salesman', 'accounts', 'retai
     newRetailer.shopPhotoUrl = newRetailer.shopPhotoUrl;
   }
 
+  // Salesman Onboarding Rule: Only Admin has verification authority.
+  // When a salesman onboards a retailer, status is strictly set to 'pending'.
+  if (req.userRole !== 'admin') {
+    newRetailer.verificationStatus = 'pending';
+    newRetailer.verificationRemarks = 'Onboarded by Salesman · Awaiting Admin Verification';
+    newRetailer.verifiedAt = undefined;
+    newRetailer.verifiedBy = undefined;
+  } else {
+    newRetailer.verificationStatus = newRetailer.verificationStatus || 'verified';
+    if (newRetailer.verificationStatus === 'verified') {
+      newRetailer.verifiedAt = newRetailer.verifiedAt || new Date().toISOString();
+      newRetailer.verifiedBy = req.user?.name || 'Admin';
+    }
+  }
+
   const saved = db.saveRetailer(newRetailer);
   res.json(saved);
 });
@@ -1544,6 +1801,16 @@ app.put('/api/retailers/:id', requireRoles(['admin', 'salesman', 'accounts']), (
   // Only Admin and Accounts can turn credit ON/OFF or edit credit limits.
   const isPrivilegedCreditAdmin = req.userRole === 'admin' || req.userRole === 'accounts';
 
+  // Verification Authority Rule: Salesmen can update details (e.g. GPS, address), but CANNOT verify store.
+  let resolvedVerificationStatus = existing.verificationStatus || 'pending';
+  if (req.userRole === 'admin') {
+    resolvedVerificationStatus = req.body.verificationStatus !== undefined ? req.body.verificationStatus : (existing.verificationStatus || 'verified');
+  } else if (req.body.verificationStatus === 'verified' && existing.verificationStatus !== 'verified') {
+    return res.status(403).json({
+      error: "Access Denied: Only Admin is authorized to verify or approve retail outlets. Salesmen can only onboard retailers with pending status."
+    });
+  }
+
   const rawPhone = req.body.phone !== undefined ? req.body.phone?.trim() : existing.phone;
   if (rawPhone) {
     const digitsOnlyPhone = rawPhone.replace(/\D/g, '');
@@ -1568,6 +1835,10 @@ app.put('/api/retailers/:id', requireRoles(['admin', 'salesman', 'accounts']), (
     ...existing, 
     ...req.body, 
     id,
+    verificationStatus: resolvedVerificationStatus,
+    verificationRemarks: req.userRole === 'admin' 
+      ? (req.body.verificationRemarks !== undefined ? req.body.verificationRemarks : existing.verificationRemarks)
+      : existing.verificationRemarks,
     creditEnabled: isPrivilegedCreditAdmin 
       ? (req.body.creditEnabled !== undefined ? Boolean(req.body.creditEnabled) : existing.creditEnabled) 
       : existing.creditEnabled,
@@ -1788,6 +2059,447 @@ app.delete('/api/beats/:beatName', requireRoles(['admin', 'salesman']), (req, re
     affectedSalesmen: result.affectedSalesmen,
     beats: result.beats
   });
+});
+
+// ==========================================
+// Beat-Wise Salesman Visit Check-In System
+// ==========================================
+function calculateHaversineDistanceMetres(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000; // Radius of Earth in metres
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+// Upload live captured shop photo
+app.post('/api/visits/upload-photo', requireRoles(['admin', 'salesman']), (req, res) => {
+  try {
+    const { photoBase64 } = req.body;
+    if (!photoBase64) {
+      return res.status(400).json({ error: 'Photo data is required' });
+    }
+
+    const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'visits');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const cleanBase64 = photoBase64.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(cleanBase64, 'base64');
+    const fileName = `visit_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const filePath = path.join(uploadsDir, fileName);
+
+    fs.writeFileSync(filePath, buffer);
+    const photoUrl = `/uploads/visits/${fileName}`;
+
+    // Also upload to Supabase Storage bucket 'visit-photos' if available
+    if (supabaseServer) {
+      Promise.resolve(
+        supabaseServer.storage.from('visit-photos').upload(fileName, buffer, {
+          contentType: 'image/jpeg',
+          upsert: true
+        })
+      ).catch(() => {});
+    }
+
+    res.json({ success: true, photoUrl });
+  } catch (err: any) {
+    console.error('Photo upload error:', err);
+    res.status(500).json({ error: 'Failed to upload visit photo' });
+  }
+});
+
+// Salesman Check-In Endpoint (Server-Side Authoritative Verification)
+app.post('/api/visits/check-in', requireRoles(['salesman', 'admin']), async (req, res) => {
+  try {
+    const { 
+      retailerId, 
+      lat, 
+      lng, 
+      accuracy = 10, 
+      timestamp = Date.now(), 
+      isMockLocation = false, 
+      photoUrl, 
+      allowedRadiusMetres = 100,
+      notes 
+    } = req.body;
+
+    if (!retailerId) {
+      return res.status(400).json({ success: false, error: 'retailerId is required' });
+    }
+    if (lat === undefined || lng === undefined) {
+      return res.status(400).json({ success: false, error: 'GPS coordinates (lat, lng) are required' });
+    }
+
+    // 1. Resolve Authenticated Salesman
+    const salesmen = db.getSalesmen();
+    let currentSalesman: Salesman | undefined;
+    if (req.userRole === 'salesman' && req.user) {
+      currentSalesman = salesmen.find(s => 
+        (req.user.salesmanId && s.id === req.user.salesmanId) ||
+        s.id === req.user.id ||
+        (req.user.phone && s.phone && s.phone.replace(/\D/g, '').slice(-10) === req.user.phone.replace(/\D/g, '').slice(-10)) ||
+        (req.user.email && s.email && s.email.toLowerCase() === req.user.email.toLowerCase())
+      );
+      if (!currentSalesman) {
+        currentSalesman = {
+          id: req.user.salesmanId || req.user.id || 'slm_auto',
+          employeeCode: 'EMP-SALES',
+          name: req.user.name || 'Sales Representative',
+          phone: req.user.phone || '',
+          email: req.user.email || '',
+          assignedBeats: ['Utraula Retail Beat', 'Balrampur Central Beat'],
+          dailyTargetAmount: 75000,
+          monthlyTargetAmount: 1800000,
+          currentMonthAchieved: 0,
+          commissionPercentage: 1.5,
+          todayOrdersCount: 0,
+          todaySalesAmount: 0,
+          status: 'active'
+        };
+      }
+    } else {
+      // Admin check-in override
+      const requestedSalesmanId = req.body.salesmanId;
+      currentSalesman = (requestedSalesmanId && salesmen.find(s => s.id === requestedSalesmanId)) || salesmen[0] || {
+        id: 'slm_admin',
+        employeeCode: 'ADM-01',
+        name: req.user?.name || 'Aryan Sharma (Admin)',
+        phone: req.user?.phone || '+91 98450 12345',
+        email: req.user?.email || 'admin@aryanagency.in',
+        assignedBeats: ['Utraula Retail Beat', 'Balrampur Central Beat'],
+        dailyTargetAmount: 75000,
+        monthlyTargetAmount: 1800000,
+        currentMonthAchieved: 0,
+        commissionPercentage: 1.5,
+        todayOrdersCount: 0,
+        todaySalesAmount: 0,
+        status: 'active'
+      };
+    }
+
+    // 2. Fetch Retailer & Verify GPS Coordinates
+    let retailer = db.getRetailerById(retailerId);
+    if (!retailer && supabaseServer) {
+      const { data: sbRet } = await supabaseServer.from('retailers').select('*').eq('id', retailerId).maybeSingle();
+      if (sbRet) {
+        retailer = {
+          id: sbRet.id,
+          storeName: sbRet.store_name,
+          ownerName: sbRet.owner_name,
+          phone: sbRet.phone,
+          address: sbRet.address,
+          area: sbRet.area,
+          beatName: sbRet.beat_name,
+          status: sbRet.status || 'active',
+          lat: sbRet.lat ? Number(sbRet.lat) : undefined,
+          lng: sbRet.lng ? Number(sbRet.lng) : undefined,
+          creditLimit: Number(sbRet.credit_limit || 50000),
+          currentOutstanding: 0,
+          creditDaysAllowed: 15
+        };
+      }
+    }
+
+    if (!retailer) {
+      return res.status(404).json({ success: false, error: 'Retailer store record not found in system' });
+    }
+
+    // Require registered shop GPS coordinates
+    if (retailer.lat === undefined || retailer.lng === undefined) {
+      return res.status(400).json({ 
+        success: false, 
+        code: 'GPS_MISSING', 
+        error: `Shop GPS Location Missing: ${retailer.storeName} does not have registered GPS coordinates yet. Please contact an authorized Admin to capture and verify the shop location.` 
+      });
+    }
+
+    // 3. Verify Salesman Beat Assignment (Security Rule)
+    if (req.userRole === 'salesman') {
+      const isAssigned = (currentSalesman.assignedBeats || []).some(
+        b => b.toLowerCase() === (retailer?.beatName || '').toLowerCase()
+      );
+      if (!isAssigned) {
+        return res.status(403).json({ 
+          success: false, 
+          code: 'BEAT_UNASSIGNED', 
+          error: `Unauthorized Beat: Retailer beat "${retailer.beatName}" is not in your assigned beat routes (${(currentSalesman.assignedBeats || []).join(', ')}).` 
+        });
+      }
+    }
+
+    // 4. Anti-Fraud & GPS Spoofing Checks
+    if (isMockLocation) {
+      return res.status(400).json({ 
+        success: false, 
+        code: 'MOCK_DETECTED', 
+        error: 'Mock location app detected. Check-in must be completed using genuine device GPS satellite fix.' 
+      });
+    }
+
+    if (accuracy > 100) {
+      return res.status(400).json({ 
+        success: false, 
+        code: 'ACCURACY_LOW', 
+        error: `GPS Accuracy Low: Signal accuracy is ±${Math.round(accuracy)}m (must be within ±100m). Please step into open sky or enable High Accuracy GPS mode.` 
+      });
+    }
+
+    const ageSeconds = Math.abs((Date.now() - timestamp) / 1000);
+    if (ageSeconds > 60) {
+      return res.status(400).json({ 
+        success: false, 
+        code: 'STALE_COORDS', 
+        error: `Stale GPS coordinates detected (${Math.round(ageSeconds)}s old). Fresh live satellite fix is required.` 
+      });
+    }
+
+    // 5. Server-Side Distance Verification
+    const distanceMetres = calculateHaversineDistanceMetres(Number(lat), Number(lng), Number(retailer.lat), Number(retailer.lng));
+    const maxRadius = Number(allowedRadiusMetres) > 0 ? Number(allowedRadiusMetres) : 100;
+
+    if (distanceMetres > maxRadius) {
+      // Record rejected visit in audit trail for Admin oversight
+      const rejectedVisit: SalesmanVisit = {
+        id: `vis_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        salesmanId: currentSalesman.id,
+        salesmanName: currentSalesman.name,
+        retailerId: retailer.id,
+        retailerName: retailer.storeName,
+        beatName: retailer.beatName,
+        status: 'rejected',
+        checkInTime: new Date().toISOString(),
+        checkInLat: Number(lat),
+        checkInLng: Number(lng),
+        checkInAccuracy: Number(accuracy),
+        retailerLat: Number(retailer.lat),
+        retailerLng: Number(retailer.lng),
+        distanceMetres,
+        allowedRadiusMetres: maxRadius,
+        isMockLocation: Boolean(isMockLocation),
+        photoUrl: photoUrl || '',
+        rejectionReason: `Out of Allowed Radius: Distance of ${distanceMetres}m exceeds permitted radius of ${maxRadius}m`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      db.saveVisit(rejectedVisit);
+
+      return res.status(400).json({ 
+        success: false, 
+        code: 'OUT_OF_RADIUS', 
+        distanceMetres, 
+        allowedRadiusMetres: maxRadius, 
+        error: `Out of Allowed Radius: You are ${distanceMetres} metres away from ${retailer.storeName}. Allowed check-in radius is ${maxRadius}m. Please check in directly from the retailer's shop counter.` 
+      });
+    }
+
+    // 6. Mandatory Live Camera Photo Proof
+    if (!photoUrl) {
+      return res.status(400).json({ 
+        success: false, 
+        code: 'PHOTO_REQUIRED', 
+        error: 'Live store front photo is mandatory for check-in verification. Gallery uploads are not accepted.' 
+      });
+    }
+
+    // 7. Concurrency Check: Single Active Visit per Salesman & Single Active Visit per Retailer
+    const activeVisits = db.getVisits().filter(v => v.salesmanId === currentSalesman?.id && v.status === 'checked_in');
+    if (activeVisits.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        code: 'ACTIVE_VISIT_EXISTS', 
+        error: `You currently have an active check-in at "${activeVisits[0].retailerName}". Please check out of that shop before starting a new visit.` 
+      });
+    }
+
+    const activeRetailerVisits = db.getVisits().filter(v => v.retailerId === retailer.id && v.status === 'checked_in');
+    if (activeRetailerVisits.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        code: 'RETAILER_ACTIVE_VISIT_EXISTS', 
+        error: `An active check-in is already in progress for "${retailer.storeName}" by ${activeRetailerVisits[0].salesmanName}. Please check out before starting a new visit.` 
+      });
+    }
+
+    // 8. Create Authorized Visit
+    const newVisit: SalesmanVisit = {
+      id: `vis_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      salesmanId: currentSalesman.id,
+      salesmanName: currentSalesman.name,
+      retailerId: retailer.id,
+      retailerName: retailer.storeName,
+      beatName: retailer.beatName,
+      status: 'checked_in',
+      checkInTime: new Date().toISOString(),
+      checkInLat: Number(lat),
+      checkInLng: Number(lng),
+      checkInAccuracy: Number(accuracy),
+      retailerLat: Number(retailer.lat),
+      retailerLng: Number(retailer.lng),
+      distanceMetres,
+      allowedRadiusMetres: maxRadius,
+      isMockLocation: Boolean(isMockLocation),
+      photoUrl,
+      notes: notes || '',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    db.saveVisit(newVisit);
+
+    // Sync to Supabase salesman_visits if table exists
+    if (supabaseServer) {
+      Promise.resolve(
+        supabaseServer.from('salesman_visits').upsert({
+          id: newVisit.id,
+          salesman_id: newVisit.salesmanId,
+          salesman_name: newVisit.salesmanName,
+          retailer_id: newVisit.retailerId,
+          retailer_name: newVisit.retailerName,
+          beat_name: newVisit.beatName,
+          status: newVisit.status,
+          check_in_time: newVisit.checkInTime,
+          check_in_lat: newVisit.checkInLat,
+          check_in_lng: newVisit.checkInLng,
+          check_in_accuracy: newVisit.checkInAccuracy,
+          retailer_lat: newVisit.retailerLat,
+          retailer_lng: newVisit.retailerLng,
+          distance_metres: newVisit.distanceMetres,
+          allowed_radius_metres: newVisit.allowedRadiusMetres,
+          is_mock_location: newVisit.isMockLocation,
+          photo_url: newVisit.photoUrl,
+          notes: newVisit.notes,
+          created_at: newVisit.createdAt,
+          updated_at: newVisit.updatedAt
+        })
+      ).catch((err: any) => console.warn('[Supabase Visit Sync Notice]:', err?.message));
+    }
+
+    return res.json({ 
+      success: true, 
+      visit: newVisit, 
+      message: `Check-in verified successfully at ${retailer.storeName} (${distanceMetres}m from shop counter)!` 
+    });
+  } catch (err: any) {
+    console.error('Check-in error:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Check-in processing error' });
+  }
+});
+
+// Salesman Check-Out Endpoint
+app.post('/api/visits/:id/check-out', requireRoles(['salesman', 'admin']), (req, res) => {
+  try {
+    const visitId = req.params.id;
+    const visit = db.getVisitById(visitId);
+    if (!visit) {
+      return res.status(404).json({ success: false, error: 'Visit record not found' });
+    }
+
+    if (visit.status === 'completed') {
+      return res.json({ success: true, visit, message: 'Visit already completed' });
+    }
+
+    const { notes, orderCreatedId, orderTotalAmount } = req.body;
+    visit.status = 'completed';
+    visit.checkOutTime = new Date().toISOString();
+    if (notes) visit.notes = notes;
+    if (orderCreatedId) visit.orderCreatedId = orderCreatedId;
+    if (orderTotalAmount !== undefined) visit.orderTotalAmount = Number(orderTotalAmount);
+    visit.updatedAt = new Date().toISOString();
+
+    db.saveVisit(visit);
+
+    if (supabaseServer) {
+      Promise.resolve(
+        supabaseServer.from('salesman_visits').update({
+          status: 'completed',
+          check_out_time: visit.checkOutTime,
+          notes: visit.notes,
+          order_created_id: visit.orderCreatedId,
+          order_total_amount: visit.orderTotalAmount,
+          updated_at: visit.updatedAt
+        }).eq('id', visit.id)
+      ).catch(() => {});
+    }
+
+    res.json({ 
+      success: true, 
+      visit, 
+      message: `Visit to ${visit.retailerName} checked out and completed successfully.` 
+    });
+  } catch (err: any) {
+    console.error('Check-out error:', err);
+    res.status(500).json({ success: false, error: 'Failed to process check-out' });
+  }
+});
+
+// Get Visits (Audit & Reports)
+app.get('/api/visits', requireRoles(['admin', 'salesman', 'accounts']), (req, res) => {
+  if (req.userRole === 'retailer') {
+    return res.status(403).json({ error: 'Access denied: Retailers cannot view salesman visit logs.' });
+  }
+
+  let visits = db.getVisits();
+
+  // If salesman, enforce access control: only show their own visits or their assigned beats
+  if (req.userRole === 'salesman' && req.user) {
+    const salesmen = db.getSalesmen();
+    const currentSalesman = salesmen.find(s => 
+      (req.user.salesmanId && s.id === req.user.salesmanId) ||
+      s.id === req.user.id ||
+      (req.user.phone && s.phone && s.phone.replace(/\D/g, '').slice(-10) === req.user.phone.replace(/\D/g, '').slice(-10))
+    );
+    const assignedBeats = currentSalesman?.assignedBeats || [];
+    visits = visits.filter(v => 
+      v.salesmanId === currentSalesman?.id || 
+      assignedBeats.some(b => b.toLowerCase() === v.beatName.toLowerCase())
+    );
+  }
+
+  // Filter params
+  const { salesmanId, beatName, status, date, retailerId } = req.query as Record<string, string>;
+
+  if (salesmanId && salesmanId !== 'all') {
+    visits = visits.filter(v => v.salesmanId === salesmanId);
+  }
+  if (beatName && beatName !== 'all') {
+    visits = visits.filter(v => v.beatName.toLowerCase() === beatName.toLowerCase());
+  }
+  if (status && status !== 'all') {
+    visits = visits.filter(v => v.status === status);
+  }
+  if (retailerId) {
+    visits = visits.filter(v => v.retailerId === retailerId);
+  }
+  if (date) {
+    visits = visits.filter(v => v.checkInTime.startsWith(date));
+  }
+
+  res.json(visits);
+});
+
+// Get Active Visit for Current Salesman
+app.get('/api/visits/active', requireRoles(['salesman', 'admin']), (req, res) => {
+  const visits = db.getVisits();
+  const salesmen = db.getSalesmen();
+  const currentSalesman = salesmen.find(s => 
+    (req.user?.salesmanId && s.id === req.user.salesmanId) ||
+    s.id === req.user?.id ||
+    (req.user?.phone && s.phone && s.phone.replace(/\D/g, '').slice(-10) === req.user?.phone.replace(/\D/g, '').slice(-10))
+  );
+
+  const activeVisit = visits.find(v => 
+    v.status === 'checked_in' && 
+    (v.salesmanId === currentSalesman?.id || (req.userRole === 'admin' && req.query.salesmanId === v.salesmanId))
+  );
+
+  res.json({ success: true, activeVisit: activeVisit || null });
 });
 
 // Orders
