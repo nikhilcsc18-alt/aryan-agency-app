@@ -24,16 +24,26 @@
       "phone": "+91 98860 34567",
       "role": "salesman",
       "salesmanId": "slm_1",
-      "avatarUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
+      "avatarUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
+      "retailerId": "ret_usr_usr_sales_1",
+      "businessName": "Rajesh Kumar",
+      "address": "Utraula, Balrampur, Uttar Pradesh",
+      "verificationStatus": "rejected",
+      "verificationRemarks": "Your store location falls outside our current delivery beats (Utraula, Balrampur, Tulsipur, Jarwa). Contact depot for route expansion."
     },
     {
       "id": "usr_sales_2",
       "name": "Vikram Singh",
       "email": "vikram.sales@aryanagency.in",
       "phone": "+91 99001 56789",
-      "role": "salesman",
+      "role": "retailer",
       "salesmanId": "slm_2",
-      "avatarUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80"
+      "avatarUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
+      "retailerId": "ret_usr_usr_sales_2",
+      "businessName": "Vikram Singh",
+      "address": "Utraula, Balrampur, Uttar Pradesh",
+      "verificationStatus": "rejected",
+      "verificationRemarks": "Your store location falls outside our current delivery beats (Utraula, Balrampur, Tulsipur, Jarwa). Contact depot for route expansion."
     },
     {
       "id": "usr_delivery_1",
@@ -107,6 +117,139 @@
       "verificationStatus": "verified",
       "verifiedAt": "2026-10-11T11:56:30.802Z",
       "verifiedBy": "NIkhil"
+    },
+    {
+      "id": "usr_ret_02624692",
+      "name": "Paras Kirana Store",
+      "phone": "+91 98659 86532",
+      "email": "ret_672eaf9602624692@retailer.aryanagency.in",
+      "role": "retailer",
+      "businessName": "Paras Kirana Store",
+      "address": "Station Road, Utraula, Balrampur",
+      "city": "Utraula Central",
+      "state": "Uttar Pradesh",
+      "pincode": "271604",
+      "gstin": "",
+      "panNumber": "",
+      "retailerId": "ret_672eaf9602624692",
+      "verificationStatus": "verified",
+      "verifiedAt": "2026-09-05T08:15:41.125412+00:00",
+      "verifiedBy": "NIkhil"
+    },
+    {
+      "id": "usr_ret_1275lbh1",
+      "name": "Suneel",
+      "phone": "+91 8874255666",
+      "email": "ret_1791274745127_5lbh1@retailer.aryanagency.in",
+      "role": "retailer",
+      "businessName": "Suneel kirana store",
+      "address": "GuruDayaldeeh",
+      "city": "Utraula",
+      "state": "Uttar Pradesh",
+      "pincode": "271604",
+      "gstin": "",
+      "panNumber": "",
+      "retailerId": "ret_1791274745127_5lbh1",
+      "verificationStatus": "verified",
+      "verifiedAt": "2026-10-10T11:13:41.061+00:00",
+      "verifiedBy": "NIkhil"
+    },
+    {
+      "id": "usr_ret_873ebcou",
+      "name": "Azhar ansari",
+      "phone": "+91 9648721927",
+      "email": "ret_1791729464873_ebcou@retailer.aryanagency.in",
+      "role": "retailer",
+      "businessName": "Ansari provision store",
+      "address": "Near Pushpanjali store",
+      "city": "Utraula Central",
+      "state": "Uttar Pradesh",
+      "pincode": "271604",
+      "gstin": "",
+      "panNumber": "",
+      "retailerId": "ret_1791729464873_ebcou",
+      "verificationStatus": "verified",
+      "verifiedAt": "2026-10-11T14:37:45.400297+00:00",
+      "verifiedBy": "NIkhil"
+    },
+    {
+      "id": "usr_ret_69179248",
+      "name": "Neeyansh",
+      "phone": "+919044948582",
+      "email": "retailer.9044948582@aryanagency.in",
+      "role": "retailer",
+      "businessName": "Neeyansh General store",
+      "address": "Utraula, Balrampur (UP)",
+      "city": "Utraula Central",
+      "state": "Uttar Pradesh",
+      "pincode": "271604",
+      "gstin": "",
+      "panNumber": "",
+      "retailerId": "ret_1791369179248",
+      "verificationStatus": "verified",
+      "verifiedAt": "2026-10-11T14:54:34.309+00:00",
+      "verifiedBy": "NIkhil"
+    },
+    {
+      "id": "usr_ret_995ff7mm",
+      "name": "Asif",
+      "phone": "+91 7760962403",
+      "email": "ret_1791731259995_ff7mm@retailer.aryanagency.in",
+      "role": "retailer",
+      "businessName": "Taj bekars",
+      "address": "Super market Asam rode chauraha",
+      "city": "Utraula Central",
+      "state": "Uttar Pradesh",
+      "pincode": "271604",
+      "gstin": "",
+      "panNumber": "",
+      "retailerId": "ret_1791731259995_ff7mm",
+      "verificationStatus": "verified",
+      "verifiedAt": "2026-10-11T15:07:40.702436+00:00",
+      "verifiedBy": "NIkhil"
+    },
+    {
+      "id": "usr_ret_913n9443",
+      "name": "Ashfaq",
+      "phone": "+919889926831",
+      "email": "ret_1791978025913_n9443@retailer.aryanagency.in",
+      "role": "retailer",
+      "businessName": "Ashfaq kirana stor",
+      "address": "Chapiya bazar",
+      "city": "Pehar chapiya",
+      "state": "Uttar Pradesh",
+      "pincode": "271604",
+      "gstin": "",
+      "panNumber": "",
+      "retailerId": "ret_1791978025913_n9443",
+      "verificationStatus": "verified",
+      "verifiedAt": "2026-10-14T11:49:55.585Z",
+      "verifiedBy": "NIkhil"
+    },
+    {
+      "id": "usr_sales_1792071708611",
+      "name": "Amit Verma",
+      "email": "amit.verma@aryanagency.in",
+      "phone": "+91 98765 43210",
+      "role": "salesman",
+      "salesmanId": "slm_1792071708611"
+    },
+    {
+      "id": "bb0f03c0-2389-4c9d-846f-a87653595452",
+      "name": "amit",
+      "email": "nkg8369@gmail.com",
+      "phone": "9876543219",
+      "role": "salesman"
+    },
+    {
+      "id": "usr_nikhil_admin",
+      "name": "Nikhil (Admin)",
+      "email": "nikhilcsc18@gmail.com",
+      "phone": "+91 94505 12345",
+      "role": "admin",
+      "businessName": "Aryan Agency FMCG Distribution",
+      "gstin": "09AAACA1234B1Z5",
+      "createdAt": "2026-10-16T14:01:37.729Z"
     }
   ],
   "products": [
@@ -615,7 +758,7 @@
       "casePrice": 3000,
       "mrpPiece": 300,
       "gstRate": 5,
-      "currentStockCases": 1,
+      "currentStockCases": 0,
       "currentStockLoosePcs": 0,
       "reorderLevelCases": 10,
       "primaryWarehouseBin": "BAY-A1",
@@ -661,43 +804,100 @@
   ],
   "retailers": [
     {
+      "id": "ret_672eaf9602624692",
+      "storeName": "Paras Kirana Store",
+      "ownerName": "Paras Kirana Store",
+      "phone": "+91 98659 86532",
+      "email": "",
+      "address": "Station Road, Utraula, Balrampur",
+      "area": "Utraula Central",
+      "beatName": "Utraula Retail Beat",
+      "gstin": "",
+      "panNumber": "",
+      "creditLimit": 50000,
+      "currentOutstanding": 2884,
+      "creditDaysAllowed": 7,
+      "creditEnabled": true,
+      "status": "active",
+      "lat": 27.3167,
+      "lng": 82.421,
+      "verificationStatus": "verified",
+      "verificationRemarks": "Verified Retail Outlet",
+      "verifiedAt": "2026-09-05T08:15:41.125412+00:00",
+      "verifiedBy": "NIkhil",
+      "createdAt": "2026-09-05T08:15:41.125412+00:00"
+    },
+    {
+      "id": "ret_1791274745127_5lbh1",
+      "storeName": "Suneel kirana store",
+      "ownerName": "Suneel",
+      "phone": "+91 8874255666",
+      "email": "",
+      "address": "GuruDayaldeeh",
+      "area": "Utraula",
+      "beatName": "Utraula Retail Beat",
+      "gstin": "",
+      "panNumber": "",
+      "creditLimit": 50000,
+      "currentOutstanding": 0,
+      "creditDaysAllowed": 15,
+      "creditEnabled": true,
+      "status": "active",
+      "lat": 27.3167,
+      "lng": 82.421,
+      "verificationStatus": "verified",
+      "verificationRemarks": "Verified Retail Outlet",
+      "verifiedAt": "2026-10-10T11:13:41.061+00:00",
+      "verifiedBy": "NIkhil",
+      "createdAt": "2026-10-06T08:19:05.467158+00:00"
+    },
+    {
       "id": "ret_1791275454028_g7oc0",
       "storeName": "Jaljeere kirana store",
       "ownerName": "Jaljeere",
       "phone": "+91 9044393678",
+      "email": "",
       "address": "Utraula, Balrampur",
       "area": "Utraula",
       "beatName": "Utraula Retail Beat",
-      "status": "active",
+      "gstin": "",
+      "panNumber": "",
       "creditLimit": 50000,
       "currentOutstanding": 0,
       "creditDaysAllowed": 15,
       "creditEnabled": false,
+      "status": "active",
+      "lat": 27.317662352509668,
+      "lng": 82.42373253561384,
       "verificationStatus": "verified",
       "verificationRemarks": "Verified and approved by Nikhil on 7/10/2026",
-      "verificationReasonCode": "PHYSICAL_STORE_VERIFIED",
       "verifiedAt": "2026-10-07T04:48:41.473Z",
       "verifiedBy": "NIkhil",
-      "submittedAt": "2026-10-07T04:48:47.214Z",
-      "verificationTimeline": [
-        {
-          "id": "vtl_1791348527214_4q4f",
-          "timestamp": "2026-10-07T04:48:47.214Z",
-          "type": "approved",
-          "actorName": "NIkhil",
-          "actorRole": "admin",
-          "title": "Verification Approved (PHYSICAL_STORE_VERIFIED)",
-          "description": "Verified and approved by Nikhil on 7/10/2026",
-          "reasonCode": "PHYSICAL_STORE_VERIFIED"
-        }
-      ],
+      "createdAt": "2026-10-06T08:30:54.251213+00:00"
+    },
+    {
+      "id": "ret_1791729464873_ebcou",
+      "storeName": "Ansari provision store",
+      "ownerName": "Azhar ansari",
+      "phone": "+91 9648721927",
       "email": "",
+      "address": "Near Pushpanjali store",
+      "area": "Utraula Central",
+      "beatName": "Utraula Retail Beat",
       "gstin": "",
       "panNumber": "",
-      "isActive": true,
-      "createdAt": "2026-10-06T08:30:54.251213+00:00",
-      "lat": 27.317662352509668,
-      "lng": 82.42373253561384
+      "creditLimit": 50000,
+      "currentOutstanding": 0,
+      "creditDaysAllowed": 15,
+      "creditEnabled": true,
+      "status": "active",
+      "lat": 27.3167,
+      "lng": 82.421,
+      "verificationStatus": "verified",
+      "verificationRemarks": "Verified Retail Outlet",
+      "verifiedAt": "2026-10-11T14:37:45.400297+00:00",
+      "verifiedBy": "NIkhil",
+      "createdAt": "2026-10-11T14:37:45.400297+00:00"
     },
     {
       "id": "ret_1791636471142_yvjaf",
@@ -721,20 +921,158 @@
       "verificationRemarks": "Verified and approved by NIkhil on 11/10/2026",
       "verifiedAt": "2026-10-11T11:56:30.802Z",
       "verifiedBy": "NIkhil",
-      "createdAt": "2026-10-10T12:47:52.059907+00:00",
-      "verificationReasonCode": "DOCS_VALIDATED",
+      "createdAt": "2026-10-10T12:47:52.059907+00:00"
+    },
+    {
+      "id": "ret_1791369179248",
+      "storeName": "Neeyansh General store",
+      "ownerName": "Neeyansh",
+      "phone": "+919044948582",
+      "email": "retailer.9044948582@aryanagency.in",
+      "address": "Utraula, Balrampur (UP)",
+      "area": "Utraula Central",
+      "beatName": "Utraula Retail Beat",
+      "gstin": "",
+      "panNumber": "",
+      "creditLimit": 50000,
+      "currentOutstanding": 0,
+      "creditDaysAllowed": 15,
+      "creditEnabled": true,
+      "status": "active",
+      "lat": 27.3167,
+      "lng": 82.421,
+      "verificationStatus": "verified",
+      "verificationRemarks": "Verified Retail Outlet",
+      "verifiedAt": "2026-10-11T14:54:34.309+00:00",
+      "verifiedBy": "NIkhil",
+      "createdAt": "2026-10-07T10:32:59.47875+00:00"
+    },
+    {
+      "id": "ret_1791731259995_ff7mm",
+      "storeName": "Taj bekars",
+      "ownerName": "Asif",
+      "phone": "+91 7760962403",
+      "email": "",
+      "address": "Super market Asam rode chauraha",
+      "area": "Utraula Central",
+      "beatName": "Utraula Retail Beat",
+      "gstin": "",
+      "panNumber": "",
+      "creditLimit": 50000,
+      "currentOutstanding": 0,
+      "creditDaysAllowed": 15,
+      "creditEnabled": true,
+      "status": "active",
+      "lat": 27.3167,
+      "lng": 82.421,
+      "verificationStatus": "verified",
+      "verificationRemarks": "Verified Retail Outlet",
+      "verifiedAt": "2026-10-11T15:07:40.702436+00:00",
+      "verifiedBy": "NIkhil",
+      "createdAt": "2026-10-11T15:07:40.702436+00:00"
+    },
+    {
+      "id": "ret_1791978025913_n9443",
+      "storeName": "Ashfaq kirana stor",
+      "ownerName": "Ashfaq",
+      "phone": "+919889926831",
+      "email": "",
+      "address": "Chapiya bazar",
+      "area": "Pehar chapiya",
+      "beatName": "Rehra Bazar Beat",
+      "gstin": "",
+      "panNumber": "",
+      "creditLimit": 50000,
+      "currentOutstanding": 0,
+      "creditDaysAllowed": 15,
+      "creditEnabled": false,
+      "status": "active",
+      "lat": 27.3167,
+      "lng": 82.421,
+      "verificationStatus": "verified",
+      "verificationRemarks": "Verified and approved by NIkhil on 14/10/2026",
+      "verifiedAt": "2026-10-14T11:49:55.585Z",
+      "verifiedBy": "NIkhil",
+      "createdAt": "2026-10-14T11:40:26.536491+00:00",
+      "verificationReasonCode": "PHYSICAL_STORE_VERIFIED",
       "verificationTimeline": [
         {
-          "id": "vtl_1791719792164_ftm5",
-          "timestamp": "2026-10-11T11:56:30.802Z",
+          "id": "vtl_1791978596727_8b0a",
+          "timestamp": "2026-10-14T11:49:55.585Z",
           "type": "approved",
           "actorName": "NIkhil",
           "actorRole": "admin",
-          "title": "Verification Approved (DOCS_VALIDATED)",
-          "description": "Verified and approved by NIkhil on 11/10/2026",
-          "reasonCode": "DOCS_VALIDATED"
+          "title": "Verification Approved (PHYSICAL_STORE_VERIFIED)",
+          "description": "Verified and approved by NIkhil on 14/10/2026",
+          "reasonCode": "PHYSICAL_STORE_VERIFIED"
         }
       ]
+    },
+    {
+      "id": "ret_usr_usr_sales_1",
+      "storeName": "Rajesh Kumar",
+      "ownerName": "Rajesh Kumar",
+      "phone": "+91 98860 34567",
+      "email": "rajesh.sales@aryanagency.in",
+      "address": "Utraula, Balrampur, Uttar Pradesh",
+      "area": "Utraula Central",
+      "beatName": "Utraula Retail Beat",
+      "status": "inactive",
+      "creditLimit": 50000,
+      "currentOutstanding": 0,
+      "creditDaysAllowed": 14,
+      "creditEnabled": false,
+      "verificationStatus": "rejected",
+      "verificationRemarks": "Your store location falls outside our current delivery beats (Utraula, Balrampur, Tulsipur, Jarwa). Contact depot for route expansion.",
+      "createdAt": "2026-10-14T11:49:57.018Z",
+      "verificationReasonCode": "OUT_OF_BEAT_AREA",
+      "verificationTimeline": [
+        {
+          "id": "vtl_1791978635063_kvp6",
+          "timestamp": "2026-10-14T11:50:35.063Z",
+          "type": "rejected",
+          "actorName": "NIkhil",
+          "actorRole": "admin",
+          "title": "Verification Rejected (OUT_OF_BEAT_AREA)",
+          "description": "Your store location falls outside our current delivery beats (Utraula, Balrampur, Tulsipur, Jarwa). Contact depot for route expansion.",
+          "reasonCode": "OUT_OF_BEAT_AREA"
+        }
+      ],
+      "lat": 27.319829203030196,
+      "lng": 82.42323347839425
+    },
+    {
+      "id": "ret_usr_usr_sales_2",
+      "storeName": "Vikram Singh",
+      "ownerName": "Vikram Singh",
+      "phone": "+91 99001 56789",
+      "email": "vikram.sales@aryanagency.in",
+      "address": "Utraula, Balrampur, Uttar Pradesh",
+      "area": "Utraula Central",
+      "beatName": "Utraula Retail Beat",
+      "status": "inactive",
+      "creditLimit": 50000,
+      "currentOutstanding": 0,
+      "creditDaysAllowed": 14,
+      "creditEnabled": false,
+      "verificationStatus": "rejected",
+      "verificationRemarks": "Your store location falls outside our current delivery beats (Utraula, Balrampur, Tulsipur, Jarwa). Contact depot for route expansion.",
+      "createdAt": "2026-10-14T11:49:57.029Z",
+      "verificationReasonCode": "OUT_OF_BEAT_AREA",
+      "verificationTimeline": [
+        {
+          "id": "vtl_1791978622944_uwf7",
+          "timestamp": "2026-10-14T11:50:22.944Z",
+          "type": "rejected",
+          "actorName": "NIkhil",
+          "actorRole": "admin",
+          "title": "Verification Rejected (OUT_OF_BEAT_AREA)",
+          "description": "Your store location falls outside our current delivery beats (Utraula, Balrampur, Tulsipur, Jarwa). Contact depot for route expansion.",
+          "reasonCode": "OUT_OF_BEAT_AREA"
+        }
+      ],
+      "lat": 27.317236516776973,
+      "lng": 82.42314570583076
     }
   ],
   "salesmen": [
@@ -789,6 +1127,44 @@
       "todayOrdersCount": 5,
       "todaySalesAmount": 89400,
       "status": "active"
+    },
+    {
+      "employeeCode": "EMP-AA-785",
+      "name": "Aryan ",
+      "phone": "+91 9044948582",
+      "email": "",
+      "assignedBeats": [
+        "Rehra Bazar Beat"
+      ],
+      "dailyTargetAmount": 70000,
+      "monthlyTargetAmount": 1800000,
+      "currentMonthAchieved": 0,
+      "commissionPercentage": 1.5,
+      "todayOrdersCount": 0,
+      "todaySalesAmount": 0,
+      "status": "active",
+      "id": "slm_1791978114917"
+    },
+    {
+      "id": "slm_1792071708611",
+      "employeeCode": "EMP-SE-9390",
+      "name": "Amit Verma",
+      "phone": "+91 98765 43210",
+      "email": "amit.verma@aryanagency.in",
+      "assignedBeats": [
+        "Balrampur Bazaar Beat"
+      ],
+      "dailyTargetAmount": 50000,
+      "monthlyTargetAmount": 1500000,
+      "targetAssigned": true,
+      "effectiveStartDate": "2026-10-15",
+      "currentMonthAchieved": 0,
+      "commissionPercentage": 1.5,
+      "todayOrdersCount": 0,
+      "todaySalesAmount": 0,
+      "status": "active",
+      "userId": "usr_sales_1792071708611",
+      "targetPeriod": "monthly"
     }
   ],
   "deliveries": [
@@ -900,11 +1276,11 @@
   ],
   "appVersionConfig": {
     "version": "1.3.3",
-    "versionCode": 133,
+    "versionCode": 132,
     "downloadUrl": "https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk",
     "apkUrl": "https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk",
-    "updatedAt": "2026-10-07T05:45:00Z",
-    "releaseNotes": "Aryan Agency App v1.3.3: Retailer onboarding me Full Address ke sath Live GPS Location Pinning, Address Geocoding & OpenStreetMap support add kiya gaya hai.",
+    "updatedAt": "2026-10-07T11:00:54Z",
+    "releaseNotes": "Aryan Agency App v1.3.3 release build.",
     "fileSize": "7.7 MB",
     "minAndroidVersion": "Android 8.0+"
   },
@@ -913,5 +1289,628 @@
     "Pachperwa Market Beat",
     "Rehra Bazar Beat"
   ],
-  "visits": []
+  "visits": [
+    {
+      "id": "vis_1791637315363_bgqv",
+      "salesmanId": "slm_1",
+      "salesmanName": "Rajesh Kumar",
+      "retailerId": "ret_672eaf9602624692",
+      "retailerName": "Paras Kirana Store",
+      "beatName": "Utraula Retail Beat",
+      "status": "verified",
+      "checkInTime": "2026-10-10T13:01:55.363Z",
+      "checkInLat": 27.31672,
+      "checkInLng": 82.42102,
+      "checkInAccuracy": 10,
+      "retailerLat": 27.317204,
+      "retailerLng": 82.424731,
+      "distanceMetres": 12,
+      "allowedRadiusMetres": 100,
+      "isMockLocation": false,
+      "photoUrl": "",
+      "notes": "Store verified by salesman",
+      "createdAt": "2026-10-10T13:01:55.363Z",
+      "updatedAt": "2026-10-10T13:01:55.363Z"
+    }
+  ],
+  "userCredentials": {
+    "amit.verma@aryanagency.in": {
+      "plainPassword": "SalesPassword@2026",
+      "userId": "usr_sales_1792071708611",
+      "role": "salesman",
+      "updatedAt": "2026-10-15T13:41:48.625Z"
+    }
+  },
+  "salesTargets": [
+    {
+      "id": "tgt_1792071775428",
+      "salesmanId": "slm_1792071708611",
+      "period": "monthly",
+      "targetAmount": 1500000,
+      "effectiveStartDate": "2026-10-15",
+      "assignedBy": "Aryan Sharma",
+      "notes": "Festive season Diwali FMCG target",
+      "createdAt": "2026-10-15T13:42:55.428Z",
+      "updatedAt": "2026-10-15T13:42:55.428Z"
+    },
+    {
+      "id": "tgt_1792071708634",
+      "salesmanId": "slm_1792071708611",
+      "period": "monthly",
+      "targetAmount": 1200000,
+      "effectiveStartDate": "2026-10-15",
+      "assignedBy": "Aryan Sharma",
+      "createdAt": "2026-10-15T13:41:48.634Z",
+      "updatedAt": "2026-10-15T13:41:48.635Z"
+    }
+  ],
+  "salesmanTasks": [
+    {
+      "salesmanId": "slm_1792071708611",
+      "salesmanName": "Amit Verma",
+      "title": "Visit Sharma Kirana & Collect Order",
+      "description": "Check stock of Parle-G and Tide 1kg packs",
+      "taskType": "visit",
+      "priority": "high",
+      "dueDate": "2026-10-15",
+      "retailerName": "Sharma General Store",
+      "beatName": "Balrampur Bazaar Beat",
+      "status": "completed",
+      "assignedByRole": "admin",
+      "assignedByName": "Aryan Sharma",
+      "id": "tsk_1792071769782_k4h1",
+      "createdAt": "2026-10-15T13:42:49.782Z",
+      "updatedAt": "2026-10-15T13:42:49.807Z",
+      "completedAt": "2026-10-15T13:42:49.807Z",
+      "completionNotes": "Visited shop, booked order of ₹12,500"
+    }
+  ],
+  "staffMembers": [
+    {
+      "id": "stf_1",
+      "employeeCode": "EMP-AA-101",
+      "name": "Rajesh Kumar",
+      "phone": "+91 98860 34567",
+      "email": "rajesh.sales@aryanagency.in",
+      "role": "salesman",
+      "designation": "Senior Sales Executive",
+      "photoUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80",
+      "assignedBeats": [
+        "Utraula Retail Beat",
+        "Balrampur Central Beat"
+      ],
+      "joiningDate": "2024-03-15",
+      "employmentStatus": "active",
+      "salaryType": "monthly_fixed",
+      "baseSalary": 25000,
+      "allowances": [
+        {
+          "id": "alw_1",
+          "title": "Field Travel Allowance",
+          "amount": 3000
+        },
+        {
+          "id": "alw_2",
+          "title": "Mobile / Data Subsidy",
+          "amount": 500
+        }
+      ],
+      "deductions": [
+        {
+          "id": "ded_1",
+          "title": "Provident Fund (PF)",
+          "amount": 1800
+        },
+        {
+          "id": "ded_2",
+          "title": "Professional Tax",
+          "amount": 200
+        }
+      ],
+      "weeklyOffDay": 0,
+      "monthlyLeaveQuota": 2,
+      "emergencyContact": {
+        "name": "Sunita Kumar",
+        "relation": "Spouse",
+        "phone": "+91 98860 99887"
+      },
+      "address": "Near Old Bus Stand, Utraula, Balrampur - 271604, UP",
+      "userId": "usr_sales_1",
+      "salesmanId": "slm_1",
+      "createdAt": "2024-03-15T00:00:00Z",
+      "updatedAt": "2026-10-15T00:00:00Z"
+    },
+    {
+      "id": "stf_2",
+      "employeeCode": "EMP-AA-102",
+      "name": "Vikram Singh",
+      "phone": "+91 99001 56789",
+      "email": "vikram.sales@aryanagency.in",
+      "role": "salesman",
+      "designation": "Sales Officer - Wholesale",
+      "photoUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80",
+      "assignedBeats": [
+        "Jarwa Rural Beat",
+        "Tulsipur Provision Beat"
+      ],
+      "joiningDate": "2024-06-01",
+      "employmentStatus": "active",
+      "salaryType": "monthly_fixed",
+      "baseSalary": 24000,
+      "allowances": [
+        {
+          "id": "alw_3",
+          "title": "Field Travel Allowance",
+          "amount": 3000
+        }
+      ],
+      "deductions": [
+        {
+          "id": "ded_3",
+          "title": "Provident Fund (PF)",
+          "amount": 1800
+        }
+      ],
+      "weeklyOffDay": 0,
+      "monthlyLeaveQuota": 2,
+      "emergencyContact": {
+        "name": "Rajendra Singh",
+        "relation": "Father",
+        "phone": "+91 99001 22334"
+      },
+      "address": "Station Road, Balrampur - 271201, UP",
+      "userId": "usr_sales_2",
+      "salesmanId": "slm_2",
+      "createdAt": "2024-06-01T00:00:00Z",
+      "updatedAt": "2026-10-15T00:00:00Z"
+    },
+    {
+      "id": "stf_3",
+      "employeeCode": "EMP-AA-201",
+      "name": "Suresh Gowda",
+      "phone": "+91 97410 78901",
+      "email": "suresh.van1@aryanagency.in",
+      "role": "delivery",
+      "designation": "Lead Delivery Pilot (Van KA-05-AB-1234)",
+      "photoUrl": "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&auto=format&fit=crop&q=80",
+      "assignedBeats": [
+        "Utraula Retail Beat",
+        "Balrampur Central Beat",
+        "Tulsipur Road Beat"
+      ],
+      "joiningDate": "2023-11-10",
+      "employmentStatus": "active",
+      "salaryType": "daily_wage",
+      "baseSalary": 850,
+      "allowances": [
+        {
+          "id": "alw_4",
+          "title": "Vehicle Daily Bata",
+          "amount": 1500
+        }
+      ],
+      "deductions": [],
+      "weeklyOffDay": 0,
+      "monthlyLeaveQuota": 2,
+      "emergencyContact": {
+        "name": "Manjula Gowda",
+        "relation": "Spouse",
+        "phone": "+91 97410 11223"
+      },
+      "address": "Warehouse Quarters, Utraula Industrial Area, Balrampur - 271604, UP",
+      "userId": "usr_delivery_1",
+      "createdAt": "2023-11-10T00:00:00Z",
+      "updatedAt": "2026-10-15T00:00:00Z"
+    },
+    {
+      "id": "stf_4",
+      "employeeCode": "EMP-AA-301",
+      "name": "Pooja Agarwal",
+      "phone": "+91 98450 67890",
+      "email": "pooja.accounts@aryanagency.in",
+      "role": "accounts",
+      "designation": "Head of Accounts & GST Billing",
+      "photoUrl": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80",
+      "joiningDate": "2023-08-01",
+      "employmentStatus": "active",
+      "salaryType": "monthly_fixed",
+      "baseSalary": 28000,
+      "allowances": [
+        {
+          "id": "alw_5",
+          "title": "Office Conveyance",
+          "amount": 2000
+        }
+      ],
+      "deductions": [
+        {
+          "id": "ded_4",
+          "title": "Provident Fund (PF)",
+          "amount": 1800
+        }
+      ],
+      "weeklyOffDay": 0,
+      "monthlyLeaveQuota": 2,
+      "emergencyContact": {
+        "name": "Vikas Agarwal",
+        "relation": "Spouse",
+        "phone": "+91 98450 44556"
+      },
+      "address": "Civil Lines, Balrampur - 271201, UP",
+      "userId": "usr_accounts_1",
+      "createdAt": "2023-08-01T00:00:00Z",
+      "updatedAt": "2026-10-15T00:00:00Z"
+    },
+    {
+      "id": "stf_5",
+      "employeeCode": "EMP-AA-001",
+      "name": "Aryan Sharma",
+      "phone": "+91 98450 12345",
+      "email": "aryan@aryanagency.in",
+      "role": "admin",
+      "designation": "Managing Director & Super-Stockist Head",
+      "photoUrl": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
+      "joiningDate": "2022-01-01",
+      "employmentStatus": "active",
+      "salaryType": "monthly_fixed",
+      "baseSalary": 65000,
+      "weeklyOffDay": 0,
+      "monthlyLeaveQuota": 4,
+      "emergencyContact": {
+        "name": "R.K. Sharma",
+        "relation": "Family",
+        "phone": "+91 98450 99999"
+      },
+      "address": "Aryan Agency HQ, Balrampur Road, Utraula, Balrampur - 271604, UP",
+      "userId": "usr_admin",
+      "createdAt": "2022-01-01T00:00:00Z",
+      "updatedAt": "2026-10-15T00:00:00Z"
+    },
+    {
+      "id": "stf_bb0f03c0-2389-4c9d-846f-a87653595452",
+      "employeeCode": "EMP-7315",
+      "name": "amit",
+      "phone": "9876543219",
+      "email": "nkg8369@gmail.com",
+      "role": "salesman",
+      "designation": "Sales Executive",
+      "userId": "bb0f03c0-2389-4c9d-846f-a87653595452",
+      "joiningDate": "2026-10-16",
+      "employmentStatus": "active",
+      "salaryType": "monthly_fixed",
+      "baseSalary": 20000,
+      "weeklyOffDay": 0,
+      "monthlyLeaveQuota": 2,
+      "createdAt": "2026-10-16T14:20:47.315Z",
+      "updatedAt": "2026-10-16T14:20:47.315Z"
+    }
+  ],
+  "staffAttendance": [
+    {
+      "id": "att_1792158178862_mmby",
+      "staffId": "stf_1",
+      "employeeCode": "EMP-AA-101",
+      "staffName": "Rajesh Kumar",
+      "role": "salesman",
+      "date": "2026-10-16",
+      "status": "present",
+      "checkInTime": "14:14",
+      "checkOutTime": "18:30",
+      "checkInMethod": "self_check_in",
+      "workingHours": 8.5,
+      "remarks": "Test attendance verification | Correction: Verified retailer visit logs | Correction: Verified by depot manager biometric audit",
+      "correctionHistory": [
+        {
+          "correctedBy": "Aryan Sharma",
+          "correctedAt": "2026-10-16T13:42:58.880Z",
+          "previousStatus": "present",
+          "newStatus": "present",
+          "reason": "Verified retailer visit logs"
+        },
+        {
+          "correctedBy": "Aryan Sharma",
+          "correctedAt": "2026-10-16T14:11:49.253Z",
+          "previousStatus": "present",
+          "newStatus": "present",
+          "reason": "Verified by depot manager biometric audit"
+        }
+      ],
+      "createdAt": "2026-10-16T13:42:58.862Z",
+      "updatedAt": "2026-10-16T14:14:28.988Z"
+    },
+    {
+      "id": "att_1792159900576_ruei",
+      "staffId": "stf_2",
+      "employeeCode": "EMP-AA-102",
+      "staffName": "Vikram Singh",
+      "role": "salesman",
+      "date": "2026-10-16",
+      "status": "half_day",
+      "checkInTime": "09:30",
+      "checkOutTime": "13:30",
+      "checkInMethod": "admin_marked",
+      "workingHours": 4.5,
+      "remarks": "Admin marked half day",
+      "correctionHistory": [],
+      "createdAt": "2026-10-16T14:11:40.576Z",
+      "updatedAt": "2026-10-16T14:11:40.576Z"
+    },
+    {
+      "id": "att_1792160447321_eft7",
+      "staffId": "stf_bb0f03c0-2389-4c9d-846f-a87653595452",
+      "employeeCode": "EMP-7315",
+      "staffName": "amit",
+      "role": "salesman",
+      "date": "2026-10-16",
+      "status": "present",
+      "checkInTime": "19:50",
+      "checkInMethod": "self_check_in",
+      "workingHours": 8.5,
+      "remarks": "Self check-in via mobile dashboard",
+      "correctionHistory": [],
+      "createdAt": "2026-10-16T14:20:47.321Z",
+      "updatedAt": "2026-10-16T14:20:47.321Z"
+    }
+  ],
+  "staffPayrolls": [
+    {
+      "id": "pr_1792158178894_fwmc",
+      "staffId": "stf_1",
+      "employeeCode": "EMP-AA-101",
+      "staffName": "Rajesh Kumar",
+      "role": "salesman",
+      "period": "2026-10",
+      "salaryType": "monthly_fixed",
+      "baseSalary": 25000,
+      "totalDaysInMonth": 31,
+      "presentDays": 1,
+      "absentDays": 0,
+      "halfDays": 0,
+      "paidLeaves": 0,
+      "unpaidLeaves": 0,
+      "weeklyOffs": 4,
+      "payableDays": 5,
+      "grossCalculated": 4032,
+      "allowancesTotal": 2000,
+      "allowanceBreakdown": [
+        {
+          "id": "alw_1",
+          "title": "Travel Allowance",
+          "amount": 2000
+        }
+      ],
+      "deductionsTotal": 1500,
+      "deductionBreakdown": [
+        {
+          "id": "ded_1",
+          "title": "PF",
+          "amount": 1500
+        }
+      ],
+      "advancesDeducted": 0,
+      "netPayable": 4532,
+      "amountPaid": 5000,
+      "remainingDue": 0,
+      "status": "paid",
+      "notes": "Calculated on 10/16/2026",
+      "payments": [
+        {
+          "id": "spay_1792158178935_wdwg",
+          "paymentDate": "2026-10-16",
+          "amount": 5000,
+          "paymentMethod": "upi",
+          "referenceNumber": "UPI-REF-20261016",
+          "paidByName": "Aryan Sharma",
+          "notes": "Advance installment payment",
+          "createdAt": "2026-10-16T13:42:58.935Z"
+        }
+      ],
+      "createdAt": "2026-10-16T13:42:58.894Z",
+      "updatedAt": "2026-10-16T13:42:58.935Z",
+      "approvedBy": "Aryan Sharma",
+      "approvedAt": "2026-10-16T13:42:58.925Z"
+    },
+    {
+      "id": "pr_1792159909265_b39t",
+      "staffId": "stf_2",
+      "employeeCode": "EMP-AA-102",
+      "staffName": "Vikram Singh",
+      "role": "salesman",
+      "period": "2026-10",
+      "salaryType": "monthly_fixed",
+      "baseSalary": 24000,
+      "totalDaysInMonth": 31,
+      "presentDays": 0,
+      "absentDays": 0,
+      "halfDays": 1,
+      "paidLeaves": 0,
+      "unpaidLeaves": 0,
+      "weeklyOffs": 4,
+      "payableDays": 4.5,
+      "grossCalculated": 3484,
+      "allowancesTotal": 3000,
+      "allowanceBreakdown": [
+        {
+          "id": "alw_3",
+          "title": "Field Travel Allowance",
+          "amount": 3000
+        }
+      ],
+      "deductionsTotal": 1800,
+      "deductionBreakdown": [
+        {
+          "id": "ded_3",
+          "title": "Provident Fund (PF)",
+          "amount": 1800
+        }
+      ],
+      "advancesDeducted": 0,
+      "netPayable": 4684,
+      "amountPaid": 0,
+      "remainingDue": 4684,
+      "status": "calculated",
+      "notes": "Calculated on 10/16/2026",
+      "payments": [],
+      "createdAt": "2026-10-16T14:11:49.265Z",
+      "updatedAt": "2026-10-16T14:11:49.265Z"
+    },
+    {
+      "id": "pr_1792159909271_uj5y",
+      "staffId": "stf_3",
+      "employeeCode": "EMP-AA-201",
+      "staffName": "Suresh Gowda",
+      "role": "delivery",
+      "period": "2026-10",
+      "salaryType": "daily_wage",
+      "baseSalary": 850,
+      "totalDaysInMonth": 31,
+      "presentDays": 0,
+      "absentDays": 0,
+      "halfDays": 0,
+      "paidLeaves": 0,
+      "unpaidLeaves": 0,
+      "weeklyOffs": 4,
+      "payableDays": 4,
+      "grossCalculated": 3400,
+      "allowancesTotal": 1500,
+      "allowanceBreakdown": [
+        {
+          "id": "alw_4",
+          "title": "Vehicle Daily Bata",
+          "amount": 1500
+        }
+      ],
+      "deductionsTotal": 0,
+      "deductionBreakdown": [],
+      "advancesDeducted": 0,
+      "netPayable": 4900,
+      "amountPaid": 0,
+      "remainingDue": 4900,
+      "status": "calculated",
+      "notes": "Calculated on 10/16/2026",
+      "payments": [],
+      "createdAt": "2026-10-16T14:11:49.271Z",
+      "updatedAt": "2026-10-16T14:11:49.271Z"
+    },
+    {
+      "id": "pr_1792159909276_82x0",
+      "staffId": "stf_4",
+      "employeeCode": "EMP-AA-301",
+      "staffName": "Pooja Agarwal",
+      "role": "accounts",
+      "period": "2026-10",
+      "salaryType": "monthly_fixed",
+      "baseSalary": 28000,
+      "totalDaysInMonth": 31,
+      "presentDays": 0,
+      "absentDays": 0,
+      "halfDays": 0,
+      "paidLeaves": 0,
+      "unpaidLeaves": 0,
+      "weeklyOffs": 4,
+      "payableDays": 4,
+      "grossCalculated": 3613,
+      "allowancesTotal": 2000,
+      "allowanceBreakdown": [
+        {
+          "id": "alw_5",
+          "title": "Office Conveyance",
+          "amount": 2000
+        }
+      ],
+      "deductionsTotal": 1800,
+      "deductionBreakdown": [
+        {
+          "id": "ded_4",
+          "title": "Provident Fund (PF)",
+          "amount": 1800
+        }
+      ],
+      "advancesDeducted": 0,
+      "netPayable": 3813,
+      "amountPaid": 0,
+      "remainingDue": 3813,
+      "status": "calculated",
+      "notes": "Calculated on 10/16/2026",
+      "payments": [],
+      "createdAt": "2026-10-16T14:11:49.276Z",
+      "updatedAt": "2026-10-16T14:11:49.276Z"
+    },
+    {
+      "id": "pr_1792159909281_s6bm",
+      "staffId": "stf_5",
+      "employeeCode": "EMP-AA-001",
+      "staffName": "Aryan Sharma",
+      "role": "admin",
+      "period": "2026-10",
+      "salaryType": "monthly_fixed",
+      "baseSalary": 65000,
+      "totalDaysInMonth": 31,
+      "presentDays": 0,
+      "absentDays": 0,
+      "halfDays": 0,
+      "paidLeaves": 0,
+      "unpaidLeaves": 0,
+      "weeklyOffs": 4,
+      "payableDays": 4,
+      "grossCalculated": 8387,
+      "allowancesTotal": 0,
+      "allowanceBreakdown": [],
+      "deductionsTotal": 0,
+      "deductionBreakdown": [],
+      "advancesDeducted": 0,
+      "netPayable": 8387,
+      "amountPaid": 0,
+      "remainingDue": 8387,
+      "status": "calculated",
+      "notes": "Calculated on 10/16/2026",
+      "payments": [],
+      "createdAt": "2026-10-16T14:11:49.281Z",
+      "updatedAt": "2026-10-16T14:11:49.281Z"
+    },
+    {
+      "id": "pr_1792159909285_ldrp",
+      "staffId": "stf_usr_new_sales_test",
+      "employeeCode": "EMP-0587",
+      "staffName": "New Sales Test",
+      "role": "salesman",
+      "period": "2026-10",
+      "salaryType": "monthly_fixed",
+      "baseSalary": 20000,
+      "totalDaysInMonth": 31,
+      "presentDays": 1,
+      "absentDays": 0,
+      "halfDays": 0,
+      "paidLeaves": 0,
+      "unpaidLeaves": 0,
+      "weeklyOffs": 4,
+      "payableDays": 5,
+      "grossCalculated": 3226,
+      "allowancesTotal": 0,
+      "allowanceBreakdown": [],
+      "deductionsTotal": 0,
+      "deductionBreakdown": [],
+      "advancesDeducted": 0,
+      "netPayable": 3226,
+      "amountPaid": 0,
+      "remainingDue": 3226,
+      "status": "calculated",
+      "notes": "Calculated on 10/16/2026",
+      "payments": [],
+      "createdAt": "2026-10-16T14:11:49.285Z",
+      "updatedAt": "2026-10-16T14:11:49.285Z"
+    }
+  ],
+  "staffSalaryPayments": [
+    {
+      "id": "spay_1792158178935_wdwg",
+      "paymentDate": "2026-10-16",
+      "amount": 5000,
+      "paymentMethod": "upi",
+      "referenceNumber": "UPI-REF-20261016",
+      "paidByName": "Aryan Sharma",
+      "notes": "Advance installment payment",
+      "createdAt": "2026-10-16T13:42:58.935Z"
+    }
+  ]
 }

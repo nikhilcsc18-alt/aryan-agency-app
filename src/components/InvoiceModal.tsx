@@ -12,6 +12,7 @@ import {
 import { Order } from '../types';
 import { formatINR, formatINRDecimals } from '../lib/api';
 import { useDistributorSettings } from '../lib/settings';
+import { ARYAN_AGENCY_PROFILE } from '../lib/businessProfile';
 
 interface InvoiceModalProps {
   order: Order | null;
@@ -62,17 +63,19 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
           {/* Header Title */}
           <div className="text-center pb-3 border-b-2 border-slate-800">
             <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">GST TAX INVOICE • ORIGINAL FOR RECIPIENT</div>
-            <h1 className="text-2xl font-black tracking-tight text-[#1e293b] mt-0.5">ARYAN AGENCY</h1>
-            <p className="text-[11px] text-slate-700 font-medium">Authorised FMCG Super Stockist & Wholesale Distributor</p>
+            <h1 className="text-2xl font-black tracking-tight text-[#1e293b] mt-0.5">{ARYAN_AGENCY_PROFILE.businessName.toUpperCase()}</h1>
+            <p className="text-[11px] text-slate-700 font-medium">{ARYAN_AGENCY_PROFILE.tagline}</p>
             <p className="text-[11px] text-slate-600">
-              #104, Commercial Complex, Utraula, Balrampur, Uttar Pradesh - 271604
+              {ARYAN_AGENCY_PROFILE.fullAddress}
             </p>
-            <div className="flex justify-center items-center space-x-4 text-[11px] font-mono text-slate-700 mt-1">
-              <span><b>GSTIN:</b> 29ABCDE1234F1Z5</span>
+            <div className="flex justify-center items-center flex-wrap gap-x-3 gap-y-1 text-[11px] font-mono text-slate-700 mt-1">
+              <span><b>GSTIN:</b> {ARYAN_AGENCY_PROFILE.gstin}</span>
               <span>•</span>
-              <span><b>FSSAI Lic:</b> 11223344556677</span>
+              <span><b>PAN:</b> {ARYAN_AGENCY_PROFILE.panNumber}</span>
               <span>•</span>
-              <span><b>Phone:</b> +91 80 2345 6789</span>
+              <span><b>Phone:</b> {ARYAN_AGENCY_PROFILE.supportPhoneFormatted}</span>
+              <span>•</span>
+              <span><b>Email:</b> {ARYAN_AGENCY_PROFILE.email}</span>
             </div>
           </div>
 
@@ -86,7 +89,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
               <div className="text-slate-600">{order.retailerAddress}</div>
               <div className="text-slate-600"><b>Phone:</b> {order.retailerPhone}</div>
               <div className="font-mono text-slate-700"><b>Beat Route:</b> {order.beatName}</div>
-              <div className="font-mono text-slate-700"><b>State Code:</b> 29 (Karnataka)</div>
+              <div className="font-mono text-slate-700"><b>State Code:</b> 09 (Uttar Pradesh)</div>
             </div>
 
             {/* Invoice Details */}

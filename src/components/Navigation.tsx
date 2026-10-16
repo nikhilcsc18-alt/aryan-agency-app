@@ -20,7 +20,9 @@ import {
   User as UserIcon,
   LogOut,
   ShieldCheck,
-  BarChart3
+  BarChart3,
+  BookOpen,
+  UserCheck
 } from 'lucide-react';
 import { NavTab } from '../types';
 export type { NavTab };
@@ -77,16 +79,20 @@ export const Navigation: React.FC<NavigationProps> = ({
       { id: 'inventory', label: 'Warehouse & Batches', icon: <Boxes className="w-5 h-5" />, badge: lowStockBadge, description: 'Stock & Expiry Tracking' },
       { id: 'retailers', label: 'Retailers & Credits', icon: <Store className="w-5 h-5" />, description: 'Outlets, Ledgers & KYC' },
       { id: 'banners', label: 'Banner Management', icon: <ImageIcon className="w-5 h-5" />, description: 'Home Slides & Offers' },
+      { id: 'catalogue', label: 'Digital Catalogue', icon: <BookOpen className="w-5 h-5" />, description: 'FMCG PDF & WhatsApp Share' },
       { id: 'salesmen', label: 'Salesmen & Beats', icon: <Users className="w-5 h-5" />, description: 'Field Beats & Targets' },
+      { id: 'staff', label: 'Staff & Attendance', icon: <UserCheck className="w-5 h-5" />, description: 'Workforce, Payroll & ID Cards' },
       { id: 'deliveries', label: 'Delivery Run Sheets', icon: <Truck className="w-5 h-5" />, description: 'Trip Sheets & Digital POD' },
       { id: 'payments', label: 'Payments & Ledger', icon: <IndianRupee className="w-5 h-5" />, description: 'Collections & Statements' },
       { id: 'reports', label: 'Reports & Intelligence', icon: <BarChart3 className="w-5 h-5" />, description: 'Sales, GST, Ledger & Margin' }
     );
   } else if (currentRole === 'salesman') {
     navItems.push(
-      { id: 'dashboard', label: 'Beat Overview', icon: <LayoutDashboard className="w-5 h-5" /> },
+      { id: 'dashboard', label: 'Salesman Home', icon: <LayoutDashboard className="w-5 h-5" /> },
       { id: 'orders', label: 'Booked Orders', icon: <ShoppingCart className="w-5 h-5" /> },
       { id: 'retailers', label: 'My Beat Outlets', icon: <Store className="w-5 h-5" /> },
+      { id: 'staff', label: 'My Attendance & Salary', icon: <UserCheck className="w-5 h-5" />, description: 'Attendance, History & Payslips' },
+      { id: 'catalogue', label: 'Digital Catalogue', icon: <BookOpen className="w-5 h-5" />, description: 'Download PDF & Share' },
       { id: 'reports', label: 'Reports & Intelligence', icon: <BarChart3 className="w-5 h-5" /> },
       { id: 'products', label: 'Catalog & Schemes', icon: <Package className="w-5 h-5" /> },
       { id: 'payments', label: 'Collections', icon: <IndianRupee className="w-5 h-5" /> }

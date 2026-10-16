@@ -13,7 +13,17 @@ import {
   PromotionalBanner,
   SalesmanVisit,
   VisitCheckInPayload,
-  VisitCheckOutPayload
+  VisitCheckOutPayload,
+  SalesmanTask,
+  SalesTarget,
+  TaskStatus,
+  StaffMember,
+  StaffAttendance,
+  StaffPayroll,
+  StaffSalaryPaymentPayload,
+  PayrollPaymentRecord,
+  AttendanceStatus,
+  SalaryType
 } from '../types';
 import { supabaseService, isSupabaseConfigured, supabaseUrl } from './supabase';
 import { applyCreditControlsToRetailers, setRetailerCreditControl } from './retailerCredit';
@@ -23,17 +33,22 @@ let activeToken: string | null = null;
 let activeUserId: string | null = null;
 let activeUserRole: string | null = null;
 let activeRetailerId: string | null = null;
+let activeUserEmail: string | null = null;
 
 export function setApiAuthContext(
   token: string | null,
   userId: string | null,
   role: string | null,
-  retailerId: string | null = null
+  retailerId: string | null = null,
+  email: string | null = null
 ) {
   activeToken = token;
   activeUserId = userId;
   activeUserRole = role;
   activeRetailerId = retailerId;
+  if (email !== undefined) {
+    activeUserEmail = email;
+  }
 }
 
 /**
@@ -47,25 +62,17 @@ export function getServerBaseUrl(): string {
     if (customUrl && customUrl.trim()) {
       return customUrl.trim().replace(/\/+$/, '');
     }
-    const origin = window.location.origin;
-    if (
-      origin && 
-      !origin.includes('localhost') && 
-      !origin.includes('127.0.0.1') && 
-      !origin.startsWith('capacitor') && 
-      !origin.startsWith('file:') &&
-      !origin.startsWith('ionic:')
-    ) {
-      return origin.replace(/\/+$/, '');
+    const origin = window.location.origin || '';
+    // Only prepend an absolute server URL if running inside a hybrid mobile app container (Capacitor/Cordova/file://)
+    if (origin.startsWith('capacitor') || origin.startsWith('file:') || origin.startsWith('ionic:') || !origin.startsWith('http')) {
+      const envUrl = ((import.meta as any)?.env?.VITE_APP_URL || (import.meta as any)?.env?.APP_URL || '').trim();
+      return envUrl ? envUrl.replace(/\/+$/, '') : 'https://aryanagency.in';
     }
+    // In any web browser environment (localhost, AI Studio preview, production domain),
+    // return empty string so the browser natively issues same-origin relative requests (/api/...)
+    return '';
   }
-  const envUrl = ((import.meta as any)?.env?.VITE_APP_URL || (import.meta as any)?.env?.APP_URL || '').trim();
-  if (envUrl) {
-    return envUrl.replace(/\/+$/, '');
-  }
-  // Android Capacitor / Native mobile APK environment fallback:
-  // Points to official production domain so API calls succeed over mobile internet
-  return 'https://aryanagency.in';
+  return '';
 }
 
 async function authFetch(url: string, options: RequestInit = {}): Promise<Response> {
@@ -86,6 +93,22 @@ async function authFetch(url: string, options: RequestInit = {}): Promise<Respon
     headers.set('X-User-Role', activeUserRole);
   }
 
+  // Auto-resolve user email from local session cache if not directly set
+  if (!activeUserEmail && typeof window !== 'undefined') {
+    try {
+      const savedSession = localStorage.getItem('aryan_session_user');
+      if (savedSession) {
+        const parsed = JSON.parse(savedSession);
+        if (parsed?.email) {
+          activeUserEmail = parsed.email;
+        }
+      }
+    } catch {}
+  }
+  if (activeUserEmail) {
+    headers.set('X-User-Email', activeUserEmail);
+  }
+
   let targetUrl = url;
   if (url.startsWith('/api') || url.startsWith('/download')) {
     const base = getServerBaseUrl();
@@ -95,10 +118,15 @@ async function authFetch(url: string, options: RequestInit = {}): Promise<Respon
   }
 
   const defaultSignal = !options.signal && typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal 
-    ? AbortSignal.timeout(9000) 
+    ? AbortSignal.timeout(12000) 
     : options.signal;
 
-  const res = await fetch(targetUrl, { ...options, headers, signal: defaultSignal });
+  const res = await fetch(targetUrl, { 
+    ...options, 
+    headers, 
+    credentials: 'include',
+    signal: defaultSignal 
+  });
   return res;
 }
 
@@ -145,6 +173,15 @@ async function safeMutationFetch<T>(url: string, options: RequestInit = {}, fall
     const trimmed = text.trim();
 
     if (trimmed.startsWith('<') || trimmed.toLowerCase().startsWith('<!doctype html>')) {
+      if (res.status === 403) {
+        throw new Error('Access permission denied: Please verify you are signed in with an authorized Administrator or Staff account.');
+      }
+      if (res.status === 401) {
+        throw new Error('Authentication session required. Please sign in to perform this operation.');
+      }
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        throw new Error('Server service temporarily busy. Please retry in a few moments.');
+      }
       throw new Error(`Server returned HTML response instead of JSON for ${url} (HTTP ${res.status})`);
     }
 
@@ -724,41 +761,14 @@ export const api = {
     const isPurged = (r: Retailer) => {
       const name = (r.storeName || '').toLowerCase();
       const owner = (r.ownerName || '').toLowerCase();
-      const phone = (r.phone || '').replace(/\D/g, '');
-      const id = (r.id || '').toLowerCase();
       return (
         name.includes('laxmi supermarket') ||
         name.includes('ganesh daily') ||
         name.includes('ganesh provision') ||
-        name.includes('sapthagiri') ||
-        name.includes('test salesman') ||
-        name.includes('kisan traders') ||
-        name.includes('kirana store (6655)') ||
-        name.includes('gupta kirana') ||
-        name.includes('verma provision') ||
-        name.includes('paras kirana') ||
-        name.includes('maa durga') ||
-        name.includes('shri ram traders') ||
-        name.includes('shiv shakti') ||
-        name.includes('agarwal general') ||
-        owner.includes('retailer 6655') ||
-        owner.includes('ram lal') ||
-        owner.includes('mohan lal') ||
-        owner.includes('sanjay gupta') ||
-        owner.includes('mahesh verma') ||
-        owner.includes('paras kirana') ||
-        phone.endsWith('9988776655') ||
-        phone.endsWith('9123456789') ||
-        phone.endsWith('9123488888') ||
-        phone.endsWith('9838012345') ||
-        phone.endsWith('9415098765') ||
-        phone.endsWith('9865986532') ||
-        id === 'ret_672eaf9602624692' ||
-        id === 'ret_1791274745127_5lbh1' ||
-        id === 'ret_1791369179248' ||
-        id === 'ret_1791362412268' ||
-        id === 'ret_1791652231310' ||
-        id === 'ret_1791652248963'
+        name.includes('sapthagiri super') ||
+        owner.includes('laxmi supermarket') ||
+        owner.includes('ganesh daily') ||
+        owner.includes('sapthagiri store')
       );
     };
 
@@ -1002,6 +1012,106 @@ export const api = {
     return safeMutationFetch<{ success: boolean }>(`/api/salesmen/${id}`, { method: 'DELETE' }, { success: true });
   },
 
+  async createSalesExecutive(payload: {
+    name: string;
+    email: string;
+    password: string;
+    phone: string;
+    assignedBeats: string[];
+    dailyTargetAmount?: number;
+    monthlyTargetAmount?: number;
+    commissionPercentage?: number;
+    targetEffectiveDate?: string;
+  }): Promise<{ success: boolean; salesman: Salesman; user: User; message: string }> {
+    return safeMutationFetch<{ success: boolean; salesman: Salesman; user: User; message: string }>(
+      '/api/admin/create-salesman',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }
+    );
+  },
+
+  async loginWithEmail(email: string, password: string): Promise<{ success: boolean; user?: User; token?: string; error?: string }> {
+    return safeMutationFetch<{ success: boolean; user?: User; token?: string; error?: string }>(
+      '/api/auth/login',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      }
+    );
+  },
+
+  async requestPasswordReset(email: string): Promise<{ success: boolean; message?: string; error?: string }> {
+    return safeMutationFetch<{ success: boolean; message?: string; error?: string }>(
+      '/api/auth/reset-password',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      }
+    );
+  },
+
+  async getSalesmanTasks(salesmanId?: string): Promise<SalesmanTask[]> {
+    const query = salesmanId ? `?salesmanId=${encodeURIComponent(salesmanId)}` : '';
+    return safeJsonFetch<SalesmanTask[]>(`/api/salesman-tasks${query}`, {}, []);
+  },
+
+  async saveSalesmanTask(task: Partial<SalesmanTask>): Promise<{ success: boolean; task: SalesmanTask }> {
+    return safeMutationFetch<{ success: boolean; task: SalesmanTask }>(
+      '/api/salesman-tasks',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(task)
+      }
+    );
+  },
+
+  async updateSalesmanTaskStatus(id: string, status: TaskStatus, completionNotes?: string): Promise<{ success: boolean; task: SalesmanTask }> {
+    return safeMutationFetch<{ success: boolean; task: SalesmanTask }>(
+      `/api/salesman-tasks/${id}/status`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, completionNotes })
+      }
+    );
+  },
+
+  async deleteSalesmanTask(id: string): Promise<{ success: boolean }> {
+    return safeMutationFetch<{ success: boolean }>(
+      `/api/salesman-tasks/${id}`,
+      { method: 'DELETE' },
+      { success: true }
+    );
+  },
+
+  async getSalesTargets(salesmanId?: string): Promise<SalesTarget[]> {
+    const query = salesmanId ? `?salesmanId=${encodeURIComponent(salesmanId)}` : '';
+    return safeJsonFetch<SalesTarget[]>(`/api/sales-targets${query}`, {}, []);
+  },
+
+  async saveSalesTarget(payload: {
+    salesmanId: string;
+    period: 'daily' | 'weekly' | 'monthly';
+    targetAmount: number;
+    effectiveStartDate?: string;
+    notes?: string;
+  }): Promise<{ success: boolean; target: SalesTarget }> {
+    return safeMutationFetch<{ success: boolean; target: SalesTarget }>(
+      '/api/sales-targets',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }
+    );
+  },
+
   async getBeats(): Promise<string[]> {
     return safeJsonFetch<string[]>('/api/beats', {}, [
       'Utraula Retail Beat',
@@ -1045,19 +1155,7 @@ export const api = {
     }
     const isPurgedOrder = (o: Order) => {
       const rName = (o.retailerName || '').toLowerCase();
-      const phone = (o.retailerPhone || '').replace(/\D/g, '');
-      const rId = (o.retailerId || '').toLowerCase();
-      return (
-        rId === 'ret_672eaf9602624692' ||
-        rId === 'ret_1791274745127_5lbh1' ||
-        rId === 'ret_1791369179248' ||
-        rId === 'ret_1791362412268' ||
-        rId === 'ret_1791652231310' ||
-        rId === 'ret_1791652248963' ||
-        phone.endsWith('9865986532') ||
-        phone.endsWith('9988776655') ||
-        ['laxmi supermarket', 'ganesh daily', 'ganesh provision', 'sapthagiri', 'paras kirana', 'kisan traders', 'maa durga', 'shri ram traders', 'shiv shakti'].some(bad => rName.includes(bad))
-      );
+      return ['laxmi supermarket', 'ganesh daily', 'sapthagiri super'].some(bad => rName.includes(bad));
     };
 
     return (ordersList || [])
@@ -1532,6 +1630,119 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
+    });
+  },
+
+  // ==========================================
+  // Staff Management, Attendance & Payroll APIs
+  // ==========================================
+  async getStaffMembers(): Promise<StaffMember[]> {
+    return safeJsonFetch<StaffMember[]>('/api/staff', {}, []);
+  },
+
+  async getStaffMember(id: string): Promise<StaffMember | null> {
+    return safeJsonFetch<StaffMember | null>(`/api/staff/${encodeURIComponent(id)}`, {}, null);
+  },
+
+  async createStaffMember(payload: Partial<StaffMember> & { initialPassword?: string }): Promise<{ success: boolean; staff: StaffMember; message: string }> {
+    return safeMutationFetch<{ success: boolean; staff: StaffMember; message: string }>('/api/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async updateStaffMember(id: string, payload: Partial<StaffMember>): Promise<{ success: boolean; staff: StaffMember }> {
+    return safeMutationFetch<{ success: boolean; staff: StaffMember }>(`/api/staff/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async deleteStaffMember(id: string): Promise<{ success: boolean; message: string }> {
+    return safeMutationFetch<{ success: boolean; message: string }>(`/api/staff/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async getStaffAttendance(query?: { staffId?: string; date?: string; month?: string; startDate?: string; endDate?: string }): Promise<StaffAttendance[]> {
+    const params = new URLSearchParams();
+    if (query?.staffId) params.append('staffId', query.staffId);
+    if (query?.date) params.append('date', query.date);
+    if (query?.month) params.append('month', query.month);
+    if (query?.startDate) params.append('startDate', query.startDate);
+    if (query?.endDate) params.append('endDate', query.endDate);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return safeJsonFetch<StaffAttendance[]>(`/api/staff-attendance${qs}`, {}, []);
+  },
+
+  async markStaffAttendance(payload: { staffId?: string; date?: string; status?: AttendanceStatus; checkInTime?: string; checkOutTime?: string; remarks?: string }): Promise<{ success: boolean; attendance: StaffAttendance; isUpdate: boolean }> {
+    return safeMutationFetch<{ success: boolean; attendance: StaffAttendance; isUpdate: boolean }>('/api/staff-attendance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async correctStaffAttendance(id: string, newStatus: AttendanceStatus, reason: string): Promise<{ success: boolean; attendance?: StaffAttendance }> {
+    return safeMutationFetch<{ success: boolean; attendance?: StaffAttendance }>('/api/staff-attendance/correction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, newStatus, reason })
+    });
+  },
+
+  async getStaffPayrolls(query?: { staffId?: string; period?: string }): Promise<StaffPayroll[]> {
+    const params = new URLSearchParams();
+    if (query?.staffId) params.append('staffId', query.staffId);
+    if (query?.period) params.append('period', query.period);
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return safeJsonFetch<StaffPayroll[]>(`/api/staff-payroll${qs}`, {}, []);
+  },
+
+  async calculateStaffPayroll(payload: { staffId?: string; period: string; allowances?: any[]; deductions?: any[]; advances?: number; notes?: string }): Promise<{ success: boolean; payroll?: StaffPayroll; payrolls?: StaffPayroll[]; count?: number }> {
+    return safeMutationFetch<{ success: boolean; payroll?: StaffPayroll; payrolls?: StaffPayroll[]; count?: number }>('/api/staff-payroll/calculate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async approveStaffPayroll(id: string): Promise<{ success: boolean; payroll?: StaffPayroll }> {
+    return safeMutationFetch<{ success: boolean; payroll?: StaffPayroll }>(`/api/staff-payroll/${encodeURIComponent(id)}/approve`, {
+      method: 'POST'
+    });
+  },
+
+  async recordStaffSalaryPayment(payrollId: string, payload: Partial<StaffSalaryPaymentPayload>): Promise<{ success: boolean; payroll?: StaffPayroll; payment?: PayrollPaymentRecord }> {
+    return safeMutationFetch<{ success: boolean; payroll?: StaffPayroll; payment?: PayrollPaymentRecord }>(`/api/staff-payroll/${encodeURIComponent(payrollId)}/payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async getStaffStats(period?: string): Promise<{
+    totalStaff: number;
+    activeStaff: number;
+    presentToday: number;
+    absentToday: number;
+    onLeaveToday: number;
+    totalPayrollAmount: number;
+    disbursedPayrollAmount: number;
+    pendingPayrollAmount: number;
+  }> {
+    const qs = period ? `?period=${encodeURIComponent(period)}` : '';
+    return safeJsonFetch('/api/staff-stats' + qs, {}, {
+      totalStaff: 0,
+      activeStaff: 0,
+      presentToday: 0,
+      absentToday: 0,
+      onLeaveToday: 0,
+      totalPayrollAmount: 0,
+      disbursedPayrollAmount: 0,
+      pendingPayrollAmount: 0
     });
   }
 };

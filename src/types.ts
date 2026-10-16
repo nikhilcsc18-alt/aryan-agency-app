@@ -199,13 +199,17 @@ export interface Salesman {
   phone: string;
   email: string;
   assignedBeats: string[];
-  dailyTargetAmount: number; // ₹
-  monthlyTargetAmount: number; // ₹
-  currentMonthAchieved: number; // ₹
+  dailyTargetAmount?: number; // ₹
+  monthlyTargetAmount?: number; // ₹
+  currentMonthAchieved?: number; // ₹
   commissionPercentage: number;
-  todayOrdersCount: number;
-  todaySalesAmount: number;
+  todayOrdersCount?: number;
+  todaySalesAmount?: number;
   status: 'active' | 'on_leave' | 'inactive';
+  targetAssigned?: boolean;
+  effectiveStartDate?: string;
+  targetPeriod?: 'daily' | 'monthly' | 'weekly';
+  userId?: string;
 }
 
 export interface OrderItem {
@@ -392,7 +396,9 @@ export type NavTab =
   | 'payments'
   | 'banners'
   | 'verifications'
-  | 'reports';
+  | 'reports'
+  | 'catalogue'
+  | 'staff';
 
 export type ReportType = 
   | 'sales' 
@@ -455,15 +461,49 @@ export interface ReportFilterOptions {
   searchTerm?: string;
 }
 
+export type NotificationEventType = 
+  | 'retailer_registered'
+  | 'kyc_submitted'
+  | 'verification_pending'
+  | 'approval_required'
+  | 'retailer_approved'
+  | 'retailer_rejected'
+  | 'order_created'
+  | 'order'
+  | 'payment_submitted'
+  | 'payment'
+  | 'inventory'
+  | 'scheme'
+  | 'system';
+
 export interface AppNotification {
   id: string;
   title: string;
   message: string;
   timestamp: string;
-  type: 'order' | 'inventory' | 'scheme' | 'payment' | 'system';
+  type: NotificationEventType;
   isRead: boolean;
   actionTab?: NavTab;
+  retailerId?: string;
+  retailerName?: string;
+  orderId?: string;
+  paymentId?: string;
+  recipientRole?: UserRole;
+  recipientUserId?: string;
+  createdAt?: string;
   metadata?: Record<string, any>;
+}
+
+export interface AdminDeviceToken {
+  id: string;
+  userId: string;
+  role: UserRole;
+  fcmToken: string;
+  platform: 'android' | 'web';
+  deviceInfo?: Record<string, any>;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // ==========================================
@@ -516,5 +556,194 @@ export interface VisitCheckOutPayload {
   orderCreatedId?: string;
   orderTotalAmount?: number;
 }
+
+// ==========================================
+// Salesman Tasks & Target Management Types
+// ==========================================
+export type TaskType = 'visit' | 'follow_up' | 'order_booking' | 'collection' | 'general';
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface SalesmanTask {
+  id: string;
+  salesmanId: string;
+  salesmanName?: string;
+  title: string;
+  description?: string;
+  taskType: TaskType;
+  retailerId?: string;
+  retailerName?: string;
+  retailerPhone?: string;
+  retailerAddress?: string;
+  beatName?: string;
+  dueDate: string; // YYYY-MM-DD
+  status: TaskStatus;
+  priority: TaskPriority;
+  assignedByRole?: string;
+  assignedByName?: string;
+  completedAt?: string;
+  completionNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type TargetPeriod = 'daily' | 'weekly' | 'monthly';
+
+export interface SalesTarget {
+  id: string;
+  salesmanId: string;
+  period: TargetPeriod;
+  targetAmount: number; // ₹
+  effectiveStartDate: string; // YYYY-MM-DD
+  effectiveEndDate?: string;
+  assignedBy?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ==========================================
+// Staff Management, Attendance & Payroll Types
+// ==========================================
+
+export type SalaryType = 'monthly_fixed' | 'daily_wage' | 'attendance_based';
+export type EmploymentStatus = 'active' | 'inactive' | 'on_leave';
+export type AttendanceStatus = 
+  | 'present' 
+  | 'absent' 
+  | 'half_day' 
+  | 'paid_leave' 
+  | 'unpaid_leave' 
+  | 'weekly_off';
+
+export type PayrollStatus = 'draft' | 'calculated' | 'approved' | 'partially_paid' | 'paid';
+
+export interface StaffAllowance {
+  id: string;
+  title: string;
+  amount: number;
+}
+
+export interface StaffDeduction {
+  id: string;
+  title: string;
+  amount: number;
+}
+
+export interface StaffEmergencyContact {
+  name: string;
+  relation: string;
+  phone: string;
+}
+
+export interface StaffMember {
+  id: string;
+  employeeCode: string; // e.g. "EMP-AA-1001"
+  name: string;
+  phone: string;
+  email: string;
+  role: string; // 'salesman' | 'delivery' | 'accounts' | 'admin' | 'manager'
+  designation: string; // e.g. "Senior Sales Executive", "Delivery Pilot", "Accounts Executive"
+  photoUrl?: string;
+  assignedBeats?: string[];
+  joiningDate: string; // YYYY-MM-DD
+  employmentStatus: EmploymentStatus;
+  salaryType: SalaryType;
+  baseSalary: number; // monthly fixed, daily wage, or attendance rate (₹)
+  allowances?: StaffAllowance[];
+  deductions?: StaffDeduction[];
+  weeklyOffDay: number; // 0 = Sunday, 1 = Monday, etc.
+  monthlyLeaveQuota: number; // e.g. 2 days approved paid leave per month
+  emergencyContact?: StaffEmergencyContact;
+  address?: string;
+  userId?: string; // Link to auth User
+  salesmanId?: string; // Link to Salesman entity if role === 'salesman'
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AttendanceCorrectionEntry {
+  correctedBy: string;
+  correctedAt: string;
+  previousStatus: AttendanceStatus;
+  newStatus: AttendanceStatus;
+  reason: string;
+}
+
+export interface StaffAttendance {
+  id: string;
+  staffId: string;
+  employeeCode: string;
+  staffName: string;
+  role: string;
+  date: string; // YYYY-MM-DD
+  status: AttendanceStatus;
+  checkInTime?: string; // HH:mm or ISO
+  checkOutTime?: string; // HH:mm or ISO
+  checkInMethod?: 'admin_marked' | 'self_check_in' | 'gps_verified';
+  workingHours?: number;
+  remarks?: string;
+  correctionHistory?: AttendanceCorrectionEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PayrollPaymentRecord {
+  id: string;
+  paymentDate: string;
+  amount: number;
+  paymentMethod: 'bank_transfer' | 'upi' | 'cash' | 'cheque';
+  referenceNumber?: string;
+  paidByName: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface StaffPayroll {
+  id: string;
+  staffId: string;
+  employeeCode: string;
+  staffName: string;
+  role: string;
+  period: string; // YYYY-MM (e.g. "2026-10")
+  salaryType: SalaryType;
+  baseSalary: number;
+  totalDaysInMonth: number;
+  presentDays: number;
+  absentDays: number;
+  halfDays: number;
+  paidLeaves: number;
+  unpaidLeaves: number;
+  weeklyOffs: number;
+  payableDays: number; // present + paidLeaves + weeklyOffs + (0.5 * halfDays)
+  grossCalculated: number;
+  allowancesTotal: number;
+  allowanceBreakdown?: StaffAllowance[];
+  deductionsTotal: number;
+  deductionBreakdown?: StaffDeduction[];
+  advancesDeducted: number;
+  netPayable: number;
+  amountPaid: number;
+  remainingDue: number;
+  status: PayrollStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  notes?: string;
+  payments?: PayrollPaymentRecord[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StaffSalaryPaymentPayload {
+  payrollId: string;
+  staffId: string;
+  period: string;
+  amount: number;
+  paymentMethod: 'bank_transfer' | 'upi' | 'cash' | 'cheque';
+  referenceNumber?: string;
+  notes?: string;
+  paidByName?: string;
+}
+
 
 

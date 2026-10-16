@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Header } from './components/Header';
 import { Navigation, NavTab } from './components/Navigation';
 import { DashboardView } from './components/DashboardView';
+import { SalesmanHomeDashboard } from './components/SalesmanHomeDashboard';
+import { VisitCheckInModal } from './components/VisitCheckInModal';
 import { ProductsView } from './components/ProductsView';
 import { InventoryView } from './components/InventoryView';
 import { OrdersView } from './components/OrdersView';
@@ -27,6 +29,8 @@ import { RetailerVerificationPendingModal } from './components/RetailerVerificat
 import { RetailerVerificationDashboard } from './components/RetailerVerificationDashboard';
 import { UpiConnectModal } from './components/UpiConnectModal';
 import { ReportsView } from './components/ReportsView';
+import { CatalogueView } from './components/CatalogueView';
+import { StaffManagementView } from './components/StaffManagementView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { 
   buildLiveNotifications, 
@@ -90,6 +94,9 @@ function MainApp() {
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
   const [selectedProductForOrder, setSelectedProductForOrder] = useState<string | undefined>(undefined);
+  const [selectedRetailerForOrder, setSelectedRetailerForOrder] = useState<string | undefined>(undefined);
+  const [checkInRetailer, setCheckInRetailer] = useState<Retailer | null>(null);
+  const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
   const [activeInvoiceOrder, setActiveInvoiceOrder] = useState<Order | null>(null);
   const [preselectedRetailerForPayment, setPreselectedRetailerForPayment] = useState<Retailer | null>(null);
   const [toastMessage, setToastMessage] = useState<{ type: 'success' | 'info' | 'error'; text: string } | null>(null);
@@ -204,6 +211,17 @@ function MainApp() {
     ))
   ) : undefined;
 
+  // Check if current user is a salesman and get their linked salesman profile
+  const currentSalesman = useMemo(() => {
+    if (currentRole !== 'salesman') return undefined;
+    return salesmen.find(s => 
+      (currentUser?.salesmanId && s.id === currentUser.salesmanId) ||
+      (currentUser?.email && s.email && s.email.toLowerCase() === currentUser.email.toLowerCase()) ||
+      (currentUser?.phone && s.phone && s.phone.replace(/\D/g, '').slice(-10) === currentUser.phone.replace(/\D/g, '').slice(-10)) ||
+      (currentUser?.name && s.name && s.name.toLowerCase() === currentUser.name.toLowerCase())
+    );
+  }, [salesmen, currentUser, currentRole]);
+
   const isRetailerPendingVerification = currentUser?.role === 'retailer' && (
     currentUser.verificationStatus === 'rejected' ||
     (linkedRetailer ? linkedRetailer.verificationStatus !== 'verified' : (currentUser.verificationStatus !== 'verified'))
@@ -214,16 +232,21 @@ function MainApp() {
     if (currentRole === 'delivery') return 'deliveries';
     if (currentRole === 'retailer') return 'products';
     if (currentRole === 'accounts') return 'payments';
+    if (currentRole === 'salesman') return 'dashboard';
     return 'dashboard';
   };
 
   useEffect(() => {
+    if (currentRole === 'salesman' && activeTab === 'home') {
+      setActiveTab('dashboard');
+      return;
+    }
     if (activeTab === 'home') return;
     if (currentRole === 'delivery' && !['deliveries', 'delivery', 'orders', 'payments', 'home'].includes(activeTab)) {
       setActiveTab('home');
-    } else if (currentRole === 'salesman' && !['dashboard', 'orders', 'retailers', 'products', 'payments', 'verifications', 'home'].includes(activeTab)) {
-      setActiveTab('home');
-    } else if (currentRole === 'accounts' && !['payments', 'retailers', 'orders', 'dashboard', 'verifications', 'home'].includes(activeTab)) {
+    } else if (currentRole === 'salesman' && !['dashboard', 'orders', 'retailers', 'products', 'payments', 'verifications', 'home', 'catalogue', 'reports', 'staff'].includes(activeTab)) {
+      setActiveTab('dashboard');
+    } else if (currentRole === 'accounts' && !['payments', 'retailers', 'orders', 'dashboard', 'verifications', 'home', 'staff'].includes(activeTab)) {
       setActiveTab('home');
     } else if (currentRole === 'retailer' && !['products', 'orders', 'retailers', 'payments', 'home'].includes(activeTab)) {
       setActiveTab('home');
@@ -826,8 +849,19 @@ function MainApp() {
       <LoginPage
         initialMode={authInitialMode}
         onBackToHome={() => setPublicView('home')}
-        onLoginSuccess={() => {
-          setActiveTab('home');
+        onLoginSuccess={(loggedInUser) => {
+          const role = loggedInUser?.role || currentUser?.role;
+          if (role === 'salesman') {
+            setActiveTab('dashboard');
+          } else if (role === 'delivery') {
+            setActiveTab('deliveries');
+          } else if (role === 'accounts') {
+            setActiveTab('payments');
+          } else if (role === 'admin') {
+            setActiveTab('dashboard');
+          } else {
+            setActiveTab('home');
+          }
         }}
       />
     );
@@ -849,41 +883,14 @@ function MainApp() {
   const isPurgedStore = (r: Retailer) => {
     const name = (r.storeName || '').toLowerCase();
     const owner = (r.ownerName || '').toLowerCase();
-    const phone = (r.phone || '').replace(/\D/g, '');
-    const id = (r.id || '').toLowerCase();
     return (
       name.includes('laxmi supermarket') ||
       name.includes('ganesh daily') ||
       name.includes('ganesh provision') ||
-      name.includes('sapthagiri') ||
-      name.includes('test salesman') ||
-      name.includes('kisan traders') ||
-      name.includes('kirana store (6655)') ||
-      name.includes('gupta kirana') ||
-      name.includes('verma provision') ||
-      name.includes('paras kirana') ||
-      name.includes('maa durga') ||
-      name.includes('shri ram traders') ||
-      name.includes('shiv shakti') ||
-      name.includes('agarwal general') ||
-      owner.includes('retailer 6655') ||
-      owner.includes('ram lal') ||
-      owner.includes('mohan lal') ||
-      owner.includes('sanjay gupta') ||
-      owner.includes('mahesh verma') ||
-      owner.includes('paras kirana') ||
-      phone.endsWith('9988776655') ||
-      phone.endsWith('9123456789') ||
-      phone.endsWith('9123488888') ||
-      phone.endsWith('9838012345') ||
-      phone.endsWith('9415098765') ||
-      phone.endsWith('9865986532') ||
-      id === 'ret_672eaf9602624692' ||
-      id === 'ret_1791274745127_5lbh1' ||
-      id === 'ret_1791369179248' ||
-      id === 'ret_1791362412268' ||
-      id === 'ret_1791652231310' ||
-      id === 'ret_1791652248963'
+      name.includes('sapthagiri super') ||
+      owner.includes('laxmi supermarket') ||
+      owner.includes('ganesh daily') ||
+      owner.includes('sapthagiri store')
     );
   };
   const activeValidRetailers = retailers.filter(r => !isPurgedStore(r));
@@ -969,51 +976,92 @@ function MainApp() {
         isAdmin ? 'md:pl-24 lg:pl-72 max-w-[1600px]' : 'max-w-7xl'
       }`}>
         
-        {/* Mobile Home Page View - Reference UI match */}
+        {/* Mobile Home Page View / Salesman Home Dashboard */}
         {activeTab === 'home' && (
-          <MobileHomeView
-            products={products}
-            orders={orders}
-            banners={banners}
-            onAddToCart={handleAddToCart}
-            onNavigateTab={(tab) => setActiveTab(tab)}
-            onOpenCart={() => setIsCartOpen(true)}
-            onOpenAccountModal={() => setIsAccountDetailsModalOpen(true)}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            cartItems={cartItems}
-            onUpdateCartItem={handleUpdateCartItem}
-            onRemoveFromCart={handleRemoveFromCart}
-            onQuickOrder={openNewOrderWithProduct}
-            onOpenBarcodeScanner={() => setIsBarcodeScannerOpen(true)}
-          />
+          currentRole === 'salesman' ? (
+            <SalesmanHomeDashboard
+              salesman={currentSalesman}
+              orders={orders}
+              retailers={retailers}
+              products={products}
+              onOpenNewOrderForRetailer={(retailerId) => {
+                setSelectedProductForOrder(undefined);
+                setSelectedRetailerForOrder(retailerId);
+                setIsNewOrderModalOpen(true);
+              }}
+              onOpenCheckInForRetailer={(retailer) => {
+                setCheckInRetailer(retailer);
+                setIsCheckInModalOpen(true);
+              }}
+              onNavigateTab={setActiveTab}
+              onRefreshData={loadData}
+            />
+          ) : (
+            <MobileHomeView
+              products={products}
+              orders={orders}
+              banners={banners}
+              onAddToCart={handleAddToCart}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              onOpenCart={() => setIsCartOpen(true)}
+              onOpenAccountModal={() => setIsAccountDetailsModalOpen(true)}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              cartItems={cartItems}
+              onUpdateCartItem={handleUpdateCartItem}
+              onRemoveFromCart={handleRemoveFromCart}
+              onQuickOrder={openNewOrderWithProduct}
+              onOpenBarcodeScanner={() => setIsBarcodeScannerOpen(true)}
+            />
+          )
         )}
 
         {/* Dashboard View - Protected */}
         {activeTab === 'dashboard' && (
           <ProtectedRoute 
-            pageName="Distribution Dashboard" 
+            pageName={currentRole === 'salesman' ? "Salesman Home Dashboard" : "Distribution Dashboard"} 
             allowedRoles={['admin', 'salesman', 'accounts']}
-            onNavigateHome={() => setActiveTab('home')}
+            onNavigateHome={() => setActiveTab(getRoleHomeTab())}
           >
-            <DashboardView
-              products={products}
-              orders={orders}
-              retailers={retailers}
-              salesmen={salesmen}
-              onNavigateTab={setActiveTab}
-              onOpenNewOrder={() => {
-                setSelectedProductForOrder(undefined);
-                setIsNewOrderModalOpen(true);
-              }}
-              onOpenAICopilot={() => {
-                setIsNewOrderModalOpen(true);
-              }}
-              onOpenInvoice={(order) => setActiveInvoiceOrder(order)}
-              onInwardStock={(productId) => {
-                setActiveTab('inventory');
-              }}
-            />
+            {currentRole === 'salesman' ? (
+              <SalesmanHomeDashboard
+                salesman={currentSalesman}
+                orders={orders}
+                retailers={retailers}
+                products={products}
+                onOpenNewOrderForRetailer={(retailerId) => {
+                  setSelectedProductForOrder(undefined);
+                  setSelectedRetailerForOrder(retailerId);
+                  setIsNewOrderModalOpen(true);
+                }}
+                onOpenCheckInForRetailer={(retailer) => {
+                  setCheckInRetailer(retailer);
+                  setIsCheckInModalOpen(true);
+                }}
+                onNavigateTab={setActiveTab}
+                onRefreshData={loadData}
+              />
+            ) : (
+              <DashboardView
+                products={products}
+                orders={orders}
+                retailers={retailers}
+                salesmen={salesmen}
+                onNavigateTab={setActiveTab}
+                onOpenNewOrder={() => {
+                  setSelectedProductForOrder(undefined);
+                  setSelectedRetailerForOrder(undefined);
+                  setIsNewOrderModalOpen(true);
+                }}
+                onOpenAICopilot={() => {
+                  setIsNewOrderModalOpen(true);
+                }}
+                onOpenInvoice={(order) => setActiveInvoiceOrder(order)}
+                onInwardStock={(productId) => {
+                  setActiveTab('inventory');
+                }}
+              />
+            )}
           </ProtectedRoute>
         )}
 
@@ -1210,6 +1258,42 @@ function MainApp() {
           </ProtectedRoute>
         )}
 
+        {/* Digital Product Catalogue View - Protected (Admin & Salesman Only) */}
+        {activeTab === 'catalogue' && (
+          <ProtectedRoute 
+            pageName="Digital Product Catalogue"
+            allowedRoles={['admin', 'salesman']}
+            onNavigateHome={() => setActiveTab(getRoleHomeTab())}
+          >
+            <ErrorBoundary fallbackTitle="Digital Product Catalogue">
+              <CatalogueView
+                products={products}
+                salesmen={salesmen}
+                retailers={retailers}
+                onNavigateToOrders={() => setActiveTab('orders')}
+                onOpenNewOrderForRetailer={openNewOrderForRetailer}
+              />
+            </ErrorBoundary>
+          </ProtectedRoute>
+        )}
+
+        {/* Staff Management, Attendance, Salary & ID Cards View */}
+        {activeTab === 'staff' && (
+          <ProtectedRoute 
+            pageName="Staff Management & Payroll"
+            allowedRoles={['admin', 'salesman', 'accounts']}
+            onNavigateHome={() => setActiveTab(getRoleHomeTab())}
+          >
+            <ErrorBoundary fallbackTitle="Staff Management & Payroll">
+              <StaffManagementView
+                salesmen={salesmen}
+                retailers={retailers}
+                onNavigateTab={(tab) => setActiveTab(tab as any)}
+              />
+            </ErrorBoundary>
+          </ProtectedRoute>
+        )}
+
       </main>
 
       {/* Shopping Cart Drawer */}
@@ -1233,9 +1317,32 @@ function MainApp() {
           retailers={retailers}
           salesmen={salesmen}
           isOpen={isNewOrderModalOpen}
-          onClose={() => setIsNewOrderModalOpen(false)}
+          onClose={() => {
+            setIsNewOrderModalOpen(false);
+            setSelectedRetailerForOrder(undefined);
+          }}
           onSubmitOrder={handleCreateOrder}
           initialProductId={selectedProductForOrder}
+          initialRetailerId={selectedRetailerForOrder}
+        />
+      )}
+
+      {/* GPS Field Verification Shop Check-In Modal */}
+      {checkInRetailer && (
+        <VisitCheckInModal
+          isOpen={isCheckInModalOpen}
+          onClose={() => {
+            setIsCheckInModalOpen(false);
+            setCheckInRetailer(null);
+          }}
+          retailer={checkInRetailer}
+          salesman={currentSalesman}
+          onCheckInSuccess={(visit) => {
+            setIsCheckInModalOpen(false);
+            setCheckInRetailer(null);
+            showToast(`GPS check-in verified for ${checkInRetailer.storeName}`, 'success');
+            loadData();
+          }}
         />
       )}
 

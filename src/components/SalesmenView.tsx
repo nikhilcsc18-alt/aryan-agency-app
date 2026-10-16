@@ -24,9 +24,15 @@ import {
   CheckSquare,
   Square,
   ArrowRight,
-  Filter
+  Filter,
+  Eye,
+  EyeOff,
+  KeyRound,
+  Mail,
+  Calendar,
+  Clock
 } from 'lucide-react';
-import { Salesman, Retailer, User, UserRole } from '../types';
+import { Salesman, Retailer, User, UserRole, SalesmanTask, SalesTarget, TaskType, TaskPriority } from '../types';
 import { formatINR, api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -58,11 +64,10 @@ const isPurgedStore = (r: Retailer) => {
     name.includes('laxmi supermarket') ||
     name.includes('ganesh daily') ||
     name.includes('ganesh provision') ||
-    name.includes('sapthagiri') ||
+    name.includes('sapthagiri super') ||
     owner.includes('laxmi supermarket') ||
     owner.includes('ganesh daily') ||
-    owner.includes('ganesh provision') ||
-    owner.includes('sapthagiri')
+    owner.includes('sapthagiri store')
   );
 };
 
@@ -76,7 +81,41 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
   onOpenNewOrderForSalesman
 }) => {
   const { isAdmin } = useAuth();
-  const [activeSection, setActiveSection] = useState<'salesmen' | 'beat_mapping' | 'staff'>('salesmen');
+  const [activeSection, setActiveSection] = useState<'salesmen' | 'beat_mapping' | 'tasks_targets' | 'staff'>('salesmen');
+
+  // New Sales Executive Account Creation State
+  const [newSalesmanEmail, setNewSalesmanEmail] = useState('');
+  const [newSalesmanPassword, setNewSalesmanPassword] = useState('');
+  const [showNewSalesmanPassword, setShowNewSalesmanPassword] = useState(false);
+  const [newSalesmanTargetDate, setNewSalesmanTargetDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [salesmanCreationError, setSalesmanCreationError] = useState<string | null>(null);
+  const [isCreatingSalesman, setIsCreatingSalesman] = useState(false);
+
+  // Field Tasks & Targets State (Admin Management)
+  const [adminTasks, setAdminTasks] = useState<SalesmanTask[]>([]);
+  const [adminTargets, setAdminTargets] = useState<SalesTarget[]>([]);
+  const [loadingTasksTargets, setLoadingTasksTargets] = useState(false);
+  const [tasksSalesmanFilter, setTasksSalesmanFilter] = useState<string>('all');
+  
+  // Assign Task Modal State
+  const [isAssignTaskModalOpen, setIsAssignTaskModalOpen] = useState(false);
+  const [assignTaskSalesmanId, setAssignTaskSalesmanId] = useState('');
+  const [assignTaskTitle, setAssignTaskTitle] = useState('');
+  const [assignTaskType, setAssignTaskType] = useState<TaskType>('visit');
+  const [assignTaskRetailerId, setAssignTaskRetailerId] = useState('');
+  const [assignTaskDueDate, setAssignTaskDueDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [assignTaskPriority, setAssignTaskPriority] = useState<TaskPriority>('medium');
+  const [assignTaskDescription, setAssignTaskDescription] = useState('');
+  const [isSavingAssignTask, setIsSavingAssignTask] = useState(false);
+
+  // Update Quota / Target Modal State
+  const [isUpdateTargetModalOpen, setIsUpdateTargetModalOpen] = useState(false);
+  const [targetUpdateSalesmanId, setTargetUpdateSalesmanId] = useState('');
+  const [targetUpdatePeriod, setTargetUpdatePeriod] = useState<'monthly' | 'daily'>('monthly');
+  const [targetUpdateAmount, setTargetUpdateAmount] = useState<number>(1800000);
+  const [targetUpdateEffectiveDate, setTargetUpdateEffectiveDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [targetUpdateNotes, setTargetUpdateNotes] = useState('');
+  const [isSavingTargetUpdate, setIsSavingTargetUpdate] = useState(false);
   
   // Cleaned retailers list (excluding demo purged stores)
   const validRetailers = retailers.filter(r => !isPurgedStore(r));
@@ -168,6 +207,28 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
   useEffect(() => {
     if (activeSection === 'staff' && isAdmin) {
       loadStaffUsers();
+    }
+  }, [activeSection, isAdmin]);
+
+  const loadAdminTasksAndTargets = async () => {
+    try {
+      setLoadingTasksTargets(true);
+      const [tList, tgtList] = await Promise.all([
+        api.getSalesmanTasks().catch(() => []),
+        api.getSalesTargets().catch(() => [])
+      ]);
+      setAdminTasks(tList || []);
+      setAdminTargets(tgtList || []);
+    } catch (e) {
+      console.error('Failed to load tasks/targets for admin:', e);
+    } finally {
+      setLoadingTasksTargets(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeSection === 'tasks_targets' && isAdmin) {
+      loadAdminTasksAndTargets();
     }
   }, [activeSection, isAdmin]);
 
@@ -406,14 +467,15 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
   };
 
   // Open Add Salesman Modal
+  // Open Add Salesman Modal
   const handleOpenAdd = () => {
     setEditingSalesman({
-      employeeCode: `EMP-AA-${Math.floor(100 + Math.random() * 900)}`,
+      employeeCode: `EMP-SE-${Math.floor(1000 + Math.random() * 9000)}`,
       name: '',
-      phone: '+91 ',
+      phone: '',
       email: '',
       assignedBeats: allBeats.length > 0 ? [allBeats[0]] : ['Utraula Retail Beat'],
-      dailyTargetAmount: 70000,
+      dailyTargetAmount: 75000,
       monthlyTargetAmount: 1800000,
       currentMonthAchieved: 0,
       commissionPercentage: 1.5,
@@ -421,22 +483,98 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
       todaySalesAmount: 0,
       status: 'active'
     });
+    setNewSalesmanEmail('');
+    setNewSalesmanPassword('');
+    setShowNewSalesmanPassword(false);
+    setNewSalesmanTargetDate(new Date().toISOString().split('T')[0]);
+    setSalesmanCreationError(null);
     setIsSalesmanModalOpen(true);
   };
 
   // Open Edit Salesman Modal
   const handleOpenEdit = (salesman: Salesman) => {
     setEditingSalesman({ ...salesman });
+    setNewSalesmanEmail(salesman.email || '');
+    setSalesmanCreationError(null);
     setIsSalesmanModalOpen(true);
   };
 
-  // Save Salesman Details
+  // Save Salesman Details (Creates Auth Account for new salesman, or updates existing)
   const handleSaveSalesmanModal = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSalesman) return;
-    await onSaveSalesman(editingSalesman);
-    setIsSalesmanModalOpen(false);
-    setEditingSalesman(null);
+
+    if (!editingSalesman.id) {
+      // POINT 1: Create Sales Executive with full name, email, password, phone, beats, target
+      const cleanEmail = (newSalesmanEmail || editingSalesman.email || '').trim().toLowerCase();
+      if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+        setSalesmanCreationError('A valid work email address is required for executive sign-in.');
+        return;
+      }
+      if (!newSalesmanPassword || newSalesmanPassword.trim().length < 6) {
+        setSalesmanCreationError('Login password must be at least 6 characters long.');
+        return;
+      }
+      const rawPhone = (editingSalesman.phone || '').replace(/\D/g, '').slice(-10);
+      if (rawPhone.length !== 10) {
+        setSalesmanCreationError('Please enter a valid 10-digit Indian mobile number.');
+        return;
+      }
+      if (!editingSalesman.name || !editingSalesman.name.trim()) {
+        setSalesmanCreationError('Please enter the full name of the Sales Executive.');
+        return;
+      }
+
+      setIsCreatingSalesman(true);
+      setSalesmanCreationError(null);
+
+      try {
+        const res = await api.createSalesExecutive({
+          name: editingSalesman.name.trim(),
+          email: cleanEmail,
+          password: newSalesmanPassword.trim(),
+          phone: `+91 ${rawPhone.slice(0, 5)} ${rawPhone.slice(5)}`,
+          assignedBeats: editingSalesman.assignedBeats && editingSalesman.assignedBeats.length > 0 
+            ? editingSalesman.assignedBeats 
+            : ['Utraula Retail Beat'],
+          dailyTargetAmount: editingSalesman.dailyTargetAmount || 0,
+          monthlyTargetAmount: editingSalesman.monthlyTargetAmount || 0,
+          commissionPercentage: editingSalesman.commissionPercentage || 1.5,
+          targetEffectiveDate: newSalesmanTargetDate
+        });
+
+        if (res && res.success && res.salesman) {
+          await onSaveSalesman(res.salesman);
+          setIsSalesmanModalOpen(false);
+          setEditingSalesman(null);
+          setNewSalesmanPassword('');
+          setNewSalesmanEmail('');
+          setStatusMessage({ 
+            type: 'success', 
+            text: `Sales Executive "${res.salesman.name}" registered successfully! Code: ${res.salesman.employeeCode}. Login credentials linked to Supabase/ERP.` 
+          });
+          if (activeSection === 'tasks_targets') {
+            loadAdminTasksAndTargets();
+          }
+        } else {
+          setSalesmanCreationError(res?.message || 'Failed to create sales executive account.');
+        }
+      } catch (err: any) {
+        console.error('Error creating sales executive:', err);
+        setSalesmanCreationError(err?.message || 'Server error occurred while creating executive.');
+      } finally {
+        setIsCreatingSalesman(false);
+      }
+    } else {
+      // Editing existing salesman
+      try {
+        await onSaveSalesman(editingSalesman);
+        setIsSalesmanModalOpen(false);
+        setEditingSalesman(null);
+      } catch (err: any) {
+        setSalesmanCreationError(err?.message || 'Failed to update sales representative.');
+      }
+    }
   };
 
   // Delete Salesman Confirmed
@@ -502,11 +640,11 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
 
         <div className="flex items-center space-x-2 shrink-0">
           {isAdmin && (
-            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-semibold">
+            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs font-semibold overflow-x-auto">
               <button
                 type="button"
                 onClick={() => setActiveSection('salesmen')}
-                className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer flex items-center space-x-1.5 ${activeSection === 'salesmen' ? 'bg-white text-[#2563eb] shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer flex items-center space-x-1.5 whitespace-nowrap ${activeSection === 'salesmen' ? 'bg-white text-[#2563eb] shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
               >
                 <Users className="w-3.5 h-3.5" />
                 <span>DSR Salesmen ({salesmen.length})</span>
@@ -515,7 +653,7 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveSection('beat_mapping')}
-                className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer flex items-center space-x-1.5 ${activeSection === 'beat_mapping' ? 'bg-white text-[#2563eb] shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer flex items-center space-x-1.5 whitespace-nowrap ${activeSection === 'beat_mapping' ? 'bg-white text-[#2563eb] shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
               >
                 <Route className="w-3.5 h-3.5 text-emerald-600" />
                 <span>Beat & Retailer Mapping ({allBeats.length})</span>
@@ -523,8 +661,17 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
 
               <button
                 type="button"
+                onClick={() => setActiveSection('tasks_targets')}
+                className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer flex items-center space-x-1.5 whitespace-nowrap ${activeSection === 'tasks_targets' ? 'bg-white text-[#2563eb] shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                <Target className="w-3.5 h-3.5 text-purple-600" />
+                <span>Tasks & Targets</span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setActiveSection('staff')}
-                className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer flex items-center space-x-1.5 ${activeSection === 'staff' ? 'bg-white text-[#2563eb] shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                className={`px-3 py-1.5 rounded-md transition-colors cursor-pointer flex items-center space-x-1.5 whitespace-nowrap ${activeSection === 'staff' ? 'bg-white text-[#2563eb] shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
               >
                 <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" />
                 <span>Staff Roles</span>
@@ -535,7 +682,7 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
           {isAdmin && activeSection === 'salesmen' && (
             <button
               onClick={handleOpenAdd}
-              className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               <span>+ Add Sales Representative</span>
@@ -545,11 +692,40 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
           {isAdmin && activeSection === 'beat_mapping' && (
             <button
               onClick={() => { setNewBeatInput(''); setIsNewBeatModalOpen(true); }}
-              className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+              className="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               <span>+ New Beat Route</span>
             </button>
+          )}
+
+          {isAdmin && activeSection === 'tasks_targets' && (
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => {
+                  setAssignTaskSalesmanId(salesmen[0]?.id || '');
+                  setAssignTaskTitle('');
+                  setAssignTaskDescription('');
+                  setIsAssignTaskModalOpen(true);
+                }}
+                className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-purple-600 hover:bg-purple-700 text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Assign Task</span>
+              </button>
+              <button
+                onClick={() => {
+                  setTargetUpdateSalesmanId(salesmen[0]?.id || '');
+                  setTargetUpdatePeriod('monthly');
+                  setTargetUpdateAmount(1800000);
+                  setIsUpdateTargetModalOpen(true);
+                }}
+                className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer whitespace-nowrap"
+              >
+                <Target className="w-3.5 h-3.5" />
+                <span>Set Target</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -1369,7 +1545,7 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
       {/* ========================================================================= */}
       {isSalesmanModalOpen && editingSalesman && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-lg w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-lg w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -1377,19 +1553,28 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900">
-                    {editingSalesman.id ? 'Edit Sales Representative' : 'Add New Sales Representative'}
+                    {editingSalesman.id ? 'Edit Sales Representative' : 'Add New Sales Executive'}
                   </h3>
-                  <p className="text-[11px] text-slate-500">Sales force personnel and monthly delivery targets</p>
+                  <p className="text-[11px] text-slate-500">
+                    {editingSalesman.id ? 'Update employee profile and assigned beats' : 'Registers authentication login, role & employee record'}
+                  </p>
                 </div>
               </div>
               <button 
                 type="button"
                 onClick={() => setIsSalesmanModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1"
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {salesmanCreationError && (
+              <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{salesmanCreationError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleSaveSalesmanModal} className="space-y-3.5 text-xs">
               <div className="grid grid-cols-2 gap-3">
@@ -1416,15 +1601,73 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
                 </div>
               </div>
 
+              {/* Login Email Address */}
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1 flex items-center space-x-1">
+                  <Mail className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Work Email ID * (Sign-In Username)</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={editingSalesman.id ? (editingSalesman.email || '') : newSalesmanEmail}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (editingSalesman.id) {
+                      setEditingSalesman({ ...editingSalesman, email: val });
+                    } else {
+                      setNewSalesmanEmail(val);
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+                  placeholder="executive@aryanagency.in"
+                />
+                <span className="text-[10px] text-slate-400 mt-0.5 block">
+                  The executive will use this email address to log in to the Salesman Dashboard.
+                </span>
+              </div>
+
+              {/* Password Setup (For new accounts) */}
+              {!editingSalesman.id && (
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1 flex items-center space-x-1">
+                    <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Login Password / Temporary Password *</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showNewSalesmanPassword ? 'text' : 'password'}
+                      required
+                      minLength={6}
+                      value={newSalesmanPassword}
+                      onChange={(e) => setNewSalesmanPassword(e.target.value)}
+                      className="w-full px-3 py-2 pr-10 border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+                      placeholder="Minimum 6 characters (e.g. Sales@2026)"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewSalesmanPassword(!showNewSalesmanPassword)}
+                      className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
+                    >
+                      {showNewSalesmanPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    Secured and registered with Supabase Authentication and ERP authorization.
+                  </span>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Phone Number *</label>
+                  <label className="block text-slate-700 font-semibold mb-1">Phone Number (10 Digits) *</label>
                   <input
                     type="text"
                     required
                     value={editingSalesman.phone || ''}
                     onChange={(e) => setEditingSalesman({ ...editingSalesman, phone: e.target.value })}
                     className="w-full px-3 py-2 font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+                    placeholder="9876543210"
                   />
                 </div>
                 <div>
@@ -1472,20 +1715,20 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
                   <label className="block text-slate-700 font-semibold mb-1">Daily Target (₹)</label>
                   <input
                     type="number"
-                    required
-                    value={editingSalesman.dailyTargetAmount || 75000}
+                    value={editingSalesman.dailyTargetAmount || 0}
                     onChange={(e) => setEditingSalesman({ ...editingSalesman, dailyTargetAmount: Number(e.target.value) })}
                     className="w-full px-3 py-2 font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+                    placeholder="e.g. 75000 (0 if none)"
                   />
                 </div>
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">Monthly Target (₹)</label>
                   <input
                     type="number"
-                    required
-                    value={editingSalesman.monthlyTargetAmount || 1800000}
+                    value={editingSalesman.monthlyTargetAmount || 0}
                     onChange={(e) => setEditingSalesman({ ...editingSalesman, monthlyTargetAmount: Number(e.target.value) })}
                     className="w-full px-3 py-2 font-mono border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb]"
+                    placeholder="e.g. 1800000 (0 if none)"
                   />
                 </div>
               </div>
@@ -1517,9 +1760,11 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold rounded-lg shadow-xs cursor-pointer text-xs"
+                    disabled={isCreatingSalesman}
+                    className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold rounded-lg shadow-xs cursor-pointer text-xs flex items-center space-x-1"
                   >
-                    Save Sales Representative
+                    {isCreatingSalesman && <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />}
+                    <span>{editingSalesman.id ? 'Save Updates' : 'Create Sales Executive'}</span>
                   </button>
                 </div>
               </div>

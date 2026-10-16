@@ -41,6 +41,7 @@ import {
   printReportPreview,
   ExportColumn 
 } from '../lib/exportUtils';
+import { ARYAN_AGENCY_PROFILE } from '../lib/businessProfile';
 import { 
   FileText, 
   Download, 
@@ -1016,7 +1017,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-slate-300 mt-1">
-            Aryan Agency · Hatan Road, Utraula, Balrampur · GSTIN: 09BOGPG2620P1ZQ
+            {ARYAN_AGENCY_PROFILE.businessName} · {ARYAN_AGENCY_PROFILE.fullAddress} · GSTIN: {ARYAN_AGENCY_PROFILE.gstin}
           </p>
         </div>
 
@@ -1448,10 +1449,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold">FMCG DISTRIBUTION</span>
               </div>
               <p className="text-xs text-slate-600 font-medium mt-0.5">
-                Authorized Wholesaler & Super Stockist · Hatan Road, Utraula, Balrampur (UP) - 271604
+                {ARYAN_AGENCY_PROFILE.tagline} · {ARYAN_AGENCY_PROFILE.fullAddress}
               </p>
               <p className="text-xs text-slate-500 font-mono mt-0.5">
-                GSTIN: <span className="font-bold text-slate-800">09BOGPG2620P1ZQ</span> · Ph: +91 9140529661
+                GSTIN: <span className="font-bold text-slate-800">{ARYAN_AGENCY_PROFILE.gstin}</span> · Ph: {ARYAN_AGENCY_PROFILE.supportPhoneFormatted} · Email: {ARYAN_AGENCY_PROFILE.email}
               </p>
             </div>
 

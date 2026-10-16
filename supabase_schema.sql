@@ -373,6 +373,42 @@ CREATE TABLE IF NOT EXISTS salesman_visits (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- ====================================================================
+-- 13. NOTIFICATIONS TABLE (In-App Admin & User Event Notifications)
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS admin_notifications (
+    id TEXT PRIMARY KEY,
+    recipient_role TEXT NOT NULL DEFAULT 'admin' CHECK (recipient_role IN ('admin', 'salesman', 'delivery', 'accounts', 'retailer')),
+    recipient_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+    event_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    retailer_id TEXT REFERENCES retailers(id) ON DELETE SET NULL,
+    retailer_name TEXT,
+    order_id TEXT,
+    payment_id TEXT,
+    action_tab TEXT,
+    is_read BOOLEAN DEFAULT FALSE,
+    read_at TIMESTAMP WITH TIME ZONE,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- ====================================================================
+-- 14. DEVICE TOKENS TABLE (FCM Tokens for Push Notifications)
+-- ====================================================================
+CREATE TABLE IF NOT EXISTS device_tokens (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('admin', 'salesman', 'delivery', 'accounts', 'retailer')),
+    fcm_token TEXT UNIQUE NOT NULL,
+    platform TEXT NOT NULL DEFAULT 'android' CHECK (platform IN ('android', 'web', 'ios')),
+    device_info JSONB DEFAULT '{}'::jsonb,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- Synonym view for compatibility with delivery_run_sheets
 CREATE OR REPLACE VIEW delivery_run_sheets AS SELECT * FROM deliveries;
 
@@ -399,6 +435,10 @@ CREATE INDEX IF NOT EXISTS idx_visits_retailer ON salesman_visits(retailer_id);
 CREATE INDEX IF NOT EXISTS idx_visits_beat ON salesman_visits(beat_name);
 CREATE INDEX IF NOT EXISTS idx_visits_status ON salesman_visits(status);
 CREATE INDEX IF NOT EXISTS idx_visits_check_in_time ON salesman_visits(check_in_time);
+CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON admin_notifications(recipient_role, is_read, created_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON admin_notifications(recipient_user_id);
+CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_device_tokens_fcm ON device_tokens(fcm_token);
 
 -- ====================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES & ROLE-BASED ACCESS CONTROL
@@ -416,6 +456,8 @@ ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inventory_movements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE deliveries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE salesman_visits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE device_tokens ENABLE ROW LEVEL SECURITY;
 
 -- Security Definer Helpers to resolve authenticated user roles safely
 CREATE OR REPLACE FUNCTION get_auth_role()
@@ -754,6 +796,53 @@ CREATE POLICY "visits_update_policy" ON salesman_visits FOR UPDATE USING (
 DROP POLICY IF EXISTS "visits_delete_policy" ON salesman_visits;
 CREATE POLICY "visits_delete_policy" ON salesman_visits FOR DELETE USING (is_admin());
 
+-- 12. ADMIN & USER NOTIFICATIONS RLS POLICIES
+-- Admin can view all admin notifications.
+-- Retailers & other roles can ONLY view notifications addressed to their role or user ID.
+DROP POLICY IF EXISTS "notifications_select_policy" ON admin_notifications;
+CREATE POLICY "notifications_select_policy" ON admin_notifications FOR SELECT USING (
+    is_admin() OR 
+    (recipient_user_id = auth.uid()::text) OR 
+    (recipient_role = (SELECT u.role FROM public.users u WHERE u.id = auth.uid()::text) AND recipient_user_id IS NULL)
+);
+
+DROP POLICY IF EXISTS "notifications_insert_policy" ON admin_notifications;
+CREATE POLICY "notifications_insert_policy" ON admin_notifications FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "notifications_update_policy" ON admin_notifications;
+CREATE POLICY "notifications_update_policy" ON admin_notifications FOR UPDATE USING (
+    is_admin() OR (recipient_user_id = auth.uid()::text)
+) WITH CHECK (
+    is_admin() OR (recipient_user_id = auth.uid()::text)
+);
+
+DROP POLICY IF EXISTS "notifications_delete_policy" ON admin_notifications;
+CREATE POLICY "notifications_delete_policy" ON admin_notifications FOR DELETE USING (is_admin());
+
+-- 13. DEVICE TOKENS (FCM) RLS POLICIES
+-- Admins can view device tokens for push dispatch. Users can view and register their own device tokens.
+DROP POLICY IF EXISTS "device_tokens_select_policy" ON device_tokens;
+CREATE POLICY "device_tokens_select_policy" ON device_tokens FOR SELECT USING (
+    is_admin() OR user_id = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "device_tokens_insert_policy" ON device_tokens;
+CREATE POLICY "device_tokens_insert_policy" ON device_tokens FOR INSERT WITH CHECK (
+    is_admin() OR user_id = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "device_tokens_update_policy" ON device_tokens;
+CREATE POLICY "device_tokens_update_policy" ON device_tokens FOR UPDATE USING (
+    is_admin() OR user_id = auth.uid()::text
+) WITH CHECK (
+    is_admin() OR user_id = auth.uid()::text
+);
+
+DROP POLICY IF EXISTS "device_tokens_delete_policy" ON device_tokens;
+CREATE POLICY "device_tokens_delete_policy" ON device_tokens FOR DELETE USING (
+    is_admin() OR user_id = auth.uid()::text
+);
+
 -- Supabase Storage Bucket for Field Visit Photos
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('visit-photos', 'visit-photos', true)
@@ -869,3 +958,151 @@ ON CONFLICT (id) DO NOTHING;
 -- 7. Orders & Invoices Seed
 -- Production isolation: Orders, Order Items, Payments and Deliveries start clean.
 -- All transactions are generated from actual retailer indents and distributor fulfillment.
+
+-- ====================================================================
+-- 15. STAFF MANAGEMENT, ATTENDANCE & PAYROLL TABLES
+-- ====================================================================
+
+-- Staff Members Table
+CREATE TABLE IF NOT EXISTS staff_members (
+    id TEXT PRIMARY KEY,
+    employee_code TEXT UNIQUE NOT NULL,
+    name TEXT NOT NULL,
+    phone TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    role TEXT NOT NULL DEFAULT 'salesman' CHECK (role IN ('salesman', 'delivery', 'accounts', 'admin', 'manager', 'warehouse')),
+    designation TEXT NOT NULL,
+    photo_url TEXT,
+    assigned_beats TEXT[] DEFAULT '{}',
+    joining_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    employment_status TEXT NOT NULL DEFAULT 'active' CHECK (employment_status IN ('active', 'inactive', 'on_leave')),
+    salary_type TEXT NOT NULL DEFAULT 'monthly_fixed' CHECK (salary_type IN ('monthly_fixed', 'daily_wage', 'attendance_based')),
+    base_salary NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    allowances JSONB DEFAULT '[]'::jsonb,
+    deductions JSONB DEFAULT '[]'::jsonb,
+    weekly_off_day INTEGER NOT NULL DEFAULT 0 CHECK (weekly_off_day BETWEEN 0 AND 6),
+    monthly_leave_quota NUMERIC(4, 1) NOT NULL DEFAULT 2.0,
+    emergency_contact JSONB DEFAULT '{}'::jsonb,
+    address TEXT,
+    user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+    salesman_id TEXT REFERENCES salesmen(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Staff Attendance Table
+CREATE TABLE IF NOT EXISTS staff_attendance (
+    id TEXT PRIMARY KEY,
+    staff_id TEXT NOT NULL REFERENCES staff_members(id) ON DELETE CASCADE,
+    employee_code TEXT NOT NULL,
+    staff_name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    date DATE NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('present', 'absent', 'half_day', 'paid_leave', 'unpaid_leave', 'weekly_off')),
+    check_in_time TEXT,
+    check_out_time TEXT,
+    check_in_method TEXT DEFAULT 'admin_marked' CHECK (check_in_method IN ('admin_marked', 'self_check_in', 'gps_verified')),
+    working_hours NUMERIC(4, 2),
+    remarks TEXT,
+    correction_history JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT uq_staff_attendance_date UNIQUE (staff_id, date)
+);
+
+-- Staff Payroll Table
+CREATE TABLE IF NOT EXISTS staff_payrolls (
+    id TEXT PRIMARY KEY,
+    staff_id TEXT NOT NULL REFERENCES staff_members(id) ON DELETE CASCADE,
+    employee_code TEXT NOT NULL,
+    staff_name TEXT NOT NULL,
+    role TEXT NOT NULL,
+    period TEXT NOT NULL, -- YYYY-MM
+    salary_type TEXT NOT NULL CHECK (salary_type IN ('monthly_fixed', 'daily_wage', 'attendance_based')),
+    base_salary NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    total_days_in_month INTEGER NOT NULL,
+    present_days NUMERIC(4, 1) NOT NULL DEFAULT 0.0,
+    absent_days NUMERIC(4, 1) NOT NULL DEFAULT 0.0,
+    half_days NUMERIC(4, 1) NOT NULL DEFAULT 0.0,
+    paid_leaves NUMERIC(4, 1) NOT NULL DEFAULT 0.0,
+    unpaid_leaves NUMERIC(4, 1) NOT NULL DEFAULT 0.0,
+    weekly_offs NUMERIC(4, 1) NOT NULL DEFAULT 0.0,
+    payable_days NUMERIC(4, 1) NOT NULL DEFAULT 0.0,
+    gross_calculated NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    allowances_total NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    allowance_breakdown JSONB DEFAULT '[]'::jsonb,
+    deductions_total NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    deduction_breakdown JSONB DEFAULT '[]'::jsonb,
+    advances_deducted NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    net_payable NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    amount_paid NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    remaining_due NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'calculated', 'approved', 'partially_paid', 'paid')),
+    approved_by TEXT,
+    approved_at TIMESTAMP WITH TIME ZONE,
+    notes TEXT,
+    payments JSONB DEFAULT '[]'::jsonb,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT uq_staff_payroll_period UNIQUE (staff_id, period)
+);
+
+-- Staff Salary Payments Table
+CREATE TABLE IF NOT EXISTS staff_salary_payments (
+    id TEXT PRIMARY KEY,
+    payroll_id TEXT NOT NULL REFERENCES staff_payrolls(id) ON DELETE CASCADE,
+    staff_id TEXT NOT NULL REFERENCES staff_members(id) ON DELETE CASCADE,
+    staff_name TEXT NOT NULL,
+    period TEXT NOT NULL,
+    payment_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    amount NUMERIC(12, 2) NOT NULL,
+    payment_method TEXT NOT NULL DEFAULT 'bank_transfer' CHECK (payment_method IN ('bank_transfer', 'upi', 'cash', 'cheque')),
+    reference_number TEXT,
+    paid_by_name TEXT NOT NULL,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_staff_members_role ON staff_members(role);
+CREATE INDEX IF NOT EXISTS idx_staff_members_status ON staff_members(employment_status);
+CREATE INDEX IF NOT EXISTS idx_staff_members_code ON staff_members(employee_code);
+CREATE INDEX IF NOT EXISTS idx_staff_attendance_staff ON staff_attendance(staff_id);
+CREATE INDEX IF NOT EXISTS idx_staff_attendance_date ON staff_attendance(date);
+CREATE INDEX IF NOT EXISTS idx_staff_payrolls_staff_period ON staff_payrolls(staff_id, period);
+CREATE INDEX IF NOT EXISTS idx_staff_salary_payments_staff ON staff_salary_payments(staff_id);
+
+-- Enable RLS
+ALTER TABLE staff_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE staff_attendance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE staff_payrolls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE staff_salary_payments ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+-- Staff Members: Admins can do everything; staff can view their own record
+CREATE POLICY "Admins have full access to staff_members" ON staff_members
+    FOR ALL TO authenticated
+    USING (EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin'));
+
+CREATE POLICY "Staff can view their own profile" ON staff_members
+    FOR SELECT TO authenticated
+    USING (user_id = auth.uid() OR email = auth.email());
+
+-- Staff Attendance: Admins have full access; staff can view own attendance
+CREATE POLICY "Admins have full access to staff_attendance" ON staff_attendance
+    FOR ALL TO authenticated
+    USING (EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin'));
+
+CREATE POLICY "Staff can view own attendance" ON staff_attendance
+    FOR SELECT TO authenticated
+    USING (EXISTS (SELECT 1 FROM staff_members WHERE staff_members.id = staff_attendance.staff_id AND (staff_members.user_id = auth.uid() OR staff_members.email = auth.email())));
+
+-- Staff Payrolls: Admins have full access; staff can view approved/paid payroll
+CREATE POLICY "Admins have full access to staff_payrolls" ON staff_payrolls
+    FOR ALL TO authenticated
+    USING (EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.role = 'admin'));
+
+CREATE POLICY "Staff can view own payroll" ON staff_payrolls
+    FOR SELECT TO authenticated
+    USING (EXISTS (SELECT 1 FROM staff_members WHERE staff_members.id = staff_payrolls.staff_id AND (staff_members.user_id = auth.uid() OR staff_members.email = auth.email())));
+

@@ -19,12 +19,14 @@ export interface ExportReportOptions {
   summaryCards?: { label: string; value: string }[];
 }
 
+import { ARYAN_AGENCY_PROFILE } from './businessProfile';
+
 const AGENCY_HEADER = {
-  name: 'ARYAN AGENCY',
-  tagline: 'Trusted FMCG Supplier & Wholesale Distributor',
-  gstin: 'GSTIN: 09BOGPG2620P1ZQ',
-  address: 'Station Road, Utraula, Balrampur, Uttar Pradesh - 271304',
-  contact: 'Ph: +91 98391 23456 / +91 94520 67890 | Email: info@aryanagency.in | Web: aryanagency.in'
+  name: ARYAN_AGENCY_PROFILE.businessName.toUpperCase(),
+  tagline: ARYAN_AGENCY_PROFILE.tagline,
+  gstin: `GSTIN: ${ARYAN_AGENCY_PROFILE.gstin}`,
+  address: ARYAN_AGENCY_PROFILE.fullAddress,
+  contact: `Ph: ${ARYAN_AGENCY_PROFILE.supportPhoneFormatted} | Email: ${ARYAN_AGENCY_PROFILE.email} | Web: ${ARYAN_AGENCY_PROFILE.officialDomain}`
 };
 
 /**
@@ -71,8 +73,8 @@ export function exportReportToPdf(options: ExportReportOptions) {
   // Right-aligned contact in header
   doc.setFontSize(8);
   doc.setTextColor(220, 230, 250);
-  doc.text(`Contact: +91 98391 23456`, pageWidth - 14, currentY, { align: 'right' });
-  doc.text(`support@aryanagency.in`, pageWidth - 14, currentY + 5, { align: 'right' });
+  doc.text(`Contact: ${ARYAN_AGENCY_PROFILE.supportPhoneFormatted}`, pageWidth - 14, currentY, { align: 'right' });
+  doc.text(ARYAN_AGENCY_PROFILE.email, pageWidth - 14, currentY + 5, { align: 'right' });
 
   currentY = 34;
 

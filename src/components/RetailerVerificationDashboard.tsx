@@ -220,7 +220,10 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
 
   // Filters & View Mode
   const [viewMode, setViewMode] = useState<'timeline' | 'cards' | 'table'>('timeline');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('pending');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>(() => {
+    const hasPending = (retailers || []).some(r => r.verificationStatus === 'pending');
+    return hasPending ? 'pending' : 'all';
+  });
   const [selectedBeat, setSelectedBeat] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
@@ -294,45 +297,14 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
     const isPurgedStore = (r: Retailer) => {
       const name = (r.storeName || '').toLowerCase();
       const owner = (r.ownerName || '').toLowerCase();
-      const phone = (r.phone || '').replace(/\D/g, '');
-      const id = (r.id || '').toLowerCase();
       return (
         name.includes('laxmi supermarket') ||
         name.includes('ganesh daily') ||
         name.includes('ganesh provision') ||
-        name.includes('sapthagiri') ||
-        name.includes('test salesman') ||
-        name.includes('kisan traders') ||
-        name.includes('kirana store (6655)') ||
-        name.includes('gupta kirana') ||
-        name.includes('verma provision') ||
-        name.includes('paras kirana') ||
-        name.includes('maa durga') ||
-        name.includes('shri ram traders') ||
-        name.includes('shiv shakti') ||
-        name.includes('agarwal general') ||
+        name.includes('sapthagiri super') ||
         owner.includes('laxmi supermarket') ||
         owner.includes('ganesh daily') ||
-        owner.includes('ganesh provision') ||
-        owner.includes('sapthagiri') ||
-        owner.includes('retailer 6655') ||
-        owner.includes('ram lal') ||
-        owner.includes('mohan lal') ||
-        owner.includes('sanjay gupta') ||
-        owner.includes('mahesh verma') ||
-        owner.includes('paras kirana') ||
-        phone.endsWith('9988776655') ||
-        phone.endsWith('9123456789') ||
-        phone.endsWith('9123488888') ||
-        phone.endsWith('9838012345') ||
-        phone.endsWith('9415098765') ||
-        phone.endsWith('9865986532') ||
-        id === 'ret_672eaf9602624692' ||
-        id === 'ret_1791274745127_5lbh1' ||
-        id === 'ret_1791369179248' ||
-        id === 'ret_1791362412268' ||
-        id === 'ret_1791652231310' ||
-        id === 'ret_1791652248963'
+        owner.includes('sapthagiri store')
       );
     };
 
@@ -1050,14 +1022,26 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
                 : 'All incoming retailer registrations have been processed. Great job!'}
             </p>
           </div>
-          <div className="flex items-center justify-center space-x-2 pt-2">
-            {(searchQuery || selectedBeat !== 'all' || statusFilter !== 'pending') && (
+          <div className="flex items-center justify-center space-x-2 pt-2 flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedBeat('all');
+                setStatusFilter('all');
+              }}
+              className="px-4 py-2 text-xs font-bold rounded-xl bg-[#2563eb] text-white hover:bg-blue-700 cursor-pointer shadow-xs flex items-center space-x-1.5"
+            >
+              <Store className="w-3.5 h-3.5" />
+              <span>View All Network Retailers ({stats.total})</span>
+            </button>
+            {(searchQuery || selectedBeat !== 'all' || statusFilter !== 'all') && (
               <button
                 type="button"
                 onClick={() => {
                   setSearchQuery('');
                   setSelectedBeat('all');
-                  setStatusFilter('pending');
+                  setStatusFilter('all');
                 }}
                 className="px-3.5 py-2 text-xs font-bold rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer"
               >

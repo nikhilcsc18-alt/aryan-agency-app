@@ -12,7 +12,8 @@ import {
   Store,
   Sparkles,
   Plus,
-  ShieldCheck
+  ShieldCheck,
+  BookOpen
 } from 'lucide-react';
 import { Product, Order, Retailer, Salesman } from '../types';
 import { formatINR } from '../lib/api';
@@ -69,41 +70,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const isPurgedStore = (r: Retailer) => {
     const name = (r.storeName || '').toLowerCase();
     const owner = (r.ownerName || '').toLowerCase();
-    const phone = (r.phone || '').replace(/\D/g, '');
-    const id = (r.id || '').toLowerCase();
     return (
       name.includes('laxmi supermarket') ||
       name.includes('ganesh daily') ||
       name.includes('ganesh provision') ||
-      name.includes('sapthagiri') ||
-      name.includes('test salesman') ||
-      name.includes('kisan traders') ||
-      name.includes('kirana store (6655)') ||
-      name.includes('gupta kirana') ||
-      name.includes('verma provision') ||
-      name.includes('paras kirana') ||
-      name.includes('maa durga') ||
-      name.includes('shri ram traders') ||
-      name.includes('shiv shakti') ||
-      name.includes('agarwal general') ||
-      owner.includes('retailer 6655') ||
-      owner.includes('ram lal') ||
-      owner.includes('mohan lal') ||
-      owner.includes('sanjay gupta') ||
-      owner.includes('mahesh verma') ||
-      owner.includes('paras kirana') ||
-      phone.endsWith('9988776655') ||
-      phone.endsWith('9123456789') ||
-      phone.endsWith('9123488888') ||
-      phone.endsWith('9838012345') ||
-      phone.endsWith('9415098765') ||
-      phone.endsWith('9865986532') ||
-      id === 'ret_672eaf9602624692' ||
-      id === 'ret_1791274745127_5lbh1' ||
-      id === 'ret_1791369179248' ||
-      id === 'ret_1791362412268' ||
-      id === 'ret_1791652231310' ||
-      id === 'ret_1791652248963'
+      name.includes('sapthagiri super') ||
+      owner.includes('laxmi supermarket') ||
+      owner.includes('ganesh daily') ||
+      owner.includes('sapthagiri store')
     );
   };
   const activeValidRetailers = retailers.filter(r => !isPurgedStore(r));
@@ -151,13 +125,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span>Buy Products</span>
             </button>
           ) : (
-            <button
-              onClick={onOpenNewOrder}
-              className="w-full sm:w-auto px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              <span>+ Punch Order</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => onNavigateTab('catalogue')}
+                className="w-full sm:w-auto px-3.5 py-2 text-xs font-semibold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-colors flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95"
+                title="Open Digital Product Catalogue"
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                <span>Catalogue</span>
+              </button>
+              <button
+                onClick={onOpenNewOrder}
+                className="w-full sm:w-auto px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#2563eb] hover:bg-[#1d4ed8] text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ Punch Order</span>
+              </button>
+            </div>
           )}
         </div>
       </div>

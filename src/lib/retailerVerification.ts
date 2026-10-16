@@ -89,6 +89,7 @@ export function applyVerificationOverrides(retailers: Retailer[]): Retailer[] {
   const overrides = getAllVerificationOverrides();
 
   return retailers.map(retailer => {
+    const override = overrides[retailer.id];
     // If retailer was verified in database/server, it should stay verified!
     const effectiveStatus = (retailer.verificationStatus === 'verified' || override?.verificationStatus === 'verified')
       ? 'verified'

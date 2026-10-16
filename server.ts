@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { db } from './server/db';
 import { parseNaturalLanguageOrder, generateFMCGInsights, lookupProductByBarcode } from './server/gemini';
-import { User, Order, OrderItem, PaymentRecord, DeliveryRunSheet, Retailer, Salesman, ReportFilterOptions, ReportType, ReportPeriod, GstSubReportType, SalesmanVisit } from './src/types';
+import { User, Order, OrderItem, PaymentRecord, DeliveryRunSheet, Retailer, Salesman, ReportFilterOptions, ReportType, ReportPeriod, GstSubReportType, SalesmanVisit, StaffMember, StaffAttendance, StaffPayroll } from './src/types';
 import { 
   generateSalesReportData, 
   generateCustomerLedgerData, 
@@ -113,19 +113,26 @@ async function authenticateRequest(req: any, res: any, next: any) {
           if (!authenticatedUser) {
             // Check if user exists in Supabase users table to fetch authoritative role
             let authoritativeRole: any = 'retailer';
-            try {
-              if (supabaseServer) {
-                const { data: dbUser } = await supabaseServer
-                  .from('users')
-                  .select('role')
-                  .eq('id', user.id)
-                  .maybeSingle();
-                if (dbUser && dbUser.role) {
-                  authoritativeRole = dbUser.role;
+            const userEmail = (user.email || '').toLowerCase().trim();
+            if (['nikhilcsc18@gmail.com', 'rockygupta928@gmail.com', 'aryan@aryanagency.in', 'admin@aryanagency.in'].includes(userEmail)) {
+              authoritativeRole = 'admin';
+            } else if (user.user_metadata?.role) {
+              authoritativeRole = user.user_metadata.role;
+            } else {
+              try {
+                if (supabaseServer) {
+                  const { data: dbUser } = await supabaseServer
+                    .from('users')
+                    .select('role')
+                    .eq('id', user.id)
+                    .maybeSingle();
+                  if (dbUser && dbUser.role) {
+                    authoritativeRole = dbUser.role;
+                  }
                 }
+              } catch (dbErr) {
+                console.warn('Supabase DB role lookup error:', dbErr);
               }
-            } catch (dbErr) {
-              console.warn('Supabase DB role lookup error:', dbErr);
             }
 
             authenticatedUser = {
@@ -135,6 +142,7 @@ async function authenticateRequest(req: any, res: any, next: any) {
               phone: user.user_metadata?.phone || '+91 98000 00000',
               role: authoritativeRole
             };
+            db.saveUser(authenticatedUser);
           }
         }
       } catch (tokenErr) {
@@ -148,12 +156,15 @@ async function authenticateRequest(req: any, res: any, next: any) {
       authenticatedUser = users.find(u => u.id === headerUserId) || null;
       if (!authenticatedUser) {
         const headerRole = req.headers['x-user-role'] as string;
+        const headerEmail = (req.headers['x-user-email'] as string || '').toLowerCase().trim();
         const validRoles = ['admin', 'salesman', 'accounts', 'delivery', 'retailer'];
-        const assignedRole = (headerRole && validRoles.includes(headerRole)) ? headerRole : 'admin';
+        const assignedRole = ['nikhilcsc18@gmail.com', 'rockygupta928@gmail.com', 'aryan@aryanagency.in', 'admin@aryanagency.in'].includes(headerEmail)
+          ? 'admin'
+          : (headerRole && validRoles.includes(headerRole)) ? headerRole : 'admin';
         authenticatedUser = {
           id: headerUserId,
           name: (req.headers['x-user-name'] as string) || 'Authorized User',
-          email: (req.headers['x-user-email'] as string) || '',
+          email: headerEmail,
           role: assignedRole
         };
       }
@@ -162,8 +173,16 @@ async function authenticateRequest(req: any, res: any, next: any) {
     // 3. Fallback for role header or local session
     if (!authenticatedUser) {
       const headerRole = req.headers['x-user-role'] as string;
+      const headerEmail = (req.headers['x-user-email'] as string || '').toLowerCase().trim();
       const validRoles = ['admin', 'salesman', 'accounts', 'delivery', 'retailer'];
-      if (headerRole && validRoles.includes(headerRole)) {
+      if (['nikhilcsc18@gmail.com', 'rockygupta928@gmail.com', 'aryan@aryanagency.in', 'admin@aryanagency.in'].includes(headerEmail)) {
+        authenticatedUser = {
+          id: 'usr_admin',
+          name: 'Nikhil (Admin)',
+          email: headerEmail || 'nikhilcsc18@gmail.com',
+          role: 'admin'
+        };
+      } else if (headerRole && validRoles.includes(headerRole)) {
         const users = db.getUsers();
         authenticatedUser = users.find(u => u.role === headerRole) || {
           id: `usr_${headerRole}`,
@@ -204,7 +223,8 @@ function requireRoles(allowedRoles: string[]) {
       });
     }
     if (!allowedRoles.includes(role)) {
-      return res.status(403).json({ 
+      // Use HTTP 400 instead of 403 to avoid Nginx proxy_intercept_errors from turning JSON into /forbidden.html
+      return res.status(400).json({ 
         error: `Forbidden: Access restricted. Your assigned account role '${role.toUpperCase()}' does not have permission for this operation. Authorized roles: ${allowedRoles.map(r => r.toUpperCase()).join(', ')}.` 
       });
     }
@@ -631,7 +651,7 @@ app.post('/api/auth/switch', (req, res) => {
   // it may only switch between roles that the currently authenticated user is explicitly authorized to use.
   // Non-admin users (Salesman, Delivery, etc.) are strictly forbidden from switching roles.
   if (req.userRole !== 'admin') {
-    return res.status(403).json({ 
+    return res.status(400).json({ 
       error: `Forbidden: Role escalation blocked. Role '${req.userRole?.toUpperCase()}' cannot switch accounts or roles. Only Owner/Admin is authorized.` 
     });
   }
@@ -643,6 +663,911 @@ app.post('/api/auth/switch', (req, res) => {
     return res.json({ success: true, user: found });
   }
   res.status(404).json({ error: 'User not found' });
+});
+
+// ==========================================
+// Reliable Password Authentication & Login
+// ==========================================
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const rawEmail = String(req.body.email || '').trim().toLowerCase();
+    const rawPass = String(req.body.password || '');
+
+    if (!rawEmail || !rawPass) {
+      return res.status(400).json({ success: false, error: 'Email and password are required.' });
+    }
+
+    // 1. Verify against database credentials
+    const authResult = db.verifyUserCredentials(rawEmail, rawPass);
+    if (!authResult.isValid || !authResult.user) {
+      // If Supabase is ready, check if user exists in Supabase
+      if (supabaseServer) {
+        try {
+          const { data: supaAuth, error: supaErr } = await supabaseServer.auth.signInWithPassword({
+            email: rawEmail,
+            password: rawPass
+          });
+          if (!supaErr && supaAuth?.user) {
+            let matchedUser = db.getUsers().find(u => u.email && u.email.toLowerCase() === rawEmail);
+            if (!matchedUser) {
+              const supaRole = (supaAuth.user.user_metadata?.role as any) || 'salesman';
+              matchedUser = {
+                id: supaAuth.user.id,
+                name: supaAuth.user.user_metadata?.name || rawEmail.split('@')[0],
+                email: rawEmail,
+                phone: supaAuth.user.user_metadata?.phone || '+91 98000 00000',
+                role: supaRole,
+                salesmanId: supaAuth.user.user_metadata?.salesmanId
+              };
+              db.saveUser(matchedUser);
+            }
+            currentActiveUserId = matchedUser.id;
+            return res.json({
+              success: true,
+              user: matchedUser,
+              token: supaAuth.session?.access_token || `token_${Date.now()}`
+            });
+          }
+        } catch (e) {
+          console.warn('[Login Auth] Supabase check notice:', e);
+        }
+      }
+
+      return res.status(401).json({
+        success: false,
+        error: authResult.error || 'Invalid email or password. Please verify your credentials.'
+      });
+    }
+
+    const user = authResult.user;
+
+    // 2. Ensure Salesman linking if user role is 'salesman'
+    if (user.role === 'salesman') {
+      let salesman = user.salesmanId ? db.getSalesmanById(user.salesmanId) : undefined;
+      if (!salesman) {
+        // Look up by email or phone or name
+        salesman = db.getSalesmen().find(s => 
+          (s.email && s.email.toLowerCase() === user.email.toLowerCase()) ||
+          (s.phone && user.phone && s.phone.replace(/\D/g, '').slice(-10) === user.phone.replace(/\D/g, '').slice(-10)) ||
+          s.name.toLowerCase() === user.name.toLowerCase()
+        );
+      }
+      if (!salesman) {
+        // Create matching salesman record if missing
+        const newSalesmanId = user.salesmanId || `slm_${Date.now()}`;
+        salesman = {
+          id: newSalesmanId,
+          employeeCode: `EMP-SE-${Math.floor(1000 + Math.random() * 9000)}`,
+          name: user.name,
+          phone: user.phone || '',
+          email: user.email,
+          assignedBeats: ['Utraula Retail Beat'],
+          dailyTargetAmount: 0,
+          monthlyTargetAmount: 0,
+          targetAssigned: false,
+          currentMonthAchieved: 0,
+          commissionPercentage: 1.5,
+          todayOrdersCount: 0,
+          todaySalesAmount: 0,
+          status: 'active',
+          userId: user.id
+        };
+        db.saveSalesman(salesman);
+      }
+      if (user.salesmanId !== salesman.id) {
+        user.salesmanId = salesman.id;
+        db.saveUser(user);
+      }
+    }
+
+    currentActiveUserId = user.id;
+    const linkedSalesman = user.salesmanId ? db.getSalesmanById(user.salesmanId) : undefined;
+    return res.json({
+      success: true,
+      user,
+      salesman: linkedSalesman,
+      token: `auth_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    });
+  } catch (err: any) {
+    console.error('[Login] Error:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Authentication error.' });
+  }
+});
+
+// Password Reset Endpoint
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const rawEmail = String(req.body.email || '').trim().toLowerCase();
+    if (!rawEmail) {
+      return res.status(400).json({ success: false, error: 'Email address is required.' });
+    }
+
+    if (supabaseServer) {
+      try {
+        await supabaseServer.auth.resetPasswordForEmail(rawEmail);
+      } catch (e) {
+        console.warn('Supabase resetPassword notice:', e);
+      }
+    }
+
+    const user = db.getUsers().find(u => u.email && u.email.toLowerCase() === rawEmail);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'No account found with this email address.' });
+    }
+
+    return res.json({
+      success: true,
+      message: `Password reset instructions have been dispatched to ${rawEmail}.`
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message || 'Failed to process password reset.' });
+  }
+});
+
+// Admin-Only: Add Sales Executive & Link Auth Account
+app.post('/api/admin/create-salesman', requireRoles(['admin']), async (req, res) => {
+  try {
+    const { 
+      name, 
+      email, 
+      password, 
+      phone, 
+      assignedBeats, 
+      dailyTargetAmount, 
+      monthlyTargetAmount,
+      commissionPercentage,
+      targetEffectiveDate
+    } = req.body;
+
+    const trimmedName = String(name || '').trim();
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanPass = String(password || '').trim();
+    const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
+
+    if (!trimmedName) {
+      return res.status(400).json({ success: false, error: 'Sales Executive full name is required.' });
+    }
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      return res.status(400).json({ success: false, error: 'A valid email address is required.' });
+    }
+    if (!cleanPass || cleanPass.length < 6) {
+      return res.status(400).json({ success: false, error: 'Password must be at least 6 characters long.' });
+    }
+
+    // Check duplicate email
+    const existingUser = db.getUsers().find(u => u.email && u.email.toLowerCase() === cleanEmail);
+    const existingSalesman = db.getSalesmen().find(s => s.email && s.email.toLowerCase() === cleanEmail);
+    if (existingUser || existingSalesman) {
+      return res.status(409).json({
+        success: false,
+        error: `An employee or user with email '${cleanEmail}' already exists in the system.`
+      });
+    }
+
+    const salesmanId = `slm_${Date.now()}`;
+    const userId = `usr_sales_${Date.now()}`;
+    const employeeCode = `EMP-SE-${Math.floor(1000 + Math.random() * 9000)}`;
+    const formattedPhone = cleanPhone ? `+91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}` : '+91 98000 00000';
+
+    const beats = Array.isArray(assignedBeats) && assignedBeats.length > 0
+      ? assignedBeats
+      : ['Utraula Retail Beat'];
+
+    const hasTarget = Boolean(
+      (dailyTargetAmount && Number(dailyTargetAmount) > 0) ||
+      (monthlyTargetAmount && Number(monthlyTargetAmount) > 0)
+    );
+
+    // 1. Create Salesman Entity
+    const newSalesman: Salesman = {
+      id: salesmanId,
+      employeeCode,
+      name: trimmedName,
+      phone: formattedPhone,
+      email: cleanEmail,
+      assignedBeats: beats,
+      dailyTargetAmount: dailyTargetAmount ? Number(dailyTargetAmount) : 0,
+      monthlyTargetAmount: monthlyTargetAmount ? Number(monthlyTargetAmount) : 0,
+      targetAssigned: hasTarget,
+      effectiveStartDate: targetEffectiveDate || new Date().toISOString().split('T')[0],
+      currentMonthAchieved: 0,
+      commissionPercentage: commissionPercentage ? Number(commissionPercentage) : 1.5,
+      todayOrdersCount: 0,
+      todaySalesAmount: 0,
+      status: 'active',
+      userId
+    };
+    db.saveSalesman(newSalesman);
+
+    // 2. Create User Profile
+    const newUser: User = {
+      id: userId,
+      name: trimmedName,
+      email: cleanEmail,
+      phone: formattedPhone,
+      role: 'salesman',
+      salesmanId
+    };
+    db.saveUser(newUser);
+
+    // 3. Save Authentication Credentials
+    db.setUserCredentials(cleanEmail, cleanPass, userId, 'salesman');
+
+    // 4. Save Target Record if provided
+    if (hasTarget && monthlyTargetAmount) {
+      db.saveSalesTarget({
+        id: `tgt_${Date.now()}`,
+        salesmanId,
+        period: 'monthly',
+        targetAmount: Number(monthlyTargetAmount),
+        effectiveStartDate: targetEffectiveDate || new Date().toISOString().split('T')[0],
+        assignedBy: req.user?.name || 'Administrator',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    // 5. Create in Supabase if connected
+    if (supabaseServer) {
+      try {
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
+        if (serviceKey && rawSupabaseUrl) {
+          const supabaseAdmin = createClient(rawSupabaseUrl, serviceKey, {
+            auth: { autoRefreshToken: false, persistSession: false }
+          });
+          const { data: supaUser, error: supaErr } = await supabaseAdmin.auth.admin.createUser({
+            email: cleanEmail,
+            password: cleanPass,
+            email_confirm: true,
+            user_metadata: {
+              name: trimmedName,
+              phone: formattedPhone,
+              role: 'salesman',
+              salesmanId
+            }
+          });
+          if (!supaErr && supaUser?.user) {
+            newUser.id = supaUser.user.id;
+            newSalesman.userId = supaUser.user.id;
+            db.saveUser(newUser);
+            db.saveSalesman(newSalesman);
+          }
+        } else {
+          await supabaseServer.auth.signUp({
+            email: cleanEmail,
+            password: cleanPass,
+            options: {
+              data: {
+                name: trimmedName,
+                phone: formattedPhone,
+                role: 'salesman',
+                salesmanId
+              }
+            }
+          });
+        }
+
+        // Upsert into Supabase public tables
+        try {
+          await supabaseServer.from('users').upsert({
+            id: newUser.id,
+            name: trimmedName,
+            email: cleanEmail,
+            phone: formattedPhone,
+            role: 'salesman',
+            salesman_id: salesmanId
+          });
+        } catch {
+          // ignore table sync error if table does not exist
+        }
+
+        try {
+          await supabaseServer.from('salesmen').upsert({
+            id: salesmanId,
+            employee_code: employeeCode,
+            name: trimmedName,
+            phone: formattedPhone,
+            email: cleanEmail,
+            assigned_beats: beats,
+            daily_target_amount: newSalesman.dailyTargetAmount,
+            monthly_target_amount: newSalesman.monthlyTargetAmount,
+            commission_percentage: newSalesman.commissionPercentage,
+            status: 'active'
+          });
+        } catch {
+          // ignore table sync error if table does not exist
+        }
+      } catch (err: any) {
+        console.warn('[Create Salesman] Supabase provisioning notice:', err.message);
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      salesman: newSalesman,
+      user: newUser,
+      message: `Sales Executive '${trimmedName}' created successfully with code ${employeeCode}.`
+    });
+  } catch (err: any) {
+    console.error('[Create Salesman] Error:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Failed to create Sales Executive.' });
+  }
+});
+
+// ==========================================
+// Salesman Tasks Management API
+// ==========================================
+app.get('/api/salesman-tasks', (req, res) => {
+  const salesmanIdParam = req.query.salesmanId as string | undefined;
+  if (req.userRole === 'salesman' && req.user?.salesmanId) {
+    return res.json(db.getSalesmanTasks(req.user.salesmanId));
+  }
+  return res.json(db.getSalesmanTasks(salesmanIdParam));
+});
+
+app.post('/api/salesman-tasks', requireRoles(['admin', 'salesman']), (req, res) => {
+  const task = req.body;
+  if (!task.title) {
+    return res.status(400).json({ error: 'Task title is required.' });
+  }
+  if (!task.salesmanId) {
+    if (req.userRole === 'salesman' && req.user?.salesmanId) {
+      task.salesmanId = req.user.salesmanId;
+    } else {
+      return res.status(400).json({ error: 'Salesman ID is required.' });
+    }
+  }
+  task.status = task.status || 'pending';
+  task.priority = task.priority || 'medium';
+  task.taskType = task.taskType || 'visit';
+  task.dueDate = task.dueDate || new Date().toISOString().split('T')[0];
+  task.assignedByRole = req.userRole;
+  task.assignedByName = req.user?.name || (req.userRole === 'admin' ? 'Administrator' : 'Self');
+
+  const saved = db.saveSalesmanTask(task);
+  res.status(201).json({ success: true, task: saved });
+});
+
+app.patch('/api/salesman-tasks/:id/status', requireRoles(['admin', 'salesman']), (req, res) => {
+  const { id } = req.params;
+  const { status, completionNotes } = req.body;
+  if (!status) {
+    return res.status(400).json({ error: 'Task status is required.' });
+  }
+  const task = db.getSalesmanTaskById(id);
+  if (!task) {
+    return res.status(404).json({ error: 'Task not found.' });
+  }
+  if (req.userRole === 'salesman' && req.user?.salesmanId && task.salesmanId !== req.user.salesmanId) {
+    return res.status(400).json({ error: 'Forbidden: You can only update tasks assigned to you.' });
+  }
+  const updated = db.updateSalesmanTaskStatus(id, status, completionNotes);
+  res.json({ success: true, task: updated });
+});
+
+app.delete('/api/salesman-tasks/:id', requireRoles(['admin']), (req, res) => {
+  const { id } = req.params;
+  const deleted = db.deleteSalesmanTask(id);
+  res.json({ success: deleted });
+});
+
+// ==========================================
+// Sales Targets Management API
+// ==========================================
+app.get('/api/sales-targets', (req, res) => {
+  const salesmanIdParam = req.query.salesmanId as string | undefined;
+  if (req.userRole === 'salesman' && req.user?.salesmanId) {
+    return res.json(db.getSalesTargets(req.user.salesmanId));
+  }
+  return res.json(db.getSalesTargets(salesmanIdParam));
+});
+
+app.post('/api/sales-targets', requireRoles(['admin']), (req, res) => {
+  const { salesmanId, period, targetAmount, effectiveStartDate, notes } = req.body;
+  if (!salesmanId || targetAmount === undefined || targetAmount === null) {
+    return res.status(400).json({ error: 'Salesman ID and target amount are required.' });
+  }
+  const target = db.saveSalesTarget({
+    id: `tgt_${Date.now()}`,
+    salesmanId,
+    period: period || 'monthly',
+    targetAmount: Number(targetAmount),
+    effectiveStartDate: effectiveStartDate || new Date().toISOString().split('T')[0],
+    assignedBy: req.user?.name || 'Administrator',
+    notes,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  });
+  res.status(201).json({ success: true, target });
+});
+
+// ==========================================
+// Staff Management API
+// ==========================================
+app.get('/api/staff', (req, res) => {
+  let list = db.getStaffMembers();
+  // If not admin, sanitize salary details of other staff members
+  if (req.userRole !== 'admin') {
+    const userEmail = req.user?.email?.toLowerCase();
+    const userId = req.user?.id;
+    list = list.map(s => {
+      const isSelf = (s.email && s.email.toLowerCase() === userEmail) || (s.userId && s.userId === userId);
+      if (isSelf) return s;
+      return {
+        ...s,
+        baseSalary: 0,
+        allowances: [],
+        deductions: [],
+        emergencyContact: undefined
+      };
+    });
+  }
+  return res.json(list);
+});
+
+app.get('/api/staff/:id', (req, res) => {
+  const staff = db.getStaffMemberById(req.params.id);
+  if (!staff) return res.status(404).json({ error: 'Staff member not found' });
+  if (req.userRole !== 'admin') {
+    const userEmail = req.user?.email?.toLowerCase();
+    const isSelf = (staff.email && staff.email.toLowerCase() === userEmail) || (staff.userId && staff.userId === req.user?.id);
+    if (!isSelf) {
+      return res.status(400).json({ error: 'Forbidden: You can only view your own complete staff profile' });
+    }
+  }
+  return res.json(staff);
+});
+
+app.post('/api/staff', requireRoles(['admin']), async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      phone,
+      password,
+      role = 'salesman',
+      designation,
+      photoUrl,
+      assignedBeats,
+      joiningDate,
+      employmentStatus = 'active',
+      salaryType = 'monthly_fixed',
+      baseSalary = 0,
+      allowances = [],
+      deductions = [],
+      weeklyOffDay = 0,
+      monthlyLeaveQuota = 2,
+      emergencyContact,
+      address
+    } = req.body;
+
+    const trimmedName = String(name || '').trim();
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanPhone = String(phone || '').replace(/\D/g, '').slice(-10);
+    const cleanPass = String(password || '').trim();
+
+    if (!trimmedName || trimmedName.length < 2) {
+      return res.status(400).json({ error: 'Full staff name is required.' });
+    }
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return res.status(400).json({ error: 'Valid email address is required.' });
+    }
+
+    // Check duplicate
+    const existingStaff = db.getStaffMemberByEmail(cleanEmail);
+    if (existingStaff) {
+      return res.status(409).json({ error: `Staff member with email '${cleanEmail}' already exists.` });
+    }
+
+    const employeeCode = req.body.employeeCode || `EMP-AA-${Math.floor(1000 + Math.random() * 9000)}`;
+    const formattedPhone = cleanPhone ? `+91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}` : (phone || '+91 98000 00000');
+    const staffId = `stf_${Date.now()}`;
+    const userId = `usr_${role}_${Date.now()}`;
+    const salesmanId = role === 'salesman' ? `slm_${Date.now()}` : undefined;
+
+    // 1. Create User
+    const newUser: User = {
+      id: userId,
+      name: trimmedName,
+      email: cleanEmail,
+      phone: formattedPhone,
+      role: role as any,
+      salesmanId
+    };
+    db.saveUser(newUser);
+
+    // 2. Set credentials
+    const passToStore = cleanPass || 'AryanAgency@2026';
+    db.setUserCredentials(cleanEmail, passToStore, userId, role);
+
+    // 3. If salesman, create salesman record
+    if (role === 'salesman') {
+      const beats = Array.isArray(assignedBeats) && assignedBeats.length > 0 ? assignedBeats : ['Utraula Retail Beat'];
+      db.saveSalesman({
+        id: salesmanId!,
+        employeeCode,
+        name: trimmedName,
+        phone: formattedPhone,
+        email: cleanEmail,
+        assignedBeats: beats,
+        dailyTargetAmount: 0,
+        monthlyTargetAmount: 0,
+        targetAssigned: false,
+        currentMonthAchieved: 0,
+        commissionPercentage: 1.5,
+        todayOrdersCount: 0,
+        todaySalesAmount: 0,
+        status: 'active',
+        userId
+      });
+    }
+
+    // 4. Create Staff Member
+    const newStaff: StaffMember = {
+      id: staffId,
+      employeeCode,
+      name: trimmedName,
+      phone: formattedPhone,
+      email: cleanEmail,
+      role,
+      designation: designation || (role === 'salesman' ? 'Sales Executive' : role === 'delivery' ? 'Delivery Pilot' : role === 'accounts' ? 'Accounts Executive' : 'Staff Member'),
+      photoUrl: photoUrl || '',
+      assignedBeats: assignedBeats || [],
+      joiningDate: joiningDate || new Date().toISOString().split('T')[0],
+      employmentStatus,
+      salaryType,
+      baseSalary: Number(baseSalary) || 0,
+      allowances,
+      deductions,
+      weeklyOffDay: Number(weeklyOffDay) || 0,
+      monthlyLeaveQuota: Number(monthlyLeaveQuota) || 2,
+      emergencyContact,
+      address: address || '',
+      userId,
+      salesmanId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    db.saveStaffMember(newStaff);
+
+    // Supabase Admin auth synchronization if available
+    if (supabaseServer) {
+      try {
+        if (supabaseServer.auth?.admin?.createUser) {
+          await supabaseServer.auth.admin.createUser({
+            email: cleanEmail,
+            password: passToStore,
+            email_confirm: true,
+            user_metadata: { name: trimmedName, role, staffId, employeeCode }
+          });
+        }
+      } catch (err: any) {
+        console.warn('[Staff] Supabase user creation notice:', err.message);
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      staff: newStaff,
+      message: `Staff member '${trimmedName}' (${employeeCode}) created successfully.`
+    });
+  } catch (err: any) {
+    console.error('[Create Staff] Error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to create staff member.' });
+  }
+});
+
+app.put('/api/staff/:id', requireRoles(['admin']), (req, res) => {
+  try {
+    const existing = db.getStaffMemberById(req.params.id);
+    if (!existing) return res.status(404).json({ error: 'Staff member not found' });
+
+    const updated = db.saveStaffMember({
+      ...existing,
+      ...req.body,
+      id: existing.id,
+      employeeCode: existing.employeeCode, // Preserve code
+      updatedAt: new Date().toISOString()
+    });
+
+    // Sync to user if name/phone/role updated
+    if (existing.userId) {
+      const user = db.getUserById(existing.userId);
+      if (user) {
+        if (req.body.name) user.name = req.body.name;
+        if (req.body.phone) user.phone = req.body.phone;
+        if (req.body.role) user.role = req.body.role;
+        db.saveUser(user);
+      }
+    }
+
+    // Sync to salesman if exists
+    if (existing.salesmanId) {
+      const slm = db.getSalesmanById(existing.salesmanId);
+      if (slm) {
+        if (req.body.name) slm.name = req.body.name;
+        if (req.body.phone) slm.phone = req.body.phone;
+        if (req.body.assignedBeats) slm.assignedBeats = req.body.assignedBeats;
+        db.saveSalesman(slm);
+      }
+    }
+
+    return res.json({ success: true, staff: updated });
+  } catch (err: any) {
+    console.error('[Update Staff] Error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to update staff member.' });
+  }
+});
+
+app.delete('/api/staff/:id', requireRoles(['admin']), (req, res) => {
+  const deleted = db.deleteStaffMember(req.params.id);
+  return res.json({ success: deleted });
+});
+
+// ==========================================
+// Staff Attendance API
+// ==========================================
+app.get('/api/staff-attendance', (req, res) => {
+  const { staffId, date, month, startDate, endDate } = req.query as Record<string, string>;
+  let targetStaffId = staffId;
+
+  // Non-admins can only see their own attendance
+  if (req.userRole !== 'admin') {
+    const userEmail = req.user?.email?.toLowerCase();
+    const selfStaff = db.getStaffMembers().find(s => 
+      (s.email && s.email.toLowerCase() === userEmail) || 
+      (s.userId && s.userId === req.user?.id) ||
+      (req.user?.salesmanId && s.salesmanId === req.user.salesmanId)
+    );
+    if (!selfStaff) {
+      return res.json([]);
+    }
+    targetStaffId = selfStaff.id;
+  }
+
+  const list = db.getStaffAttendance({ staffId: targetStaffId, date, month, startDate, endDate });
+  return res.json(list);
+});
+
+app.post('/api/staff-attendance', (req, res) => {
+  try {
+    const { staffId, date, status, checkInTime, checkOutTime, remarks } = req.body;
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    const userEmail = (req.user?.email || (req.headers['x-user-email'] as string) || '').toLowerCase().trim();
+    const isAdminUser = req.userRole === 'admin' || 
+      (req.headers['x-user-role'] === 'admin') || 
+      (req.user?.role === 'admin') ||
+      ['nikhilcsc18@gmail.com', 'rockygupta928@gmail.com', 'aryan@aryanagency.in', 'admin@aryanagency.in'].includes(userEmail);
+
+    let targetStaffId = staffId;
+    let targetStatus = status || 'present';
+    let targetCheckInTime = checkInTime;
+    let targetCheckOutTime = checkOutTime;
+    let method: 'admin_marked' | 'self_check_in' = isAdminUser ? 'admin_marked' : 'self_check_in';
+
+    // If non-admin self check-in
+    if (!isAdminUser) {
+      let selfStaff = db.getStaffMembers().find(s => 
+        (staffId && (s.id === staffId || s.salesmanId === staffId)) ||
+        (userEmail && s.email && s.email.toLowerCase() === userEmail) || 
+        (req.user?.id && s.userId === req.user.id) ||
+        (req.user?.salesmanId && s.salesmanId === req.user.salesmanId)
+      );
+
+      // If no staff member linked to this user, check if user is a salesman in db
+      if (!selfStaff) {
+        const targetSalesmanId = req.user?.salesmanId || (staffId && staffId.startsWith('slm_') ? staffId : null);
+        const slm = targetSalesmanId
+          ? db.getSalesmanById(targetSalesmanId)
+          : db.getSalesmen().find(s => 
+              (staffId && s.id === staffId) ||
+              (userEmail && s.email && s.email.toLowerCase() === userEmail) ||
+              (req.user?.id && s.userId === req.user.id) ||
+              (req.user?.phone && s.phone === req.user.phone)
+            );
+
+        if (slm) {
+          selfStaff = db.getStaffMembers().find(s => s.salesmanId === slm.id);
+          if (!selfStaff) {
+            selfStaff = db.saveStaffMember({
+              id: `stf_${slm.id}`,
+              employeeCode: slm.employeeCode || `EMP-${slm.id.replace('slm_', '')}`,
+              name: slm.name,
+              phone: slm.phone,
+              email: slm.email || userEmail || `${slm.id}@aryanagency.in`,
+              role: 'salesman',
+              designation: 'Sales Executive',
+              salesmanId: slm.id,
+              userId: req.user?.id,
+              assignedBeats: slm.assignedBeats || ['Utraula Central'],
+              joiningDate: todayStr,
+              employmentStatus: 'active',
+              salaryType: 'monthly_fixed',
+              baseSalary: 22000,
+              weeklyOffDay: 0,
+              monthlyLeaveQuota: 2,
+              createdAt: now.toISOString(),
+              updatedAt: now.toISOString()
+            });
+          }
+        }
+      }
+
+      // If still not matched, check if staffId in body is a valid staff member
+      if (!selfStaff && staffId) {
+        selfStaff = db.getStaffMemberById(staffId);
+      }
+
+      // If still not matched, check if req.user can be auto-registered as a staff member
+      if (!selfStaff && req.user) {
+        const uRole = (req.userRole || req.user.role || 'salesman') as any;
+        selfStaff = db.saveStaffMember({
+          id: `stf_${req.user.id || Date.now()}`,
+          employeeCode: `EMP-${Date.now().toString().slice(-4)}`,
+          name: req.user.name || 'Staff Member',
+          phone: req.user.phone || '+91 98000 00000',
+          email: req.user.email || userEmail || 'staff@aryanagency.in',
+          role: uRole === 'admin' ? 'admin' : (['salesman', 'delivery', 'accounts'].includes(uRole) ? uRole : 'salesman'),
+          designation: uRole === 'delivery' ? 'Delivery Pilot' : uRole === 'accounts' ? 'Accounts Head' : 'Sales Executive',
+          userId: req.user.id,
+          joiningDate: todayStr,
+          employmentStatus: 'active',
+          salaryType: 'monthly_fixed',
+          baseSalary: 20000,
+          weeklyOffDay: 0,
+          monthlyLeaveQuota: 2,
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString()
+        });
+      }
+
+      // Fallback: use first staff member if none linked
+      if (!selfStaff) {
+        selfStaff = db.getStaffMembers()[0];
+      }
+
+      if (!selfStaff) {
+        return res.status(400).json({ error: 'No associated staff profile found for attendance.' });
+      }
+
+      targetStaffId = selfStaff.id;
+      // Self check-in is restricted to today only
+      if (date && date !== todayStr) {
+        return res.status(400).json({ error: 'Self check-in is strictly permitted for today only.' });
+      }
+      targetStatus = status || 'present';
+      targetCheckInTime = checkInTime || now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+      method = 'self_check_in';
+    } else {
+      // Admin: if staffId provided, look up by staffId or salesmanId or default to first staff
+      if (targetStaffId) {
+        const found = db.getStaffMemberById(targetStaffId) || db.getStaffMembers().find(s => s.salesmanId === targetStaffId);
+        if (found) targetStaffId = found.id;
+      } else {
+        targetStaffId = db.getStaffMembers()[0]?.id;
+      }
+    }
+
+    if (!targetStaffId) {
+      return res.status(400).json({ error: 'Staff ID is required.' });
+    }
+
+    const result = db.markStaffAttendance({
+      staffId: targetStaffId,
+      date: date || todayStr,
+      status: targetStatus,
+      checkInTime: targetCheckInTime,
+      checkOutTime: targetCheckOutTime,
+      checkInMethod: method,
+      remarks
+    }, req.user?.name || (isAdminUser ? 'Admin' : 'Staff Self-Punch'));
+
+    return res.status(result.isUpdate ? 200 : 201).json(result);
+  } catch (err: any) {
+    console.error('[Mark Attendance] Error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to record attendance.' });
+  }
+});
+
+app.post('/api/staff-attendance/correction', requireRoles(['admin']), (req, res) => {
+  const { id, newStatus, reason } = req.body;
+  if (!id || !newStatus || !reason) {
+    return res.status(400).json({ error: 'Attendance ID, new status, and authorization reason are required.' });
+  }
+  const result = db.correctStaffAttendance(id, newStatus, reason, req.user?.name || 'Administrator');
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  return res.json(result);
+});
+
+// ==========================================
+// Staff Payroll & Salary Management API
+// ==========================================
+app.get('/api/staff-payroll', (req, res) => {
+  const { staffId, period } = req.query as Record<string, string>;
+  let targetStaffId = staffId;
+
+  if (req.userRole !== 'admin') {
+    const userEmail = req.user?.email?.toLowerCase();
+    const selfStaff = db.getStaffMembers().find(s => 
+      (s.email && s.email.toLowerCase() === userEmail) || 
+      (s.userId && s.userId === req.user?.id) ||
+      (req.user?.salesmanId && s.salesmanId === req.user.salesmanId)
+    );
+    if (!selfStaff) return res.json([]);
+    targetStaffId = selfStaff.id;
+  }
+
+  const list = db.getStaffPayrolls({ staffId: targetStaffId, period });
+  return res.json(list);
+});
+
+app.post('/api/staff-payroll/calculate', requireRoles(['admin']), (req, res) => {
+  try {
+    const { staffId, period, allowances, deductions, advances, notes } = req.body;
+    if (!period) {
+      return res.status(400).json({ error: 'Payroll period (YYYY-MM) is required.' });
+    }
+
+    if (staffId && staffId !== 'all') {
+      const payroll = db.generateStaffPayroll(staffId, period, { allowances, deductions, advances, notes });
+      return res.json({ success: true, payroll });
+    } else {
+      // Calculate for all active staff members
+      const allStaff = db.getStaffMembers().filter(s => s.employmentStatus !== 'inactive');
+      const payrolls = allStaff.map(s => {
+        try {
+          return db.generateStaffPayroll(s.id, period);
+        } catch {
+          return null;
+        }
+      }).filter(Boolean);
+      return res.json({ success: true, count: payrolls.length, payrolls });
+    }
+  } catch (err: any) {
+    console.error('[Calculate Payroll] Error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to calculate payroll.' });
+  }
+});
+
+app.post('/api/staff-payroll/:id/approve', requireRoles(['admin']), (req, res) => {
+  const result = db.approveStaffPayroll(req.params.id, req.user?.name || 'Administrator');
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  return res.json(result);
+});
+
+app.post('/api/staff-payroll/:id/payment', requireRoles(['admin']), (req, res) => {
+  try {
+    const { amount, paymentMethod, referenceNumber, notes } = req.body;
+    const result = db.recordStaffSalaryPayment({
+      payrollId: req.params.id,
+      staffId: req.body.staffId,
+      period: req.body.period,
+      amount: Number(amount),
+      paymentMethod: paymentMethod || 'bank_transfer',
+      referenceNumber,
+      notes,
+      paidByName: req.user?.name || 'Administrator'
+    });
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+    return res.json(result);
+  } catch (err: any) {
+    console.error('[Salary Payment] Error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to record salary payment.' });
+  }
+});
+
+app.get('/api/staff-stats', requireRoles(['admin']), (req, res) => {
+  const period = req.query.period as string | undefined;
+  const stats = db.getStaffStats(period);
+  return res.json(stats);
 });
 
 // Admin-Only Role Assignment / Promotion Endpoint
@@ -1069,7 +1994,7 @@ app.post('/api/upi/verify-vpa', (req, res) => {
 app.put('/api/retailers/:id/verify', async (req, res) => {
   const actorRole = req.userRole || 'admin';
   if (actorRole !== 'admin') {
-    return res.status(403).json({ 
+    return res.status(400).json({ 
       error: "Access Denied: Store verification authority is strictly reserved for Admin panel. Salesmen are authorized for retailer onboarding only." 
     });
   }
@@ -1134,24 +2059,20 @@ app.put('/api/retailers/:id/verify', async (req, res) => {
     (retailer && u.phone && retailer.phone && u.phone.replace(/\D/g, '').slice(-10) === retailer.phone.replace(/\D/g, '').slice(-10))
   );
 
-  const cleanStoreName = (req.body.storeName && req.body.storeName.trim() && !req.body.storeName.includes('Registered Retail Outlet'))
+  const cleanStoreName = (req.body.storeName && req.body.storeName.trim())
     ? req.body.storeName.trim()
-    : (retailer?.storeName && !retailer.storeName.includes('Registered Retail Outlet'))
-    ? retailer.storeName
-    : (linkedUser?.businessName && !linkedUser.businessName.includes('Registered Retail Outlet'))
-    ? linkedUser.businessName
-    : (req.body.storeName && req.body.storeName.trim())
-    ? req.body.storeName.trim()
-    : (linkedUser?.name ? `${linkedUser.name} Kirana Store` : 'Gupta Kirana Store');
+    : (retailer?.storeName && retailer.storeName.trim())
+    ? retailer.storeName.trim()
+    : (linkedUser?.businessName && linkedUser.businessName.trim())
+    ? linkedUser.businessName.trim()
+    : (linkedUser?.name ? `${linkedUser.name} Store` : 'Retail Outlet');
 
-  const cleanOwnerName = (req.body.ownerName && req.body.ownerName.trim() && !req.body.ownerName.includes('Retail Owner'))
+  const cleanOwnerName = (req.body.ownerName && req.body.ownerName.trim())
     ? req.body.ownerName.trim()
-    : (retailer?.ownerName && !retailer.ownerName.includes('Retail Owner'))
-    ? retailer.ownerName
-    : (linkedUser?.name && !linkedUser.name.includes('Retail Owner'))
-    ? linkedUser.name
-    : (req.body.ownerName && req.body.ownerName.trim())
-    ? req.body.ownerName.trim()
+    : (retailer?.ownerName && retailer.ownerName.trim())
+    ? retailer.ownerName.trim()
+    : (linkedUser?.name && linkedUser.name.trim())
+    ? linkedUser.name.trim()
     : cleanStoreName.replace(/ (Kirana|Store|General|Traders|Provision).*/i, '');
 
   const cleanPhone = req.body.phone?.trim() || retailer?.phone || linkedUser?.phone || '+91 98380 12345';
@@ -1611,41 +2532,14 @@ app.get('/api/retailers', (req, res) => {
   const filtered = retailers.filter(r => {
     const n = (r.storeName || '').toLowerCase();
     const o = (r.ownerName || '').toLowerCase();
-    const p = (r.phone || '').replace(/\D/g, '');
-    const id = (r.id || '').toLowerCase();
     return (
       !n.includes('laxmi supermarket') &&
       !n.includes('ganesh daily') &&
       !n.includes('ganesh provision') &&
-      !n.includes('sapthagiri') &&
-      !n.includes('test salesman') &&
-      !n.includes('kisan traders') &&
-      !n.includes('kirana store (6655)') &&
-      !n.includes('gupta kirana') &&
-      !n.includes('verma provision') &&
-      !n.includes('paras kirana') &&
-      !n.includes('maa durga') &&
-      !n.includes('shri ram traders') &&
-      !n.includes('shiv shakti') &&
-      !n.includes('agarwal general') &&
-      !o.includes('retailer 6655') &&
-      !o.includes('ram lal') &&
-      !o.includes('mohan lal') &&
-      !o.includes('sanjay gupta') &&
-      !o.includes('mahesh verma') &&
-      !o.includes('paras kirana') &&
-      !p.endsWith('9988776655') &&
-      !p.endsWith('9123456789') &&
-      !p.endsWith('9123488888') &&
-      !p.endsWith('9838012345') &&
-      !p.endsWith('9415098765') &&
-      !p.endsWith('9865986532') &&
-      id !== 'ret_672eaf9602624692' &&
-      id !== 'ret_1791274745127_5lbh1' &&
-      id !== 'ret_1791369179248' &&
-      id !== 'ret_1791362412268' &&
-      id !== 'ret_1791652231310' &&
-      id !== 'ret_1791652248963'
+      !n.includes('sapthagiri super') &&
+      !o.includes('laxmi supermarket') &&
+      !o.includes('ganesh daily') &&
+      !o.includes('sapthagiri store')
     );
   });
 
@@ -1806,7 +2700,7 @@ app.put('/api/retailers/:id', requireRoles(['admin', 'salesman', 'accounts']), (
   if (req.userRole === 'admin') {
     resolvedVerificationStatus = req.body.verificationStatus !== undefined ? req.body.verificationStatus : (existing.verificationStatus || 'verified');
   } else if (req.body.verificationStatus === 'verified' && existing.verificationStatus !== 'verified') {
-    return res.status(403).json({
+    return res.status(400).json({
       error: "Access Denied: Only Admin is authorized to verify or approve retail outlets. Salesmen can only onboard retailers with pending status."
     });
   }
@@ -2226,7 +3120,7 @@ app.post('/api/visits/check-in', requireRoles(['salesman', 'admin']), async (req
         b => b.toLowerCase() === (retailer?.beatName || '').toLowerCase()
       );
       if (!isAssigned) {
-        return res.status(403).json({ 
+        return res.status(400).json({ 
           success: false, 
           code: 'BEAT_UNASSIGNED', 
           error: `Unauthorized Beat: Retailer beat "${retailer.beatName}" is not in your assigned beat routes (${(currentSalesman.assignedBeats || []).join(', ')}).` 
@@ -2442,7 +3336,7 @@ app.post('/api/visits/:id/check-out', requireRoles(['salesman', 'admin']), (req,
 // Get Visits (Audit & Reports)
 app.get('/api/visits', requireRoles(['admin', 'salesman', 'accounts']), (req, res) => {
   if (req.userRole === 'retailer') {
-    return res.status(403).json({ error: 'Access denied: Retailers cannot view salesman visit logs.' });
+    return res.status(400).json({ error: 'Access denied: Retailers cannot view salesman visit logs.' });
   }
 
   let visits = db.getVisits();
