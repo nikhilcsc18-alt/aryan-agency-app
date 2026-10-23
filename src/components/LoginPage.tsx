@@ -372,7 +372,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </button>
           )}
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-semibold text-slate-200">Aryan Agency • Apna Store</span>
+          <span className="font-semibold text-slate-200">Apna Store • Smart Shopping. Trusted Service.</span>
         </div>
         <a 
           href="tel:+919140529661" 
@@ -413,10 +413,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </div>
                 <div>
                   <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-baseline">
-                    ARYAN <span className="text-amber-400 ml-1.5 font-extrabold">AGENCY</span>
+                    APNA <span className="text-amber-400 ml-1.5 font-extrabold">STORE</span>
                   </h1>
-                  <p className="text-[11px] text-blue-200/80 font-semibold tracking-wide uppercase">
-                    Trusted FMCG Wholesale Supplier • Apna Store
+                  <p className="text-[11px] text-blue-200/90 font-medium">
+                    Smart Shopping. Trusted Service.
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-normal">
+                    Powered by Aryan Agency
                   </p>
                 </div>
               </div>
@@ -513,13 +516,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             
             {/* Header Brand Badge on Mobile */}
             <div className="flex flex-col items-center text-center mb-4 lg:hidden">
-              <div className="w-12 h-12 mb-1.5">
+              <div className="w-10 h-10 mb-1">
                 <AryanAgencyLogo variant="icon" size="sm" />
               </div>
-              <h2 className="text-xl font-black text-slate-900">
-                ARYAN <span className="text-amber-500 font-extrabold">AGENCY</span>
+              <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                Apna <span className="text-amber-500 font-extrabold">Store</span>
               </h2>
-              <p className="text-[11px] text-slate-500 font-medium">Trusted FMCG Supplier • Apna Store</p>
+              <p className="text-[11px] text-slate-600 font-medium">Smart Shopping. Trusted Service.</p>
+              <p className="text-[10px] text-slate-400">Powered by Aryan Agency</p>
             </div>
 
             {/* Auth Method Switcher Tabs: Mobile OTP vs Staff Login */}

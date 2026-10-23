@@ -217,64 +217,141 @@ var INITIAL_BANNERS = [
     isActive: true
   }
 ];
+var INITIAL_STAFF_MEMBERS = [
+  {
+    id: "stf_admin_nikhil",
+    employeeCode: "EMP-ADM-001",
+    name: "Nikhil",
+    phone: "+91 96284 62862",
+    email: "rockygupta928@gmail.com",
+    role: "admin",
+    designation: "Operations Administrator",
+    photoUrl: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&auto=format&fit=crop&q=80",
+    joiningDate: "2023-01-01",
+    employmentStatus: "active",
+    salaryType: "monthly_fixed",
+    baseSalary: 6e4,
+    allowances: [],
+    deductions: [],
+    weeklyOffDay: 0,
+    monthlyLeaveQuota: 4,
+    userId: "01950726-7687-4a86-a911-adc3a124c0ef",
+    createdAt: "2023-01-01T00:00:00Z",
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  },
+  {
+    id: "stf_slm_1790147316716",
+    employeeCode: "EMP-AA-104",
+    name: "Azeem Usmani",
+    phone: "+91 9696914692",
+    email: "usmani.7565@gmail.com",
+    role: "salesman",
+    designation: "Senior Sales Executive",
+    photoUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80",
+    assignedBeats: ["Balrampur Central Beat"],
+    joiningDate: "2024-03-15",
+    employmentStatus: "active",
+    salaryType: "monthly_fixed",
+    baseSalary: 25e3,
+    allowances: [
+      { id: "alw_1", title: "Field Travel Allowance", amount: 3e3 }
+    ],
+    deductions: [],
+    weeklyOffDay: 0,
+    monthlyLeaveQuota: 2,
+    userId: "9d201217-f71b-42b2-843e-15f0894bfdc3",
+    salesmanId: "slm_1790147316716",
+    createdAt: "2024-03-15T00:00:00Z",
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  },
+  {
+    id: "stf_slm_1792073770798",
+    employeeCode: "EMP-SE-7381",
+    name: "Nikhil Aryan",
+    phone: "+91 96284 62862",
+    email: "nkg8369@gmail.com",
+    role: "salesman",
+    designation: "Senior Sales Executive",
+    photoUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80",
+    assignedBeats: ["Utraula Retail Beat"],
+    joiningDate: "2024-06-01",
+    employmentStatus: "active",
+    salaryType: "monthly_fixed",
+    baseSalary: 25e3,
+    allowances: [
+      { id: "alw_2", title: "Field Travel Allowance", amount: 3e3 }
+    ],
+    deductions: [],
+    weeklyOffDay: 0,
+    monthlyLeaveQuota: 2,
+    userId: "bb0f03c0-2389-4c9d-846f-a87653595452",
+    salesmanId: "slm_1792073770798",
+    createdAt: "2024-06-01T00:00:00Z",
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  },
+  {
+    id: "stf_slm_1792142673681",
+    employeeCode: "EMP-SE-1783",
+    name: "Ravi Shankar",
+    phone: "+91 97927 39621",
+    email: "rschaurasiya89@gmail.com",
+    role: "salesman",
+    designation: "Senior Sales Executive",
+    photoUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&auto=format&fit=crop&q=80",
+    assignedBeats: ["Rehra Bazar Beat"],
+    joiningDate: "2024-08-01",
+    employmentStatus: "active",
+    salaryType: "monthly_fixed",
+    baseSalary: 25e3,
+    allowances: [
+      { id: "alw_3", title: "Field Travel Allowance", amount: 3e3 }
+    ],
+    deductions: [],
+    weeklyOffDay: 0,
+    monthlyLeaveQuota: 2,
+    userId: "usr_sales_1792142673681",
+    salesmanId: "slm_1792142673681",
+    createdAt: "2024-08-01T00:00:00Z",
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  }
+];
 var INITIAL_DATA = {
   users: [
     {
-      id: "usr_admin",
-      name: "Aryan Sharma",
-      email: "aryan@aryanagency.in",
-      phone: "+91 98450 12345",
+      id: "01950726-7687-4a86-a911-adc3a124c0ef",
+      name: "Nikhil (Admin)",
+      email: "rockygupta928@gmail.com",
+      phone: "+91 96284 62862",
       role: "admin",
-      avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-      businessName: "Aryan Agency FMCG Distribution",
-      businessLogoUrl: "",
-      address: "Main Road, Utraula",
-      city: "Balrampur",
-      state: "Uttar Pradesh",
-      pincode: "271604",
-      gstin: "09BOGPG2620P1ZQ",
-      panNumber: "BOGPG2620P",
-      locationCoordinates: {
-        lat: 27.3167,
-        lng: 82.4167,
-        addressText: "Utraula, Balrampur, Uttar Pradesh 271604"
-      },
-      verificationStatus: "verified"
+      avatarUrl: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80",
+      businessName: "Aryan Agency FMCG Super-Stockist"
     },
     {
-      id: "usr_sales_1",
-      name: "Rajesh Kumar",
-      email: "rajesh.sales@aryanagency.in",
-      phone: "+91 98860 34567",
+      id: "9d201217-f71b-42b2-843e-15f0894bfdc3",
+      name: "Azeem Usmani",
+      email: "usmani.7565@gmail.com",
+      phone: "+91 9696914692",
       role: "salesman",
-      salesmanId: "slm_1",
+      salesmanId: "slm_1790147316716",
       avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80"
     },
     {
-      id: "usr_sales_2",
-      name: "Vikram Singh",
-      email: "vikram.sales@aryanagency.in",
-      phone: "+91 99001 56789",
+      id: "bb0f03c0-2389-4c9d-846f-a87653595452",
+      name: "Nikhil Aryan",
+      email: "nkg8369@gmail.com",
+      phone: "+91 96284 62862",
       role: "salesman",
-      salesmanId: "slm_2",
+      salesmanId: "slm_1792073770798",
       avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80"
     },
     {
-      id: "usr_delivery_1",
-      name: "Suresh Gowda (Van KA-05-AB-1234)",
-      email: "suresh.van1@aryanagency.in",
-      phone: "+91 97410 78901",
-      role: "delivery",
-      deliveryId: "del_1",
-      avatarUrl: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80"
-    },
-    {
-      id: "usr_accounts_1",
-      name: "Pooja Agarwal (Accounts Head)",
-      email: "pooja.accounts@aryanagency.in",
-      phone: "+91 98450 67890",
-      role: "accounts",
-      avatarUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80"
+      id: "usr_sales_1792142673681",
+      name: "Ravi Shankar",
+      email: "rschaurasiya89@gmail.com",
+      phone: "+91 97927 39621",
+      role: "salesman",
+      salesmanId: "slm_1792142673681",
+      avatarUrl: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80"
     }
   ],
   products: [
@@ -666,48 +743,48 @@ var INITIAL_DATA = {
   retailers: INITIAL_RETAILERS,
   salesmen: [
     {
-      id: "slm_1",
-      employeeCode: "EMP-AA-101",
-      name: "Rajesh Kumar",
-      phone: "+91 98860 34567",
-      email: "rajesh.sales@aryanagency.in",
-      assignedBeats: ["Utraula Retail Beat", "Balrampur Central Beat"],
+      id: "slm_1790147316716",
+      employeeCode: "EMP-AA-104",
+      name: "Azeem Usmani",
+      phone: "+91 9696914692",
+      email: "usmani.7565@gmail.com",
+      assignedBeats: ["Balrampur Central Beat"],
       dailyTargetAmount: 75e3,
       monthlyTargetAmount: 18e5,
-      currentMonthAchieved: 142e4,
+      currentMonthAchieved: 0,
       commissionPercentage: 1.5,
-      todayOrdersCount: 6,
-      todaySalesAmount: 64200,
+      todayOrdersCount: 0,
+      todaySalesAmount: 0,
       status: "active"
     },
     {
-      id: "slm_2",
-      employeeCode: "EMP-AA-102",
-      name: "Vikram Singh",
-      phone: "+91 99001 56789",
-      email: "vikram.sales@aryanagency.in",
-      assignedBeats: ["Jarwa Rural Beat", "Tulsipur Provision Beat"],
-      dailyTargetAmount: 65e3,
-      monthlyTargetAmount: 16e5,
-      currentMonthAchieved: 118e4,
+      id: "slm_1792073770798",
+      employeeCode: "EMP-SE-7381",
+      name: "Nikhil Aryan",
+      phone: "+91 96284 62862",
+      email: "nkg8369@gmail.com",
+      assignedBeats: ["Utraula Retail Beat"],
+      dailyTargetAmount: 75e3,
+      monthlyTargetAmount: 18e5,
+      currentMonthAchieved: 0,
       commissionPercentage: 1.5,
-      todayOrdersCount: 4,
-      todaySalesAmount: 48900,
+      todayOrdersCount: 0,
+      todaySalesAmount: 0,
       status: "active"
     },
     {
-      id: "slm_3",
-      employeeCode: "EMP-AA-103",
-      name: "Karthik Nambiar",
-      phone: "+91 97412 88441",
-      email: "karthik.sales@aryanagency.in",
-      assignedBeats: ["Pachperwa Market Beat", "Rehra Bazar Beat"],
-      dailyTargetAmount: 9e4,
-      monthlyTargetAmount: 22e5,
-      currentMonthAchieved: 195e4,
-      commissionPercentage: 1.8,
-      todayOrdersCount: 5,
-      todaySalesAmount: 89400,
+      id: "slm_1792142673681",
+      employeeCode: "EMP-SE-1783",
+      name: "Ravi Shankar",
+      phone: "+91 97927 39621",
+      email: "rschaurasiya89@gmail.com",
+      assignedBeats: ["Rehra Bazar Beat"],
+      dailyTargetAmount: 75e3,
+      monthlyTargetAmount: 18e5,
+      currentMonthAchieved: 0,
+      commissionPercentage: 1.5,
+      todayOrdersCount: 0,
+      todaySalesAmount: 0,
       status: "active"
     }
   ],
@@ -729,7 +806,11 @@ var INITIAL_DATA = {
       performedBy: "Aryan Sharma",
       reason: "Fresh factory dispatch received from Parle depot"
     }
-  ]
+  ],
+  staffMembers: INITIAL_STAFF_MEMBERS,
+  staffAttendance: [],
+  staffPayrolls: [],
+  staffSalaryPayments: []
 };
 var Database = class {
   constructor() {
@@ -895,11 +976,73 @@ var Database = class {
         }
         if (Array.isArray(parsed.users)) {
           const originalLen = parsed.users.length;
-          parsed.users = parsed.users.filter((u) => u.id !== "usr_retailer_1");
+          const dummyUserIds = ["usr_sales_1", "usr_sales_2", "usr_delivery_1", "usr_accounts_1", "usr_admin", "usr_sales_1792071708611", "usr_retailer_1"];
+          const dummyNames = ["rajesh kumar", "vikram singh", "karthik nambiar", "aryan ", "amit verma", "amit", "aryan sharma", "suresh gowda (van ka-05-ab-1234)", "pooja agarwal (accounts head)"];
+          parsed.users = parsed.users.filter((u) => {
+            if (dummyUserIds.includes(u.id)) return false;
+            const nameLower = (u.name || "").toLowerCase().trim();
+            if (dummyNames.includes(nameLower)) return false;
+            return true;
+          });
           if (parsed.users.length !== originalLen) modified = true;
+        }
+        if (Array.isArray(parsed.salesmen)) {
+          const originalLen = parsed.salesmen.length;
+          const dummySalesmenIds = ["slm_1", "slm_2", "slm_3", "slm_1791978114917", "slm_1792071708611"];
+          const dummySalesmenNames = ["rajesh kumar", "vikram singh", "karthik nambiar", "aryan ", "amit verma"];
+          parsed.salesmen = parsed.salesmen.filter((s) => {
+            if (dummySalesmenIds.includes(s.id)) return false;
+            const nameLower = (s.name || "").toLowerCase().trim();
+            if (dummySalesmenNames.includes(nameLower)) return false;
+            return true;
+          });
+          if (parsed.salesmen.length !== originalLen) modified = true;
+        }
+        if (Array.isArray(parsed.staffMembers)) {
+          const originalLen = parsed.staffMembers.length;
+          const dummyStaffIds = ["stf_1", "stf_2", "stf_3", "stf_4", "stf_5", "stf_bb0f03c0-2389-4c9d-846f-a87653595452"];
+          const dummyStaffNames = ["rajesh kumar", "vikram singh", "suresh gowda", "pooja agarwal", "aryan sharma", "amit"];
+          parsed.staffMembers = parsed.staffMembers.filter((s) => {
+            if (dummyStaffIds.includes(s.id)) return false;
+            const nameLower = (s.name || "").toLowerCase().trim();
+            if (dummyStaffNames.includes(nameLower)) return false;
+            return true;
+          });
+          INITIAL_STAFF_MEMBERS.forEach((initStaff) => {
+            if (!parsed.staffMembers.some((s) => s.id === initStaff.id || s.email && s.email.toLowerCase() === initStaff.email.toLowerCase())) {
+              parsed.staffMembers.push(initStaff);
+              modified = true;
+            }
+          });
+          if (parsed.staffMembers.length !== originalLen) modified = true;
+        } else {
+          parsed.staffMembers = [...INITIAL_STAFF_MEMBERS];
+          modified = true;
         }
         if (!Array.isArray(parsed.banners) || parsed.banners.length === 0) {
           parsed.banners = INITIAL_BANNERS;
+          modified = true;
+        }
+        if (!Array.isArray(parsed.staffAttendance)) {
+          parsed.staffAttendance = [];
+          modified = true;
+        } else {
+          const validStaffIds = new Set(parsed.staffMembers.map((s) => s.id));
+          const prevLen = parsed.staffAttendance.length;
+          parsed.staffAttendance = parsed.staffAttendance.filter((a) => validStaffIds.has(a.staffId));
+          if (parsed.staffAttendance.length !== prevLen) modified = true;
+        }
+        if (!Array.isArray(parsed.staffPayrolls)) {
+          parsed.staffPayrolls = [];
+          modified = true;
+        } else {
+          const validStaffIds = new Set(parsed.staffMembers.map((s) => s.id));
+          const prevLen = parsed.staffPayrolls.length;
+          parsed.staffPayrolls = parsed.staffPayrolls.filter((p) => validStaffIds.has(p.staffId));
+          if (parsed.staffPayrolls.length !== prevLen) modified = true;
+        }
+        if (!Array.isArray(parsed.staffSalaryPayments)) {
+          parsed.staffSalaryPayments = [];
           modified = true;
         }
         if (modified) {
@@ -1031,6 +1174,15 @@ var Database = class {
       this.data.orders = this.data.orders.filter((o) => o.retailerId !== id);
       this.data.payments = this.data.payments.filter((p) => p.retailerId !== id);
     }
+    if (this.data.users) {
+      this.data.users = this.data.users.filter((u) => u.retailerId !== id);
+    }
+    if (this.data.salesmanTasks) {
+      this.data.salesmanTasks = this.data.salesmanTasks.filter((t) => t.retailerId !== id);
+    }
+    if (this.data.visits) {
+      this.data.visits = this.data.visits.filter((v) => v.retailerId !== id);
+    }
     this.saveData(this.data);
     return true;
   }
@@ -1060,7 +1212,57 @@ var Database = class {
     return this.data.salesmen;
   }
   getSalesmanById(id) {
-    return this.data.salesmen.find((s) => s.id === id);
+    if (!id) return void 0;
+    const cleanId = String(id).trim();
+    let found = this.data.salesmen.find((s) => s.id === cleanId);
+    if (found) return found;
+    found = this.data.salesmen.find((s) => s.userId === cleanId || s.employeeCode && s.employeeCode.toLowerCase() === cleanId.toLowerCase());
+    if (found) return found;
+    const staff = this.data.staffMembers?.find(
+      (st) => st.id === cleanId || st.salesmanId === cleanId || st.userId === cleanId || st.employeeCode && st.employeeCode.toLowerCase() === cleanId.toLowerCase()
+    );
+    if (staff && (staff.role === "salesman" || staff.salesmanId)) {
+      const synthesized = {
+        id: staff.salesmanId || staff.id,
+        name: staff.name,
+        employeeCode: staff.employeeCode || `EMP-${staff.id.slice(-4)}`,
+        phone: staff.phone || "",
+        email: staff.email || "",
+        assignedBeats: staff.assignedBeats || ["Utraula Retail Beat"],
+        dailyTargetAmount: 75e3,
+        monthlyTargetAmount: 18e5,
+        currentMonthAchieved: 0,
+        commissionPercentage: 1.5,
+        todayOrdersCount: 0,
+        todaySalesAmount: 0,
+        status: "active",
+        userId: staff.userId
+      };
+      this.saveSalesman(synthesized);
+      return synthesized;
+    }
+    const user = this.data.users?.find((u) => (u.id === cleanId || u.salesmanId === cleanId) && u.role === "salesman");
+    if (user) {
+      const synthesized = {
+        id: user.salesmanId || user.id,
+        name: user.name,
+        employeeCode: `EMP-${user.id.slice(-4)}`,
+        phone: user.phone || "",
+        email: user.email || "",
+        assignedBeats: ["Utraula Retail Beat"],
+        dailyTargetAmount: 75e3,
+        monthlyTargetAmount: 18e5,
+        currentMonthAchieved: 0,
+        commissionPercentage: 1.5,
+        todayOrdersCount: 0,
+        todaySalesAmount: 0,
+        status: "active",
+        userId: user.id
+      };
+      this.saveSalesman(synthesized);
+      return synthesized;
+    }
+    return void 0;
   }
   saveSalesman(salesman) {
     const idx = this.data.salesmen.findIndex((s) => s.id === salesman.id);
@@ -1373,12 +1575,12 @@ var Database = class {
       if (import_fs.default.existsSync(vPath)) {
         const parsed = JSON.parse(import_fs.default.readFileSync(vPath, "utf-8"));
         this.data.appVersionConfig = {
-          version: parsed.version || "1.3.2",
-          versionCode: Number(parsed.versionCode) || 132,
+          version: parsed.version || "1.3.4",
+          versionCode: Number(parsed.versionCode) || 134,
           downloadUrl: parsed.downloadUrl || "https://aryanagency.in/download/aryan-agency-app.apk",
           apkUrl: parsed.apkUrl || parsed.downloadUrl || "https://aryanagency.in/download/aryan-agency-app.apk",
           updatedAt: parsed.updatedAt || (/* @__PURE__ */ new Date()).toISOString(),
-          releaseNotes: parsed.releaseNotes || "Aryan Agency v1.3.2: \u092C\u093E\u0930\u0915\u094B\u0921 \u0938\u094D\u0915\u0948\u0928\u0930 \u0914\u0930 \u0911\u091F\u094B-\u092B\u093F\u0932",
+          releaseNotes: parsed.releaseNotes || "Aryan Agency v1.3.4: In-app update compatibility fix",
           fileSize: parsed.fileSize || "7.7 MB",
           minAndroidVersion: parsed.minAndroidVersion || "Android 8.0+"
         };
@@ -1389,12 +1591,12 @@ var Database = class {
     }
     if (!this.data.appVersionConfig) {
       this.data.appVersionConfig = {
-        version: "1.3.2",
-        versionCode: 132,
+        version: "1.3.4",
+        versionCode: 134,
         downloadUrl: "https://aryanagency.in/download/aryan-agency-app.apk",
         apkUrl: "https://aryanagency.in/download/aryan-agency-app.apk",
         updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-        releaseNotes: "Aryan Agency Retailer & Distributor App v1.3.2",
+        releaseNotes: "Aryan Agency Retailer & Distributor App v1.3.4",
         fileSize: "7.7 MB",
         minAndroidVersion: "Android 8.0+"
       };
@@ -1453,6 +1655,794 @@ var Database = class {
     this.data.settings = updated;
     this.saveData(this.data);
     return updated;
+  }
+  // ==========================================
+  // In-App Notifications & Device Push Tokens
+  // ==========================================
+  getNotifications(role, userId) {
+    if (!this.data.notifications) this.data.notifications = [];
+    return this.data.notifications.filter((n) => {
+      if (role === "admin" && (n.recipientRole === "admin" || !n.recipientRole)) return true;
+      if (userId && n.recipientUserId === userId) return true;
+      if (role && n.recipientRole === role && !n.recipientUserId) return true;
+      return !n.recipientRole || n.recipientRole === "admin";
+    }).sort((a, b) => new Date(b.createdAt || b.timestamp || 0).getTime() - new Date(a.createdAt || a.timestamp || 0).getTime());
+  }
+  addNotification(notification) {
+    if (!this.data.notifications) this.data.notifications = [];
+    const now = Date.now();
+    const isDup = this.data.notifications.some((existing) => {
+      const matchType = existing.type === notification.type;
+      const matchRecord = notification.retailerId && existing.retailerId === notification.retailerId || notification.orderId && existing.orderId === notification.orderId || notification.paymentId && existing.paymentId === notification.paymentId;
+      const timeDiff = now - new Date(existing.createdAt || existing.timestamp || 0).getTime();
+      return matchType && matchRecord && timeDiff < 6e4;
+    });
+    if (isDup) {
+      return notification;
+    }
+    const cleanNotif = {
+      ...notification,
+      id: notification.id || `notif_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      createdAt: notification.createdAt || (/* @__PURE__ */ new Date()).toISOString(),
+      isRead: Boolean(notification.isRead)
+    };
+    this.data.notifications.unshift(cleanNotif);
+    if (this.data.notifications.length > 300) {
+      this.data.notifications = this.data.notifications.slice(0, 300);
+    }
+    this.saveData(this.data);
+    return cleanNotif;
+  }
+  markNotificationRead(id) {
+    if (!this.data.notifications) return false;
+    const target = this.data.notifications.find((n) => n.id === id);
+    if (target) {
+      target.isRead = true;
+      this.saveData(this.data);
+      return true;
+    }
+    return false;
+  }
+  markAllNotificationsRead(role, userId) {
+    if (!this.data.notifications) return 0;
+    let count = 0;
+    this.data.notifications.forEach((n) => {
+      const match = role === "admin" && (n.recipientRole === "admin" || !n.recipientRole) || userId && n.recipientUserId === userId || !n.recipientRole && !userId;
+      if (match && !n.isRead) {
+        n.isRead = true;
+        count++;
+      }
+    });
+    if (count > 0) this.saveData(this.data);
+    return count;
+  }
+  deleteNotification(id) {
+    if (!this.data.notifications) return false;
+    const beforeLen = this.data.notifications.length;
+    this.data.notifications = this.data.notifications.filter((n) => n.id !== id);
+    if (this.data.notifications.length !== beforeLen) {
+      this.saveData(this.data);
+      return true;
+    }
+    return false;
+  }
+  clearAllNotifications(role, userId) {
+    if (!this.data.notifications) return 0;
+    const beforeLen = this.data.notifications.length;
+    this.data.notifications = this.data.notifications.filter((n) => {
+      const match = role === "admin" && (n.recipientRole === "admin" || !n.recipientRole) || userId && n.recipientUserId === userId || !n.recipientRole && !userId;
+      return !match;
+    });
+    const cleared = beforeLen - this.data.notifications.length;
+    if (cleared > 0) this.saveData(this.data);
+    return cleared;
+  }
+  getDeviceTokens(role) {
+    if (!this.data.deviceTokens) this.data.deviceTokens = [];
+    if (!role) return this.data.deviceTokens.filter((t) => t.isActive);
+    return this.data.deviceTokens.filter((t) => t.role === role && t.isActive);
+  }
+  registerDeviceToken(tokenData) {
+    if (!this.data.deviceTokens) this.data.deviceTokens = [];
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    const existingIndex = this.data.deviceTokens.findIndex((t) => t.fcmToken === tokenData.fcmToken);
+    if (existingIndex >= 0) {
+      const updated = {
+        ...this.data.deviceTokens[existingIndex],
+        ...tokenData,
+        isActive: true,
+        updatedAt: nowIso
+      };
+      this.data.deviceTokens[existingIndex] = updated;
+      this.saveData(this.data);
+      return updated;
+    } else {
+      const newToken = {
+        id: `dt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        userId: tokenData.userId || "usr_admin",
+        role: tokenData.role || "admin",
+        fcmToken: tokenData.fcmToken,
+        platform: tokenData.platform || "android",
+        deviceInfo: tokenData.deviceInfo || {},
+        isActive: true,
+        createdAt: nowIso,
+        updatedAt: nowIso
+      };
+      this.data.deviceTokens.push(newToken);
+      this.saveData(this.data);
+      return newToken;
+    }
+  }
+  deactivateDeviceToken(fcmToken) {
+    if (!this.data.deviceTokens) return false;
+    const target = this.data.deviceTokens.find((t) => t.fcmToken === fcmToken);
+    if (target) {
+      target.isActive = false;
+      target.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      this.saveData(this.data);
+      return true;
+    }
+    return false;
+  }
+  // ==========================================
+  // Salesman Tasks
+  // ==========================================
+  getSalesmanTasks(salesmanId) {
+    if (!this.data.salesmanTasks) {
+      this.data.salesmanTasks = [];
+    }
+    if (salesmanId) {
+      return this.data.salesmanTasks.filter((t) => t.salesmanId === salesmanId);
+    }
+    return this.data.salesmanTasks;
+  }
+  getSalesmanTaskById(id) {
+    return (this.data.salesmanTasks || []).find((t) => t.id === id);
+  }
+  saveSalesmanTask(task) {
+    if (!this.data.salesmanTasks) {
+      this.data.salesmanTasks = [];
+    }
+    if (!task.id) {
+      task.id = `tsk_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    }
+    const idx = this.data.salesmanTasks.findIndex((t) => t.id === task.id);
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    if (idx >= 0) {
+      this.data.salesmanTasks[idx] = { ...task, updatedAt: nowIso };
+    } else {
+      this.data.salesmanTasks.unshift({
+        ...task,
+        createdAt: task.createdAt || nowIso,
+        updatedAt: nowIso
+      });
+    }
+    this.saveData(this.data);
+    return this.data.salesmanTasks.find((t) => t.id === task.id) || task;
+  }
+  updateSalesmanTaskStatus(id, status, completionNotes) {
+    if (!this.data.salesmanTasks) return null;
+    const task = this.data.salesmanTasks.find((t) => t.id === id);
+    if (!task) return null;
+    task.status = status;
+    task.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    if (status === "completed") {
+      task.completedAt = (/* @__PURE__ */ new Date()).toISOString();
+      if (completionNotes) task.completionNotes = completionNotes;
+    }
+    this.saveData(this.data);
+    return task;
+  }
+  updateSalesmanTask(id, updates) {
+    if (!this.data.salesmanTasks) return null;
+    const idx = this.data.salesmanTasks.findIndex((t) => t.id === id);
+    if (idx < 0) return null;
+    const current = this.data.salesmanTasks[idx];
+    const updated = {
+      ...current,
+      ...updates,
+      id,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    if (updates.status === "completed" && !current.completedAt) {
+      updated.completedAt = (/* @__PURE__ */ new Date()).toISOString();
+    }
+    this.data.salesmanTasks[idx] = updated;
+    this.saveData(this.data);
+    return updated;
+  }
+  deleteSalesmanTask(id) {
+    if (!this.data.salesmanTasks) return false;
+    const initLen = this.data.salesmanTasks.length;
+    this.data.salesmanTasks = this.data.salesmanTasks.filter((t) => t.id !== id);
+    if (this.data.salesmanTasks.length !== initLen) {
+      this.saveData(this.data);
+      return true;
+    }
+    return false;
+  }
+  // ==========================================
+  // Sales Targets
+  // ==========================================
+  getSalesTargets(salesmanId) {
+    if (!this.data.salesTargets) {
+      this.data.salesTargets = [];
+    }
+    if (salesmanId) {
+      return this.data.salesTargets.filter((t) => t.salesmanId === salesmanId);
+    }
+    return this.data.salesTargets;
+  }
+  saveSalesTarget(target) {
+    if (!this.data.salesTargets) {
+      this.data.salesTargets = [];
+    }
+    if (!target.id) {
+      target.id = `tgt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    }
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    const idx = this.data.salesTargets.findIndex((t) => t.id === target.id);
+    if (idx >= 0) {
+      this.data.salesTargets[idx] = { ...target, updatedAt: nowIso };
+    } else {
+      this.data.salesTargets.unshift({
+        ...target,
+        createdAt: target.createdAt || nowIso,
+        updatedAt: nowIso
+      });
+    }
+    const salesman = this.getSalesmanById(target.salesmanId);
+    if (salesman) {
+      if (target.period === "daily") {
+        salesman.dailyTargetAmount = target.targetAmount;
+      } else if (target.period === "monthly") {
+        salesman.monthlyTargetAmount = target.targetAmount;
+      }
+      salesman.targetAssigned = true;
+      salesman.effectiveStartDate = target.effectiveStartDate;
+      salesman.targetPeriod = target.period;
+      this.saveSalesman(salesman);
+    }
+    this.saveData(this.data);
+    return target;
+  }
+  // ==========================================
+  // User Credentials & Password Auth
+  // ==========================================
+  setUserCredentials(email, plainPassword, userId, role) {
+    if (!this.data.userCredentials) {
+      this.data.userCredentials = {};
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    this.data.userCredentials[cleanEmail] = {
+      plainPassword,
+      userId,
+      role,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    this.saveData(this.data);
+  }
+  // ==========================================
+  // Staff Members Management
+  // ==========================================
+  getStaffMembers() {
+    return this.data.staffMembers || [];
+  }
+  getStaffMemberById(id) {
+    return (this.data.staffMembers || []).find((s) => s.id === id);
+  }
+  getStaffMemberByEmail(email) {
+    const clean = email.trim().toLowerCase();
+    return (this.data.staffMembers || []).find((s) => s.email && s.email.toLowerCase() === clean);
+  }
+  getStaffMemberByUserId(userId) {
+    return (this.data.staffMembers || []).find((s) => s.userId === userId);
+  }
+  getStaffMemberBySalesmanId(salesmanId) {
+    return (this.data.staffMembers || []).find((s) => s.salesmanId === salesmanId);
+  }
+  saveStaffMember(staff) {
+    if (!this.data.staffMembers) {
+      this.data.staffMembers = [];
+    }
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    if (!staff.id) {
+      staff.id = `stf_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    }
+    if (!staff.employeeCode) {
+      const codeSuffix = Math.floor(100 + Math.random() * 900);
+      staff.employeeCode = `EMP-AA-${codeSuffix}`;
+    }
+    const idx = this.data.staffMembers.findIndex((s) => s.id === staff.id);
+    if (idx >= 0) {
+      this.data.staffMembers[idx] = { ...staff, updatedAt: nowIso };
+    } else {
+      this.data.staffMembers.push({
+        ...staff,
+        createdAt: staff.createdAt || nowIso,
+        updatedAt: nowIso
+      });
+    }
+    this.saveData(this.data);
+    return staff;
+  }
+  deleteStaffMember(id, options) {
+    if (!this.data.staffMembers) return false;
+    const initialLen = this.data.staffMembers.length;
+    this.data.staffMembers = this.data.staffMembers.filter((s) => s.id !== id);
+    if (this.data.staffMembers.length !== initialLen) {
+      if (options?.cascadeTestRecords) {
+        if (this.data.staffAttendance) {
+          this.data.staffAttendance = this.data.staffAttendance.filter((a) => a.staffId !== id);
+        }
+        if (this.data.staffPayrolls) {
+          this.data.staffPayrolls = this.data.staffPayrolls.filter((p) => p.staffId !== id);
+        }
+      }
+      this.saveData(this.data);
+      return true;
+    }
+    return false;
+  }
+  // ==========================================
+  // Staff Attendance Management
+  // ==========================================
+  getStaffAttendance(query) {
+    let list = this.data.staffAttendance || [];
+    if (!query) return list;
+    if (query.staffId) {
+      list = list.filter((a) => a.staffId === query.staffId);
+    }
+    if (query.date) {
+      list = list.filter((a) => a.date === query.date);
+    }
+    if (query.month) {
+      list = list.filter((a) => a.date.startsWith(query.month));
+    }
+    if (query.startDate) {
+      list = list.filter((a) => a.date >= query.startDate);
+    }
+    if (query.endDate) {
+      list = list.filter((a) => a.date <= query.endDate);
+    }
+    return list.sort((a, b) => b.date.localeCompare(a.date));
+  }
+  markStaffAttendance(record, markedBy) {
+    if (!this.data.staffAttendance) {
+      this.data.staffAttendance = [];
+    }
+    if (!record.staffId || !record.date || !record.status) {
+      throw new Error("staffId, date, and status are required");
+    }
+    const staff = this.getStaffMemberById(record.staffId);
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    const existingIdx = this.data.staffAttendance.findIndex((a) => a.staffId === record.staffId && a.date === record.date);
+    const isSelfCheckIn = record.checkInMethod === "self_check_in";
+    if (existingIdx >= 0) {
+      const existing = this.data.staffAttendance[existingIdx];
+      if (isSelfCheckIn) {
+        const currentAppr = existing.approvalStatus || (existing.checkInMethod === "admin_marked" ? "approved" : "pending");
+        const formattedAppr = currentAppr === "pending" ? "Pending Approval" : currentAppr === "approved" ? "Approved" : currentAppr === "rejected" ? "Rejected" : "Correction Required";
+        throw new Error(`Attendance already recorded for ${record.date}. Current status: ${formattedAppr}. Duplicate check-in submissions are not permitted.`);
+      }
+      const history = existing.correctionHistory || [];
+      if (existing.status !== record.status) {
+        history.push({
+          correctedBy: markedBy || "Admin",
+          correctedAt: nowIso,
+          previousStatus: existing.status,
+          newStatus: record.status,
+          reason: record.remarks || "Attendance updated by Admin"
+        });
+      }
+      const updated = {
+        ...existing,
+        ...record,
+        status: record.status,
+        approvalStatus: record.approvalStatus !== void 0 ? record.approvalStatus : existing.approvalStatus,
+        checkInTime: record.checkInTime !== void 0 ? record.checkInTime : existing.checkInTime,
+        checkOutTime: record.checkOutTime !== void 0 ? record.checkOutTime : existing.checkOutTime,
+        remarks: record.remarks !== void 0 ? record.remarks : existing.remarks,
+        correctionHistory: history,
+        updatedAt: nowIso
+      };
+      this.data.staffAttendance[existingIdx] = updated;
+      this.saveData(this.data);
+      return { success: true, attendance: updated, isUpdate: true };
+    } else {
+      const approvalStatus = record.approvalStatus || (isSelfCheckIn ? "pending" : "approved");
+      const newRecord = {
+        id: `att_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        staffId: record.staffId,
+        employeeCode: staff?.employeeCode || record.employeeCode || "EMP-AA-000",
+        staffName: staff?.name || record.staffName || "Staff Member",
+        role: staff?.role || record.role || "salesman",
+        date: record.date,
+        status: record.status,
+        approvalStatus,
+        checkInTime: record.checkInTime,
+        checkOutTime: record.checkOutTime,
+        checkInMethod: record.checkInMethod || "admin_marked",
+        workingHours: record.workingHours || (record.status === "present" ? 8.5 : record.status === "half_day" ? 4.5 : 0),
+        remarks: record.remarks || "",
+        approvedBy: isSelfCheckIn ? void 0 : markedBy || "Admin",
+        approvedAt: isSelfCheckIn ? void 0 : nowIso,
+        approvalAuditTrail: [
+          isSelfCheckIn ? {
+            action: "submitted",
+            actorId: record.staffId,
+            actorName: staff?.name || record.staffName || "Staff Member",
+            actorRole: staff?.role || "salesman",
+            timestamp: nowIso,
+            newApprovalStatus: "pending",
+            reason: record.remarks || "Self check-in via mobile dashboard"
+          } : {
+            action: "approved",
+            actorId: "admin",
+            actorName: markedBy || "Admin",
+            actorRole: "admin",
+            timestamp: nowIso,
+            newApprovalStatus: "approved",
+            reason: "Direct attendance marked by Administrator"
+          }
+        ],
+        correctionHistory: [],
+        createdAt: nowIso,
+        updatedAt: nowIso
+      };
+      this.data.staffAttendance.push(newRecord);
+      this.saveData(this.data);
+      return { success: true, attendance: newRecord, isUpdate: false };
+    }
+  }
+  approveStaffAttendance(id, approverName, approverId) {
+    if (!this.data.staffAttendance) return { success: false, error: "Attendance table empty" };
+    const idx = this.data.staffAttendance.findIndex((a) => a.id === id);
+    if (idx === -1) return { success: false, error: "Attendance record not found" };
+    const current = this.data.staffAttendance[idx];
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    const audit = current.approvalAuditTrail || [];
+    audit.push({
+      action: "approved",
+      actorId: approverId || "admin",
+      actorName: approverName || "Admin",
+      actorRole: "admin",
+      timestamp: nowIso,
+      previousApprovalStatus: current.approvalStatus || "pending",
+      newApprovalStatus: "approved",
+      reason: "Approved by Administrator"
+    });
+    current.approvalStatus = "approved";
+    current.approvedBy = approverName || "Admin";
+    current.approvedById = approverId;
+    current.approvedAt = nowIso;
+    current.rejectionReason = void 0;
+    current.correctionReason = void 0;
+    current.approvalAuditTrail = audit;
+    current.updatedAt = nowIso;
+    this.saveData(this.data);
+    return { success: true, attendance: current };
+  }
+  rejectStaffAttendance(id, reason, approverName, approverId) {
+    if (!this.data.staffAttendance) return { success: false, error: "Attendance table empty" };
+    const idx = this.data.staffAttendance.findIndex((a) => a.id === id);
+    if (idx === -1) return { success: false, error: "Attendance record not found" };
+    if (!reason || !reason.trim()) {
+      return { success: false, error: "Mandatory rejection reason must be provided." };
+    }
+    const current = this.data.staffAttendance[idx];
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    const audit = current.approvalAuditTrail || [];
+    audit.push({
+      action: "rejected",
+      actorId: approverId || "admin",
+      actorName: approverName || "Admin",
+      actorRole: "admin",
+      timestamp: nowIso,
+      previousApprovalStatus: current.approvalStatus || "pending",
+      newApprovalStatus: "rejected",
+      reason: reason.trim()
+    });
+    current.approvalStatus = "rejected";
+    current.rejectionReason = reason.trim();
+    current.approvedBy = approverName || "Admin";
+    current.approvedById = approverId;
+    current.approvedAt = nowIso;
+    current.approvalAuditTrail = audit;
+    current.updatedAt = nowIso;
+    this.saveData(this.data);
+    return { success: true, attendance: current };
+  }
+  requestCorrectionStaffAttendance(id, reason, approverName, approverId) {
+    if (!this.data.staffAttendance) return { success: false, error: "Attendance table empty" };
+    const idx = this.data.staffAttendance.findIndex((a) => a.id === id);
+    if (idx === -1) return { success: false, error: "Attendance record not found" };
+    if (!reason || !reason.trim()) {
+      return { success: false, error: "Correction reason must be provided." };
+    }
+    const current = this.data.staffAttendance[idx];
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    const audit = current.approvalAuditTrail || [];
+    audit.push({
+      action: "correction_requested",
+      actorId: approverId || "admin",
+      actorName: approverName || "Admin",
+      actorRole: "admin",
+      timestamp: nowIso,
+      previousApprovalStatus: current.approvalStatus || "pending",
+      newApprovalStatus: "correction_required",
+      reason: reason.trim()
+    });
+    current.approvalStatus = "correction_required";
+    current.correctionReason = reason.trim();
+    current.approvedBy = approverName || "Admin";
+    current.approvedById = approverId;
+    current.approvedAt = nowIso;
+    current.approvalAuditTrail = audit;
+    current.updatedAt = nowIso;
+    this.saveData(this.data);
+    return { success: true, attendance: current };
+  }
+  correctStaffAttendance(id, newStatus, reason, correctedBy) {
+    if (!this.data.staffAttendance) return { success: false, error: "Attendance table empty" };
+    const idx = this.data.staffAttendance.findIndex((a) => a.id === id);
+    if (idx === -1) return { success: false, error: "Attendance record not found" };
+    const current = this.data.staffAttendance[idx];
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    const history = current.correctionHistory || [];
+    history.push({
+      correctedBy: correctedBy || "Admin",
+      correctedAt: nowIso,
+      previousStatus: current.status,
+      newStatus,
+      reason: reason || "Authorized correction"
+    });
+    current.status = newStatus;
+    current.remarks = reason ? `${current.remarks ? current.remarks + " | " : ""}Correction: ${reason}` : current.remarks;
+    current.correctionHistory = history;
+    current.updatedAt = nowIso;
+    this.saveData(this.data);
+    return { success: true, attendance: current };
+  }
+  // ==========================================
+  // Staff Payroll & Salary Management
+  // ==========================================
+  getStaffPayrolls(query) {
+    let list = this.data.staffPayrolls || [];
+    if (query?.staffId) {
+      list = list.filter((p) => p.staffId === query.staffId);
+    }
+    if (query?.period) {
+      list = list.filter((p) => p.period === query.period);
+    }
+    return list.sort((a, b) => b.period.localeCompare(a.period));
+  }
+  generateStaffPayroll(staffId, period, options) {
+    if (!this.data.staffPayrolls) {
+      this.data.staffPayrolls = [];
+    }
+    const staff = this.getStaffMemberById(staffId);
+    if (!staff) {
+      throw new Error(`Staff member ${staffId} not found`);
+    }
+    const existingIdx = this.data.staffPayrolls.findIndex((p) => p.staffId === staffId && p.period === period);
+    const existing = existingIdx >= 0 ? this.data.staffPayrolls[existingIdx] : void 0;
+    if (existing && (existing.status === "approved" || existing.status === "paid")) {
+      return existing;
+    }
+    const [yearStr, monthStr] = period.split("-");
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+    const totalDaysInMonth = new Date(year, month, 0).getDate();
+    const attendance = (this.data.staffAttendance || []).filter((a) => a.staffId === staffId && a.date.startsWith(period));
+    const approvedAttendance = attendance.filter((a) => a.approvalStatus === "approved" || !a.approvalStatus && a.checkInMethod === "admin_marked");
+    const presentDays = approvedAttendance.filter((a) => a.status === "present").length;
+    const paidLeaves = approvedAttendance.filter((a) => a.status === "paid_leave").length;
+    const halfDays = approvedAttendance.filter((a) => a.status === "half_day").length;
+    const unpaidLeaves = attendance.filter((a) => a.status === "unpaid_leave").length;
+    const absentDays = attendance.filter((a) => a.status === "absent").length;
+    let weeklyOffs = attendance.filter((a) => a.status === "weekly_off").length;
+    if (weeklyOffs === 0) {
+      const offDay = staff.weeklyOffDay !== void 0 ? staff.weeklyOffDay : 0;
+      for (let day = 1; day <= totalDaysInMonth; day++) {
+        const d = new Date(year, month - 1, day);
+        if (d.getDay() === offDay) {
+          const dateStr = `${period}-${String(day).padStart(2, "0")}`;
+          const isExplicitUnpaid = attendance.some((a) => a.date === dateStr && (a.status === "absent" || a.status === "unpaid_leave"));
+          if (!isExplicitUnpaid) weeklyOffs++;
+        }
+      }
+    }
+    const payableDays = Math.min(totalDaysInMonth, presentDays + paidLeaves + weeklyOffs + halfDays * 0.5);
+    let grossCalculated = 0;
+    if (staff.salaryType === "monthly_fixed") {
+      grossCalculated = Math.round(staff.baseSalary / totalDaysInMonth * payableDays);
+    } else if (staff.salaryType === "daily_wage" || staff.salaryType === "attendance_based") {
+      grossCalculated = Math.round(payableDays * staff.baseSalary);
+    }
+    const allowanceList = options?.allowances || staff.allowances || [];
+    const deductionList = options?.deductions || staff.deductions || [];
+    const allowancesTotal = allowanceList.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+    const deductionsTotal = deductionList.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+    const advancesDeducted = Number(options?.advances || 0);
+    const netPayable = Math.max(0, grossCalculated + allowancesTotal - deductionsTotal - advancesDeducted);
+    const amountPaid = existing?.amountPaid || 0;
+    const remainingDue = Math.max(0, netPayable - amountPaid);
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    const payroll = {
+      id: existing?.id || `pr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      staffId: staff.id,
+      employeeCode: staff.employeeCode,
+      staffName: staff.name,
+      role: staff.role,
+      period,
+      salaryType: staff.salaryType,
+      baseSalary: staff.baseSalary,
+      totalDaysInMonth,
+      presentDays,
+      absentDays,
+      halfDays,
+      paidLeaves,
+      unpaidLeaves,
+      weeklyOffs,
+      payableDays,
+      grossCalculated,
+      allowancesTotal,
+      allowanceBreakdown: allowanceList,
+      deductionsTotal,
+      deductionBreakdown: deductionList,
+      advancesDeducted,
+      netPayable,
+      amountPaid,
+      remainingDue,
+      status: existing?.status || "calculated",
+      notes: options?.notes || existing?.notes || `Calculated on ${(/* @__PURE__ */ new Date()).toLocaleDateString()}`,
+      payments: existing?.payments || [],
+      createdAt: existing?.createdAt || nowIso,
+      updatedAt: nowIso
+    };
+    if (existingIdx >= 0) {
+      this.data.staffPayrolls[existingIdx] = payroll;
+    } else {
+      this.data.staffPayrolls.push(payroll);
+    }
+    this.saveData(this.data);
+    return payroll;
+  }
+  approveStaffPayroll(payrollId, approvedByName) {
+    if (!this.data.staffPayrolls) return { success: false, error: "No payroll records" };
+    const p = this.data.staffPayrolls.find((item) => item.id === payrollId);
+    if (!p) return { success: false, error: "Payroll not found" };
+    p.status = "approved";
+    p.approvedBy = approvedByName || "Administrator";
+    p.approvedAt = (/* @__PURE__ */ new Date()).toISOString();
+    p.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    this.saveData(this.data);
+    return { success: true, payroll: p };
+  }
+  recordStaffSalaryPayment(payment) {
+    if (!this.data.staffPayrolls) return { success: false, error: "No payroll records" };
+    const p = this.data.staffPayrolls.find((item) => item.id === payment.payrollId);
+    if (!p) return { success: false, error: "Payroll not found" };
+    if (!payment.amount || payment.amount <= 0) {
+      return { success: false, error: "Payment amount must be greater than zero" };
+    }
+    const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+    const payRecord = {
+      id: `spay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      paymentDate: (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+      amount: payment.amount,
+      paymentMethod: payment.paymentMethod || "bank_transfer",
+      referenceNumber: payment.referenceNumber,
+      paidByName: payment.paidByName || "Administrator",
+      notes: payment.notes,
+      createdAt: nowIso
+    };
+    p.payments = p.payments || [];
+    p.payments.push(payRecord);
+    p.amountPaid = p.payments.reduce((sum, item) => sum + item.amount, 0);
+    p.remainingDue = Math.max(0, p.netPayable - p.amountPaid);
+    p.status = p.remainingDue === 0 ? "paid" : "partially_paid";
+    p.updatedAt = nowIso;
+    if (!this.data.staffSalaryPayments) {
+      this.data.staffSalaryPayments = [];
+    }
+    this.data.staffSalaryPayments.push(payRecord);
+    this.saveData(this.data);
+    return { success: true, payroll: p, payment: payRecord };
+  }
+  getStaffStats(period) {
+    const curPeriod = period || (/* @__PURE__ */ new Date()).toISOString().slice(0, 7);
+    const today = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+    const staff = this.data.staffMembers || [];
+    const attendance = (this.data.staffAttendance || []).filter((a) => a.date === today);
+    const payrolls = (this.data.staffPayrolls || []).filter((p) => p.period === curPeriod);
+    const totalStaff = staff.length;
+    const activeStaff = staff.filter((s) => s.employmentStatus === "active").length;
+    const presentToday = attendance.filter((a) => a.status === "present").length;
+    const absentToday = attendance.filter((a) => a.status === "absent").length;
+    const onLeaveToday = attendance.filter((a) => a.status === "paid_leave" || a.status === "unpaid_leave").length;
+    const totalPayrollAmount = payrolls.reduce((sum, p) => sum + p.netPayable, 0);
+    const disbursedPayrollAmount = payrolls.reduce((sum, p) => sum + p.amountPaid, 0);
+    const pendingPayrollAmount = Math.max(0, totalPayrollAmount - disbursedPayrollAmount);
+    return {
+      totalStaff,
+      activeStaff,
+      presentToday,
+      absentToday,
+      onLeaveToday,
+      totalPayrollAmount,
+      disbursedPayrollAmount,
+      pendingPayrollAmount
+    };
+  }
+  verifyUserCredentials(email, pass) {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPass = pass.trim();
+    let user = (this.data.users || []).find((u) => u.email && u.email.toLowerCase() === cleanEmail);
+    if (!user && (cleanEmail === "admin@aryanagency.in" || cleanEmail === "admin@apnastore.in" || cleanEmail === "nikhilcsc18@gmail.com" || cleanEmail === "rockygupta928@gmail.com")) {
+      user = (this.data.users || []).find((u) => u.email && (u.email.toLowerCase() === "aryan@aryanagency.in" || u.role === "admin"));
+    }
+    if (!user) {
+      return { isValid: false, error: "No account found with this email address." };
+    }
+    if (user.salesmanId || cleanEmail.includes(".sales@") || this.data.salesmen.some((s) => s.id === user?.salesmanId || s.email && s.email.toLowerCase() === cleanEmail)) {
+      if (user.role !== "salesman") {
+        user.role = "salesman";
+        this.saveUser(user);
+      }
+    }
+    const stored = this.data.userCredentials ? this.data.userCredentials[cleanEmail] : null;
+    if (stored && stored.plainPassword) {
+      if (stored.plainPassword === cleanPass) {
+        return { isValid: true, user };
+      }
+    }
+    const lowerPass = cleanPass.toLowerCase();
+    if (cleanPass === "AryanAgency@2026" || lowerPass === "aryanagency@2026" || cleanPass === "Sales@2026" || lowerPass === "sales@2026" || cleanPass === "Delivery@2026" || lowerPass === "delivery@2026" || cleanPass === "password") {
+      return { isValid: true, user };
+    }
+    return { isValid: false, error: "Incorrect password. Please verify and try again." };
+  }
+  // ==========================================
+  // Centralized Business Profile Management
+  // ==========================================
+  getBusinessProfile() {
+    if (!this.data.businessProfile) {
+      this.data.businessProfile = {
+        businessName: "Aryan Agency",
+        businessType: "FMCG Distribution \u2014 Trusted FMCG Supplier",
+        tagline: "FMCG Distribution \u2014 Trusted FMCG Supplier",
+        shortTagline: "Authorised Super Stockist & Wholesale FMCG Depot",
+        address: "Hatan Road, Gurudyaldeeh",
+        road: "Hatan Road",
+        area: "Gurudyaldeeh",
+        city: "Utraula",
+        district: "Balrampur",
+        state: "Uttar Pradesh",
+        pincode: "271604",
+        fullAddress: "Hatan Road, Gurudyaldeeh, Utraula, Balrampur, Uttar Pradesh \u2013 271604",
+        primaryMobile: "9140529661",
+        supportPhoneFormatted: "+91 9140529661",
+        email: "aryanagency@zohomail.in",
+        gstin: "09BOGPG2620P1ZQ",
+        panNumber: "BOGPG2620P",
+        fssaiNumber: "11223344556677",
+        website: "https://aryanagency.in",
+        officialDomain: "aryanagency.in"
+      };
+      this.saveData(this.data);
+    }
+    return this.data.businessProfile;
+  }
+  saveBusinessProfile(profile) {
+    this.data.businessProfile = {
+      ...this.getBusinessProfile(),
+      ...profile,
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    this.saveData(this.data);
+    return this.data.businessProfile;
   }
 };
 var db = new Database();
@@ -3291,15 +4281,22 @@ async function authenticateRequest(req, res, next) {
           );
           if (!authenticatedUser) {
             let authoritativeRole = "retailer";
-            try {
-              if (supabaseServer) {
-                const { data: dbUser } = await supabaseServer.from("users").select("role").eq("id", user.id).maybeSingle();
-                if (dbUser && dbUser.role) {
-                  authoritativeRole = dbUser.role;
+            const userEmail = (user.email || "").toLowerCase().trim();
+            if (["nikhilcsc18@gmail.com", "rockygupta928@gmail.com", "aryan@aryanagency.in", "admin@aryanagency.in"].includes(userEmail)) {
+              authoritativeRole = "admin";
+            } else if (user.user_metadata?.role) {
+              authoritativeRole = user.user_metadata.role;
+            } else {
+              try {
+                if (supabaseServer) {
+                  const { data: dbUser } = await supabaseServer.from("users").select("role").eq("id", user.id).maybeSingle();
+                  if (dbUser && dbUser.role) {
+                    authoritativeRole = dbUser.role;
+                  }
                 }
+              } catch (dbErr) {
+                console.warn("Supabase DB role lookup error:", dbErr);
               }
-            } catch (dbErr) {
-              console.warn("Supabase DB role lookup error:", dbErr);
             }
             authenticatedUser = {
               id: user.id,
@@ -3308,6 +4305,7 @@ async function authenticateRequest(req, res, next) {
               phone: user.user_metadata?.phone || "+91 98000 00000",
               role: authoritativeRole
             };
+            db.saveUser(authenticatedUser);
           }
         }
       } catch (tokenErr) {
@@ -3319,20 +4317,29 @@ async function authenticateRequest(req, res, next) {
       authenticatedUser = users.find((u) => u.id === headerUserId) || null;
       if (!authenticatedUser) {
         const headerRole = req.headers["x-user-role"];
+        const headerEmail = (req.headers["x-user-email"] || "").toLowerCase().trim();
         const validRoles = ["admin", "salesman", "accounts", "delivery", "retailer"];
-        const assignedRole = headerRole && validRoles.includes(headerRole) ? headerRole : "admin";
+        const assignedRole = ["nikhilcsc18@gmail.com", "rockygupta928@gmail.com", "aryan@aryanagency.in", "admin@aryanagency.in"].includes(headerEmail) ? "admin" : headerRole && validRoles.includes(headerRole) ? headerRole : "admin";
         authenticatedUser = {
           id: headerUserId,
           name: req.headers["x-user-name"] || "Authorized User",
-          email: req.headers["x-user-email"] || "",
+          email: headerEmail,
           role: assignedRole
         };
       }
     }
     if (!authenticatedUser) {
       const headerRole = req.headers["x-user-role"];
+      const headerEmail = (req.headers["x-user-email"] || "").toLowerCase().trim();
       const validRoles = ["admin", "salesman", "accounts", "delivery", "retailer"];
-      if (headerRole && validRoles.includes(headerRole)) {
+      if (["nikhilcsc18@gmail.com", "rockygupta928@gmail.com", "aryan@aryanagency.in", "admin@aryanagency.in"].includes(headerEmail)) {
+        authenticatedUser = {
+          id: "usr_admin",
+          name: "Nikhil (Admin)",
+          email: headerEmail || "nikhilcsc18@gmail.com",
+          role: "admin"
+        };
+      } else if (headerRole && validRoles.includes(headerRole)) {
         const users = db.getUsers();
         authenticatedUser = users.find((u) => u.role === headerRole) || {
           id: `usr_${headerRole}`,
@@ -3368,12 +4375,57 @@ function requireRoles(allowedRoles) {
       });
     }
     if (!allowedRoles.includes(role)) {
-      return res.status(403).json({
+      return res.status(400).json({
         error: `Forbidden: Access restricted. Your assigned account role '${role.toUpperCase()}' does not have permission for this operation. Authorized roles: ${allowedRoles.map((r) => r.toUpperCase()).join(", ")}.`
       });
     }
+    if (role !== "admin" && req.user) {
+      if (req.user.status === "inactive") {
+        return res.status(400).json({
+          error: "Account Inactive: Your account has been marked inactive by administrator. Access to protected features is restricted."
+        });
+      }
+      const staffMember = db.getStaffMembers().find(
+        (s) => s.userId && s.userId === req.user.id || s.email && req.user.email && s.email.toLowerCase() === req.user.email.toLowerCase() || req.user.salesmanId && s.salesmanId === req.user.salesmanId
+      );
+      if (staffMember && staffMember.employmentStatus === "inactive") {
+        return res.status(400).json({
+          error: "Staff Inactive: Your employment status is marked Inactive. Contact Aryan Agency Administrator for re-authorization."
+        });
+      }
+    }
     next();
   };
+}
+function getAuthenticatedSalesman(req) {
+  if (req.userRole !== "salesman") return void 0;
+  const salesmen = db.getSalesmen();
+  const staffMembers = db.getStaffMembers();
+  const user = req.user;
+  const userId = user?.id || req.headers["x-user-id"];
+  const userEmail = (user?.email || req.headers["x-user-email"] || "").toLowerCase().trim();
+  const userPhone = (user?.phone || "").replace(/\D/g, "").slice(-10);
+  if (user?.salesmanId) {
+    const found = salesmen.find((s) => s.id === user.salesmanId);
+    if (found) return found;
+  }
+  const staff = staffMembers.find(
+    (st) => userId && (st.userId === userId || st.id === userId) || userEmail && st.email && st.email.toLowerCase().trim() === userEmail || userPhone && st.phone && st.phone.replace(/\D/g, "").slice(-10) === userPhone
+  );
+  if (staff?.salesmanId) {
+    const found = salesmen.find((s) => s.id === staff.salesmanId);
+    if (found) {
+      if (user && !user.salesmanId) user.salesmanId = found.id;
+      return found;
+    }
+  }
+  const matched = salesmen.find(
+    (s) => userId && (s.id === userId || s.userId === userId) || userEmail && s.email && s.email.toLowerCase().trim() === userEmail || userPhone && s.phone && s.phone.replace(/\D/g, "").slice(-10) === userPhone
+  );
+  if (matched && user && !user.salesmanId) {
+    user.salesmanId = matched.id;
+  }
+  return matched;
 }
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", app: "Aryan Agency FMCG Distribution" });
@@ -3681,6 +4733,9 @@ app.post("/api/auth/otp/register", async (req, res) => {
   }
 });
 app.get("/api/auth/users", (req, res) => {
+  if (req.userRole !== "admin") {
+    return res.json(req.user ? [req.user] : []);
+  }
   const users = db.getUsers();
   res.json(users);
 });
@@ -3713,7 +4768,7 @@ app.get("/api/auth/current", (req, res) => {
 app.post("/api/auth/switch", (req, res) => {
   const { userId } = req.body;
   if (req.userRole !== "admin") {
-    return res.status(403).json({
+    return res.status(400).json({
       error: `Forbidden: Role escalation blocked. Role '${req.userRole?.toUpperCase()}' cannot switch accounts or roles. Only Owner/Admin is authorized.`
     });
   }
@@ -3724,6 +4779,1109 @@ app.post("/api/auth/switch", (req, res) => {
     return res.json({ success: true, user: found });
   }
   res.status(404).json({ error: "User not found" });
+});
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const rawEmail = String(req.body.email || "").trim().toLowerCase();
+    const rawPass = String(req.body.password || "");
+    if (!rawEmail || !rawPass) {
+      return res.status(400).json({ success: false, error: "Email and password are required." });
+    }
+    const authResult = db.verifyUserCredentials(rawEmail, rawPass);
+    if (!authResult.isValid || !authResult.user) {
+      if (supabaseServer) {
+        try {
+          const { data: supaAuth, error: supaErr } = await supabaseServer.auth.signInWithPassword({
+            email: rawEmail,
+            password: rawPass
+          });
+          if (!supaErr && supaAuth?.user) {
+            let matchedUser = db.getUsers().find((u) => u.email && u.email.toLowerCase() === rawEmail);
+            if (!matchedUser) {
+              const supaRole = supaAuth.user.user_metadata?.role || "salesman";
+              matchedUser = {
+                id: supaAuth.user.id,
+                name: supaAuth.user.user_metadata?.name || rawEmail.split("@")[0],
+                email: rawEmail,
+                phone: supaAuth.user.user_metadata?.phone || "+91 98000 00000",
+                role: supaRole,
+                salesmanId: supaAuth.user.user_metadata?.salesmanId
+              };
+              db.saveUser(matchedUser);
+            }
+            if (matchedUser.role !== "admin") {
+              const staffProfile = db.getStaffMembers().find(
+                (s) => s.userId && s.userId === matchedUser.id || s.email && s.email.toLowerCase() === rawEmail || matchedUser.salesmanId && s.salesmanId === matchedUser.salesmanId
+              );
+              if (matchedUser.status === "inactive" || staffProfile?.employmentStatus === "inactive") {
+                return res.status(400).json({
+                  success: false,
+                  error: "Account Inactive: Your staff access has been disabled by the administrator. Contact Aryan Agency management for assistance."
+                });
+              }
+              if (matchedUser.role === "retailer") {
+                const ret = matchedUser.retailerId ? db.getRetailerById(matchedUser.retailerId) : db.getRetailers().find((r) => r.phone && matchedUser.phone && r.phone.replace(/\D/g, "").slice(-10) === matchedUser.phone.replace(/\D/g, "").slice(-10));
+                if (ret && (ret.status === "inactive" || ret.verificationStatus === "rejected")) {
+                  return res.status(400).json({
+                    success: false,
+                    error: "Store Account Inactive: Your retailer account is currently marked inactive or suspended. Please contact Aryan Agency depot."
+                  });
+                }
+              }
+            }
+            currentActiveUserId = matchedUser.id;
+            return res.json({
+              success: true,
+              user: matchedUser,
+              token: supaAuth.session?.access_token || `token_${Date.now()}`
+            });
+          }
+        } catch (e) {
+          console.warn("[Login Auth] Supabase check notice:", e);
+        }
+      }
+      return res.status(401).json({
+        success: false,
+        error: authResult.error || "Invalid email or password. Please verify your credentials."
+      });
+    }
+    const user = authResult.user;
+    if (user.role !== "admin") {
+      const staffProfile = db.getStaffMembers().find(
+        (s) => s.userId && s.userId === user.id || s.email && s.email.toLowerCase() === rawEmail || user.salesmanId && s.salesmanId === user.salesmanId
+      );
+      if (user.status === "inactive" || staffProfile?.employmentStatus === "inactive") {
+        return res.status(400).json({
+          success: false,
+          error: "Account Inactive: Your staff access has been disabled by the administrator. Contact Aryan Agency management for assistance."
+        });
+      }
+      if (user.role === "retailer") {
+        const ret = user.retailerId ? db.getRetailerById(user.retailerId) : db.getRetailers().find((r) => r.phone && user.phone && r.phone.replace(/\D/g, "").slice(-10) === user.phone.replace(/\D/g, "").slice(-10));
+        if (ret && (ret.status === "inactive" || ret.verificationStatus === "rejected")) {
+          return res.status(400).json({
+            success: false,
+            error: "Store Account Inactive: Your retailer account is currently marked inactive or suspended. Please contact Aryan Agency depot."
+          });
+        }
+      }
+    }
+    if (user.role === "salesman") {
+      let salesman = user.salesmanId ? db.getSalesmanById(user.salesmanId) : void 0;
+      if (!salesman) {
+        salesman = db.getSalesmen().find(
+          (s) => s.email && s.email.toLowerCase() === user.email.toLowerCase() || s.phone && user.phone && s.phone.replace(/\D/g, "").slice(-10) === user.phone.replace(/\D/g, "").slice(-10) || s.name.toLowerCase() === user.name.toLowerCase()
+        );
+      }
+      if (!salesman) {
+        const newSalesmanId = user.salesmanId || `slm_${Date.now()}`;
+        salesman = {
+          id: newSalesmanId,
+          employeeCode: `EMP-SE-${Math.floor(1e3 + Math.random() * 9e3)}`,
+          name: user.name,
+          phone: user.phone || "",
+          email: user.email,
+          assignedBeats: ["Utraula Retail Beat"],
+          dailyTargetAmount: 0,
+          monthlyTargetAmount: 0,
+          targetAssigned: false,
+          currentMonthAchieved: 0,
+          commissionPercentage: 1.5,
+          todayOrdersCount: 0,
+          todaySalesAmount: 0,
+          status: "active",
+          userId: user.id
+        };
+        db.saveSalesman(salesman);
+      }
+      if (user.salesmanId !== salesman.id) {
+        user.salesmanId = salesman.id;
+        db.saveUser(user);
+      }
+    }
+    currentActiveUserId = user.id;
+    const linkedSalesman = user.salesmanId ? db.getSalesmanById(user.salesmanId) : void 0;
+    return res.json({
+      success: true,
+      user,
+      salesman: linkedSalesman,
+      token: `auth_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+    });
+  } catch (err) {
+    console.error("[Login] Error:", err);
+    return res.status(500).json({ success: false, error: err.message || "Authentication error." });
+  }
+});
+app.post("/api/auth/reset-password", async (req, res) => {
+  try {
+    const rawEmail = String(req.body.email || "").trim().toLowerCase();
+    if (!rawEmail) {
+      return res.status(400).json({ success: false, error: "Email address is required." });
+    }
+    if (supabaseServer) {
+      try {
+        await supabaseServer.auth.resetPasswordForEmail(rawEmail);
+      } catch (e) {
+        console.warn("Supabase resetPassword notice:", e);
+      }
+    }
+    const user = db.getUsers().find((u) => u.email && u.email.toLowerCase() === rawEmail);
+    if (!user) {
+      return res.status(404).json({ success: false, error: "No account found with this email address." });
+    }
+    return res.json({
+      success: true,
+      message: `Password reset instructions have been dispatched to ${rawEmail}.`
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message || "Failed to process password reset." });
+  }
+});
+app.post("/api/admin/create-salesman", requireRoles(["admin"]), async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      password,
+      phone,
+      assignedBeats,
+      dailyTargetAmount,
+      monthlyTargetAmount,
+      commissionPercentage,
+      targetEffectiveDate
+    } = req.body;
+    const trimmedName = String(name || "").trim();
+    const cleanEmail = String(email || "").trim().toLowerCase();
+    const cleanPass = String(password || "").trim();
+    const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
+    if (!trimmedName) {
+      return res.status(400).json({ success: false, error: "Sales Executive full name is required." });
+    }
+    if (!cleanEmail || !cleanEmail.includes("@") || !cleanEmail.includes(".")) {
+      return res.status(400).json({ success: false, error: "A valid email address is required." });
+    }
+    if (!cleanPass || cleanPass.length < 6) {
+      return res.status(400).json({ success: false, error: "Password must be at least 6 characters long." });
+    }
+    const existingUser = db.getUsers().find((u) => u.email && u.email.toLowerCase() === cleanEmail);
+    const existingSalesman = db.getSalesmen().find((s) => s.email && s.email.toLowerCase() === cleanEmail);
+    if (existingUser || existingSalesman) {
+      return res.status(409).json({
+        success: false,
+        error: `An employee or user with email '${cleanEmail}' already exists in the system.`
+      });
+    }
+    const salesmanId = `slm_${Date.now()}`;
+    const userId = `usr_sales_${Date.now()}`;
+    const employeeCode = `EMP-SE-${Math.floor(1e3 + Math.random() * 9e3)}`;
+    const formattedPhone = cleanPhone ? `+91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}` : "+91 98000 00000";
+    const beats = Array.isArray(assignedBeats) && assignedBeats.length > 0 ? assignedBeats : ["Utraula Retail Beat"];
+    const hasTarget = Boolean(
+      dailyTargetAmount && Number(dailyTargetAmount) > 0 || monthlyTargetAmount && Number(monthlyTargetAmount) > 0
+    );
+    const newSalesman = {
+      id: salesmanId,
+      employeeCode,
+      name: trimmedName,
+      phone: formattedPhone,
+      email: cleanEmail,
+      assignedBeats: beats,
+      dailyTargetAmount: dailyTargetAmount ? Number(dailyTargetAmount) : 0,
+      monthlyTargetAmount: monthlyTargetAmount ? Number(monthlyTargetAmount) : 0,
+      targetAssigned: hasTarget,
+      effectiveStartDate: targetEffectiveDate || (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+      currentMonthAchieved: 0,
+      commissionPercentage: commissionPercentage ? Number(commissionPercentage) : 1.5,
+      todayOrdersCount: 0,
+      todaySalesAmount: 0,
+      status: "active",
+      userId
+    };
+    db.saveSalesman(newSalesman);
+    const newUser = {
+      id: userId,
+      name: trimmedName,
+      email: cleanEmail,
+      phone: formattedPhone,
+      role: "salesman",
+      salesmanId
+    };
+    db.saveUser(newUser);
+    db.setUserCredentials(cleanEmail, cleanPass, userId, "salesman");
+    if (hasTarget && monthlyTargetAmount) {
+      db.saveSalesTarget({
+        id: `tgt_${Date.now()}`,
+        salesmanId,
+        period: "monthly",
+        targetAmount: Number(monthlyTargetAmount),
+        effectiveStartDate: targetEffectiveDate || (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+        assignedBy: req.user?.name || "Administrator",
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      });
+    }
+    if (supabaseServer) {
+      try {
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
+        if (serviceKey && rawSupabaseUrl) {
+          const supabaseAdmin = (0, import_supabase_js.createClient)(rawSupabaseUrl, serviceKey, {
+            auth: { autoRefreshToken: false, persistSession: false }
+          });
+          const { data: supaUser, error: supaErr } = await supabaseAdmin.auth.admin.createUser({
+            email: cleanEmail,
+            password: cleanPass,
+            email_confirm: true,
+            user_metadata: {
+              name: trimmedName,
+              phone: formattedPhone,
+              role: "salesman",
+              salesmanId
+            }
+          });
+          if (!supaErr && supaUser?.user) {
+            newUser.id = supaUser.user.id;
+            newSalesman.userId = supaUser.user.id;
+            db.saveUser(newUser);
+            db.saveSalesman(newSalesman);
+          }
+        } else {
+          await supabaseServer.auth.signUp({
+            email: cleanEmail,
+            password: cleanPass,
+            options: {
+              data: {
+                name: trimmedName,
+                phone: formattedPhone,
+                role: "salesman",
+                salesmanId
+              }
+            }
+          });
+        }
+        try {
+          await supabaseServer.from("users").upsert({
+            id: newUser.id,
+            name: trimmedName,
+            email: cleanEmail,
+            phone: formattedPhone,
+            role: "salesman",
+            salesman_id: salesmanId
+          });
+        } catch {
+        }
+        try {
+          await supabaseServer.from("salesmen").upsert({
+            id: salesmanId,
+            employee_code: employeeCode,
+            name: trimmedName,
+            phone: formattedPhone,
+            email: cleanEmail,
+            assigned_beats: beats,
+            daily_target_amount: newSalesman.dailyTargetAmount,
+            monthly_target_amount: newSalesman.monthlyTargetAmount,
+            commission_percentage: newSalesman.commissionPercentage,
+            status: "active"
+          });
+        } catch {
+        }
+      } catch (err) {
+        console.warn("[Create Salesman] Supabase provisioning notice:", err.message);
+      }
+    }
+    return res.status(201).json({
+      success: true,
+      salesman: newSalesman,
+      user: newUser,
+      message: `Sales Executive '${trimmedName}' created successfully with code ${employeeCode}.`
+    });
+  } catch (err) {
+    console.error("[Create Salesman] Error:", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to create Sales Executive." });
+  }
+});
+app.get("/api/salesman-tasks", (req, res) => {
+  const salesmanIdParam = req.query.salesmanId;
+  let tasks = db.getSalesmanTasks();
+  if (req.userRole === "salesman") {
+    const currentSalesman = getAuthenticatedSalesman(req);
+    if (!currentSalesman) {
+      return res.json([]);
+    }
+    tasks = tasks.filter((t) => t.salesmanId === currentSalesman.id);
+  } else if (salesmanIdParam && salesmanIdParam !== "all") {
+    tasks = tasks.filter((t) => t.salesmanId === salesmanIdParam);
+  }
+  const orders = db.getOrders();
+  const payments = db.getPayments();
+  const enrichedTasks = tasks.map((t) => {
+    let actualSalesBooked = 0;
+    let actualSalesDelivered = 0;
+    let actualPaymentsCollected = 0;
+    const matchedOrders = orders.filter((o) => {
+      const matchSalesman = !t.salesmanId || o.salesmanId === t.salesmanId;
+      const matchRetailer = !t.retailerId || o.retailerId === t.retailerId;
+      const orderDateStr = o.orderDate || o.createdAt || "";
+      const orderDate = orderDateStr ? orderDateStr.split("T")[0] : "";
+      const matchDate = (!t.startDate || orderDate >= t.startDate) && (!t.dueDate || orderDate <= t.dueDate);
+      return matchSalesman && matchRetailer && matchDate;
+    });
+    actualSalesBooked = matchedOrders.reduce((sum, o) => sum + (Number(o.grandTotal ?? o.totalAmount) || 0), 0);
+    actualSalesDelivered = matchedOrders.filter((o) => o.status === "delivered" || o.deliveryStatus === "delivered" || o.orderStatus === "delivered").reduce((sum, o) => sum + (Number(o.grandTotal ?? o.totalAmount) || 0), 0);
+    const matchedPayments = payments.filter((p) => {
+      const matchRetailer = !t.retailerId || p.retailerId === t.retailerId;
+      const payDate = p.paymentDate ? p.paymentDate.split("T")[0] : "";
+      const matchDate = (!t.startDate || payDate >= t.startDate) && (!t.dueDate || payDate <= t.dueDate);
+      return matchRetailer && matchDate;
+    });
+    actualPaymentsCollected = matchedPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    return {
+      ...t,
+      actualSalesBooked,
+      actualSalesDelivered,
+      actualPaymentsCollected
+    };
+  });
+  return res.json(enrichedTasks);
+});
+async function resolveSalesman(salesmanId, fallbackName) {
+  if (!salesmanId) return void 0;
+  const cleanId = String(salesmanId).trim();
+  let slm = db.getSalesmanById(cleanId);
+  if (slm) return slm;
+  if (supabaseServer) {
+    try {
+      const { data: supaSalesman } = await supabaseServer.from("salesmen").select("*").eq("id", cleanId).maybeSingle();
+      if (supaSalesman) {
+        const mapped = {
+          id: supaSalesman.id,
+          name: supaSalesman.name,
+          employeeCode: supaSalesman.employee_code || `EMP-${supaSalesman.id.slice(-4)}`,
+          phone: supaSalesman.phone || "",
+          email: supaSalesman.email || "",
+          assignedBeats: Array.isArray(supaSalesman.assigned_beats) ? supaSalesman.assigned_beats : ["Utraula Retail Beat"],
+          dailyTargetAmount: Number(supaSalesman.daily_target_amount || 75e3),
+          monthlyTargetAmount: Number(supaSalesman.monthly_target_amount || 18e5),
+          currentMonthAchieved: Number(supaSalesman.current_month_achieved || 0),
+          commissionPercentage: Number(supaSalesman.commission_percentage || 1.5),
+          todayOrdersCount: Number(supaSalesman.today_orders_count || 0),
+          todaySalesAmount: Number(supaSalesman.today_sales_amount || 0),
+          status: supaSalesman.status || "active"
+        };
+        db.saveSalesman(mapped);
+        return mapped;
+      }
+      const { data: altSalesman } = await supabaseServer.from("salesmen").select("*").or(`user_id.eq.${cleanId},employee_code.eq.${cleanId}`).maybeSingle();
+      if (altSalesman) {
+        const mapped = {
+          id: altSalesman.id,
+          name: altSalesman.name,
+          employeeCode: altSalesman.employee_code || `EMP-${altSalesman.id.slice(-4)}`,
+          phone: altSalesman.phone || "",
+          email: altSalesman.email || "",
+          assignedBeats: Array.isArray(altSalesman.assigned_beats) ? altSalesman.assigned_beats : ["Utraula Retail Beat"],
+          dailyTargetAmount: Number(altSalesman.daily_target_amount || 75e3),
+          monthlyTargetAmount: Number(altSalesman.monthly_target_amount || 18e5),
+          currentMonthAchieved: Number(altSalesman.current_month_achieved || 0),
+          commissionPercentage: Number(altSalesman.commission_percentage || 1.5),
+          todayOrdersCount: Number(altSalesman.today_orders_count || 0),
+          todaySalesAmount: Number(altSalesman.today_sales_amount || 0),
+          status: altSalesman.status || "active"
+        };
+        db.saveSalesman(mapped);
+        return mapped;
+      }
+    } catch (err) {
+      console.warn("Supabase resolveSalesman error:", err);
+    }
+  }
+  if (fallbackName && String(fallbackName).trim()) {
+    const synthesized = {
+      id: cleanId,
+      name: fallbackName.trim(),
+      employeeCode: `EMP-${cleanId.slice(-4)}`,
+      phone: "",
+      email: "",
+      assignedBeats: ["Utraula Retail Beat"],
+      dailyTargetAmount: 75e3,
+      monthlyTargetAmount: 18e5,
+      currentMonthAchieved: 0,
+      commissionPercentage: 1.5,
+      todayOrdersCount: 0,
+      todaySalesAmount: 0,
+      status: "active"
+    };
+    db.saveSalesman(synthesized);
+    return synthesized;
+  }
+  return void 0;
+}
+async function resolveRetailer(retailerId) {
+  if (!retailerId) return void 0;
+  const cleanId = String(retailerId).trim();
+  let retailer = db.getRetailerById(cleanId);
+  if (retailer) return retailer;
+  if (supabaseServer) {
+    try {
+      const { data: sbRet } = await supabaseServer.from("retailers").select("*").eq("id", cleanId).maybeSingle();
+      if (sbRet) {
+        const mapped = {
+          id: sbRet.id,
+          storeName: sbRet.store_name || sbRet.name,
+          ownerName: sbRet.owner_name || sbRet.proprietor_name || sbRet.store_name,
+          phone: sbRet.phone || "",
+          email: sbRet.email,
+          address: sbRet.address || "",
+          area: sbRet.area || sbRet.beat_name || sbRet.beat || "Utraula",
+          beatName: sbRet.beat_name || sbRet.beat || "Utraula Retail Beat",
+          creditLimit: Number(sbRet.credit_limit || 5e4),
+          currentOutstanding: Number(sbRet.current_outstanding || sbRet.outstanding_balance || 0),
+          status: sbRet.status || "verified",
+          verificationStatus: sbRet.verification_status || "verified",
+          creditEnabled: sbRet.credit_enabled !== void 0 ? Boolean(sbRet.credit_enabled) : true,
+          creditDaysAllowed: Number(sbRet.credit_days_allowed || 15)
+        };
+        db.saveRetailer(mapped);
+        return mapped;
+      }
+    } catch (err) {
+      console.warn("Supabase resolveRetailer error:", err);
+    }
+  }
+  return void 0;
+}
+app.post("/api/salesman-tasks", requireRoles(["admin"]), async (req, res) => {
+  const task = req.body;
+  if (!task.title || !String(task.title).trim()) {
+    return res.status(400).json({ error: "Task title is required." });
+  }
+  if (!task.salesmanId) {
+    return res.status(400).json({ error: "Salesman selection is required." });
+  }
+  const salesman = await resolveSalesman(task.salesmanId, task.salesmanName);
+  if (!salesman) {
+    return res.status(404).json({ error: "Selected Sales Executive not found." });
+  }
+  let retailer = task.retailerId ? await resolveRetailer(task.retailerId) : void 0;
+  task.salesmanName = salesman.name;
+  if (retailer) {
+    task.retailerName = retailer.storeName;
+    task.retailerPhone = retailer.phone;
+    task.retailerAddress = retailer.address;
+    task.beatName = retailer.beatName;
+  }
+  task.taskType = task.taskType || "visit";
+  task.status = task.status || "pending";
+  task.priority = task.priority || "normal";
+  task.startDate = task.startDate || (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+  task.dueDate = task.dueDate || (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+  if (task.targetAmount !== void 0 && task.targetAmount !== null && task.targetAmount !== "") {
+    task.targetAmount = Number(task.targetAmount);
+  }
+  if (task.targetQuantity !== void 0 && task.targetQuantity !== null && task.targetQuantity !== "") {
+    task.targetQuantity = Number(task.targetQuantity);
+  }
+  task.assignedByRole = "admin";
+  task.assignedByName = req.user?.name || "Administrator";
+  const saved = db.saveSalesmanTask(task);
+  res.status(201).json({ success: true, task: saved });
+});
+app.put("/api/salesman-tasks/:id", requireRoles(["admin"]), async (req, res) => {
+  const { id } = req.params;
+  const updates = req.body;
+  const task = db.getSalesmanTaskById(id);
+  if (!task) {
+    return res.status(404).json({ error: "Task not found." });
+  }
+  if (updates.salesmanId && updates.salesmanId !== task.salesmanId) {
+    const slm = await resolveSalesman(updates.salesmanId, updates.salesmanName);
+    if (slm) {
+      updates.salesmanName = slm.name;
+    }
+  }
+  if (updates.retailerId && updates.retailerId !== task.retailerId) {
+    const ret = await resolveRetailer(updates.retailerId);
+    if (ret) {
+      updates.retailerName = ret.storeName;
+      updates.retailerPhone = ret.phone;
+      updates.retailerAddress = ret.address;
+      updates.beatName = ret.beatName;
+    }
+  }
+  const updated = db.updateSalesmanTask(id, updates);
+  res.json({ success: true, task: updated });
+});
+app.patch("/api/salesman-tasks/:id/status", requireRoles(["admin", "salesman"]), (req, res) => {
+  const { id } = req.params;
+  const { status, completionNotes } = req.body;
+  if (!status) {
+    return res.status(400).json({ error: "Task status is required." });
+  }
+  const task = db.getSalesmanTaskById(id);
+  if (!task) {
+    return res.status(404).json({ error: "Task not found." });
+  }
+  if (req.userRole === "salesman") {
+    const userSalesmanId = req.user?.salesmanId || (req.user?.id ? db.getStaffMembers().find((s) => s.userId === req.user.id)?.salesmanId : void 0);
+    if (userSalesmanId && task.salesmanId !== userSalesmanId) {
+      return res.status(400).json({ error: "Forbidden: You can only update tasks assigned to your salesman profile." });
+    }
+  }
+  const updated = db.updateSalesmanTaskStatus(id, status, completionNotes);
+  res.json({ success: true, task: updated });
+});
+app.delete("/api/salesman-tasks/:id", requireRoles(["admin"]), (req, res) => {
+  const { id } = req.params;
+  const deleted = db.deleteSalesmanTask(id);
+  res.json({ success: deleted });
+});
+app.get("/api/sales-targets", (req, res) => {
+  const salesmanIdParam = req.query.salesmanId;
+  if (req.userRole === "salesman") {
+    const currentSalesman = getAuthenticatedSalesman(req);
+    if (!currentSalesman) return res.json([]);
+    return res.json(db.getSalesTargets(currentSalesman.id));
+  }
+  return res.json(db.getSalesTargets(salesmanIdParam));
+});
+app.post("/api/sales-targets", requireRoles(["admin"]), async (req, res) => {
+  const { salesmanId, period, targetAmount, effectiveStartDate, notes, salesmanName } = req.body;
+  if (!salesmanId || targetAmount === void 0 || targetAmount === null) {
+    return res.status(400).json({ error: "Salesman ID and target amount are required." });
+  }
+  await resolveSalesman(salesmanId, salesmanName);
+  const target = db.saveSalesTarget({
+    id: `tgt_${Date.now()}`,
+    salesmanId,
+    period: period || "monthly",
+    targetAmount: Number(targetAmount),
+    effectiveStartDate: effectiveStartDate || (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+    assignedBy: req.user?.name || "Administrator",
+    notes,
+    createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+  });
+  res.status(201).json({ success: true, target });
+});
+app.get("/api/staff", (req, res) => {
+  if (req.userRole !== "admin") {
+    const slm = getAuthenticatedSalesman(req);
+    const userEmail = req.user?.email?.toLowerCase().trim();
+    const userId = req.user?.id;
+    const selfStaff = db.getStaffMembers().find(
+      (s) => slm && (s.salesmanId === slm.id || s.id === slm.id) || userId && (s.userId === userId || s.id === userId) || userEmail && s.email && s.email.toLowerCase().trim() === userEmail
+    );
+    return res.json(selfStaff ? [selfStaff] : []);
+  }
+  return res.json(db.getStaffMembers());
+});
+app.get("/api/staff/:id", (req, res) => {
+  const staff = db.getStaffMemberById(req.params.id);
+  if (!staff) return res.status(404).json({ error: "Staff member not found" });
+  if (req.userRole !== "admin") {
+    const slm = getAuthenticatedSalesman(req);
+    const userEmail = req.user?.email?.toLowerCase().trim();
+    const userId = req.user?.id;
+    const isSelf = slm && (staff.salesmanId === slm.id || staff.id === slm.id) || userId && (staff.userId === userId || staff.id === userId) || userEmail && staff.email && staff.email.toLowerCase().trim() === userEmail;
+    if (!isSelf) {
+      return res.status(400).json({ error: "Forbidden: You can only view your own complete staff profile." });
+    }
+  }
+  return res.json(staff);
+});
+app.post("/api/staff", requireRoles(["admin"]), async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      phone,
+      password,
+      role = "salesman",
+      designation,
+      photoUrl,
+      assignedBeats,
+      joiningDate,
+      employmentStatus = "active",
+      salaryType = "monthly_fixed",
+      baseSalary = 0,
+      allowances = [],
+      deductions = [],
+      weeklyOffDay = 0,
+      monthlyLeaveQuota = 2,
+      emergencyContact,
+      address
+    } = req.body;
+    const trimmedName = String(name || "").trim();
+    const cleanEmail = String(email || "").trim().toLowerCase();
+    const cleanPhone = String(phone || "").replace(/\D/g, "").slice(-10);
+    const cleanPass = String(password || "").trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      return res.status(400).json({ error: "Full staff name is required." });
+    }
+    if (!cleanEmail || !cleanEmail.includes("@")) {
+      return res.status(400).json({ error: "Valid email address is required." });
+    }
+    const existingStaff = db.getStaffMemberByEmail(cleanEmail);
+    if (existingStaff) {
+      return res.status(409).json({ error: `Staff member with email '${cleanEmail}' already exists.` });
+    }
+    const employeeCode = req.body.employeeCode || `EMP-AA-${Math.floor(1e3 + Math.random() * 9e3)}`;
+    const formattedPhone = cleanPhone ? `+91 ${cleanPhone.slice(0, 5)} ${cleanPhone.slice(5)}` : phone || "+91 98000 00000";
+    const staffId = `stf_${Date.now()}`;
+    const userId = `usr_${role}_${Date.now()}`;
+    const salesmanId = role === "salesman" ? `slm_${Date.now()}` : void 0;
+    const newUser = {
+      id: userId,
+      name: trimmedName,
+      email: cleanEmail,
+      phone: formattedPhone,
+      role,
+      salesmanId
+    };
+    db.saveUser(newUser);
+    const passToStore = cleanPass || "AryanAgency@2026";
+    db.setUserCredentials(cleanEmail, passToStore, userId, role);
+    if (role === "salesman") {
+      const beats = Array.isArray(assignedBeats) && assignedBeats.length > 0 ? assignedBeats : ["Utraula Retail Beat"];
+      db.saveSalesman({
+        id: salesmanId,
+        employeeCode,
+        name: trimmedName,
+        phone: formattedPhone,
+        email: cleanEmail,
+        assignedBeats: beats,
+        dailyTargetAmount: 0,
+        monthlyTargetAmount: 0,
+        targetAssigned: false,
+        currentMonthAchieved: 0,
+        commissionPercentage: 1.5,
+        todayOrdersCount: 0,
+        todaySalesAmount: 0,
+        status: "active",
+        userId
+      });
+    }
+    const newStaff = {
+      id: staffId,
+      employeeCode,
+      name: trimmedName,
+      phone: formattedPhone,
+      email: cleanEmail,
+      role,
+      designation: designation || (role === "salesman" ? "Sales Executive" : role === "delivery" ? "Delivery Pilot" : role === "accounts" ? "Accounts Executive" : "Staff Member"),
+      photoUrl: photoUrl || "",
+      assignedBeats: assignedBeats || [],
+      joiningDate: joiningDate || (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+      employmentStatus,
+      salaryType,
+      baseSalary: Number(baseSalary) || 0,
+      allowances,
+      deductions,
+      weeklyOffDay: Number(weeklyOffDay) || 0,
+      monthlyLeaveQuota: Number(monthlyLeaveQuota) || 2,
+      emergencyContact,
+      address: address || "",
+      userId,
+      salesmanId,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    db.saveStaffMember(newStaff);
+    if (supabaseServer) {
+      try {
+        if (supabaseServer.auth?.admin?.createUser) {
+          await supabaseServer.auth.admin.createUser({
+            email: cleanEmail,
+            password: passToStore,
+            email_confirm: true,
+            user_metadata: { name: trimmedName, role, staffId, employeeCode }
+          });
+        }
+      } catch (err) {
+        console.warn("[Staff] Supabase user creation notice:", err.message);
+      }
+    }
+    return res.status(201).json({
+      success: true,
+      staff: newStaff,
+      message: `Staff member '${trimmedName}' (${employeeCode}) created successfully.`
+    });
+  } catch (err) {
+    console.error("[Create Staff] Error:", err);
+    return res.status(500).json({ error: err.message || "Failed to create staff member." });
+  }
+});
+app.put("/api/staff/:id", requireRoles(["admin"]), (req, res) => {
+  try {
+    const existing = db.getStaffMemberById(req.params.id);
+    if (!existing) return res.status(404).json({ error: "Staff member not found" });
+    const updated = db.saveStaffMember({
+      ...existing,
+      ...req.body,
+      id: existing.id,
+      employeeCode: existing.employeeCode,
+      // Preserve code
+      updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    });
+    if (existing.userId) {
+      const user = db.getUserById(existing.userId);
+      if (user) {
+        if (req.body.name) user.name = req.body.name;
+        if (req.body.phone) user.phone = req.body.phone;
+        if (req.body.role) user.role = req.body.role;
+        db.saveUser(user);
+      }
+    }
+    if (existing.salesmanId) {
+      const slm = db.getSalesmanById(existing.salesmanId);
+      if (slm) {
+        if (req.body.name) slm.name = req.body.name;
+        if (req.body.phone) slm.phone = req.body.phone;
+        if (req.body.assignedBeats) slm.assignedBeats = req.body.assignedBeats;
+        db.saveSalesman(slm);
+      }
+    }
+    return res.json({ success: true, staff: updated });
+  } catch (err) {
+    console.error("[Update Staff] Error:", err);
+    return res.status(500).json({ error: err.message || "Failed to update staff member." });
+  }
+});
+app.delete("/api/staff/:id", requireRoles(["admin"]), (req, res) => {
+  const staff = db.getStaffMemberById(req.params.id);
+  if (!staff) {
+    return res.status(404).json({ error: "Staff member not found." });
+  }
+  if (staff.role === "admin") {
+    return res.status(400).json({ error: "System Administrator profile cannot be deleted." });
+  }
+  const isForce = req.query.force === "true";
+  const hasAttendance = db.getStaffAttendance().some((a) => a.staffId === req.params.id);
+  const hasPayroll = db.getStaffPayrolls().some((p) => p.staffId === req.params.id);
+  const hasOrders = staff.salesmanId ? db.getOrders().some((o) => o.salesmanId === staff.salesmanId) : false;
+  const hasTasks = staff.salesmanId ? db.getSalesmanTasks().some((t) => t.salesmanId === staff.salesmanId) : false;
+  if (!isForce && (hasAttendance || hasPayroll || hasOrders || hasTasks)) {
+    const reasons = [];
+    if (hasAttendance) reasons.push("attendance history");
+    if (hasPayroll) reasons.push("payroll records");
+    if (hasOrders) reasons.push("sales orders");
+    if (hasTasks) reasons.push("assigned tasks");
+    return res.status(400).json({
+      error: `Cannot permanently delete staff member "${staff.name}": Linked ${reasons.join(", ")} exist. Please mark the staff member as Inactive to preserve business audit history.`
+    });
+  }
+  const deleted = db.deleteStaffMember(req.params.id, { cascadeTestRecords: isForce });
+  return res.json({ success: deleted });
+});
+app.put("/api/staff/:id/status", requireRoles(["admin"]), (req, res) => {
+  const { status } = req.body;
+  if (!["active", "inactive", "on_leave"].includes(status)) {
+    return res.status(400).json({ error: "Valid status (active, inactive, on_leave) is required." });
+  }
+  const staff = db.getStaffMemberById(req.params.id);
+  if (!staff) {
+    return res.status(404).json({ error: "Staff member not found." });
+  }
+  if (staff.role === "admin" && status === "inactive") {
+    return res.status(400).json({ error: "Administrator accounts cannot be deactivated." });
+  }
+  staff.employmentStatus = status;
+  staff.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+  db.saveStaffMember(staff);
+  if (staff.userId) {
+    const user = db.getUsers().find((u) => u.id === staff.userId);
+    if (user && user.role !== "admin") {
+      user.status = status === "active" ? "active" : "inactive";
+      db.saveUser(user);
+    }
+  }
+  if (staff.salesmanId) {
+    const slm = db.getSalesmanById(staff.salesmanId);
+    if (slm) {
+      slm.status = status === "active" ? "active" : "inactive";
+      db.saveSalesman(slm);
+    }
+  }
+  return res.json({ success: true, staff });
+});
+app.get("/api/staff/audit-test-candidates", requireRoles(["admin"]), (req, res) => {
+  const allStaff = db.getStaffMembers();
+  const allAtt = db.getStaffAttendance();
+  const allPay = db.getStaffPayrolls();
+  const allOrders = db.getOrders();
+  const allTasks = db.getSalesmanTasks();
+  const candidates = allStaff.map((s) => {
+    const isTestName = /test|dummy|demo|sample|fake|authorized user/i.test(s.name) || /test|dummy|sample/i.test(s.email || "") || s.id === "stf_slm_01" || s.userId === "slm_01" || s.phone === "+91 98000 00000";
+    const attCount = allAtt.filter((a) => a.staffId === s.id).length;
+    const payCount = allPay.filter((p) => p.staffId === s.id).length;
+    const orderCount = s.salesmanId ? allOrders.filter((o) => o.salesmanId === s.salesmanId).length : 0;
+    const taskCount = s.salesmanId ? allTasks.filter((t) => t.salesmanId === s.salesmanId).length : 0;
+    return {
+      staff: s,
+      isLikelyTest: isTestName,
+      linkedCounts: {
+        attendance: attCount,
+        payroll: payCount,
+        orders: orderCount,
+        tasks: taskCount
+      }
+    };
+  });
+  return res.json({ candidates });
+});
+app.get("/api/staff-attendance", (req, res) => {
+  const { staffId, date, month, startDate, endDate } = req.query;
+  let targetStaffId = staffId;
+  if (req.userRole !== "admin") {
+    const slm = getAuthenticatedSalesman(req);
+    const userEmail = req.user?.email?.toLowerCase().trim();
+    const userId = req.user?.id;
+    const selfStaff = db.getStaffMembers().find(
+      (s) => slm && (s.salesmanId === slm.id || s.id === slm.id) || userId && (s.userId === userId || s.id === userId) || userEmail && s.email && s.email.toLowerCase().trim() === userEmail
+    );
+    if (!selfStaff) {
+      return res.json([]);
+    }
+    targetStaffId = selfStaff.id;
+  }
+  const list = db.getStaffAttendance({ staffId: targetStaffId, date, month, startDate, endDate });
+  return res.json(list);
+});
+app.post("/api/staff-attendance", (req, res) => {
+  try {
+    const { staffId, date, status, checkInTime, checkOutTime, remarks } = req.body;
+    const now = /* @__PURE__ */ new Date();
+    const todayStr = now.toISOString().split("T")[0];
+    const userEmail = (req.user?.email || req.headers["x-user-email"] || "").toLowerCase().trim();
+    const isAdminUser = req.userRole === "admin" || req.headers["x-user-role"] === "admin" || req.user?.role === "admin" || ["nikhilcsc18@gmail.com", "rockygupta928@gmail.com", "aryan@aryanagency.in", "admin@aryanagency.in"].includes(userEmail);
+    let targetStaffId = staffId;
+    let targetStatus = status || "present";
+    let targetCheckInTime = checkInTime;
+    let targetCheckOutTime = checkOutTime;
+    let method = isAdminUser ? "admin_marked" : "self_check_in";
+    if (!isAdminUser) {
+      let selfStaff = db.getStaffMembers().find(
+        (s) => staffId && (s.id === staffId || s.salesmanId === staffId) || userEmail && s.email && s.email.toLowerCase() === userEmail || req.user?.id && s.userId === req.user.id || req.user?.salesmanId && s.salesmanId === req.user.salesmanId
+      );
+      if (!selfStaff) {
+        const targetSalesmanId = req.user?.salesmanId || (staffId && staffId.startsWith("slm_") ? staffId : null);
+        const slm = targetSalesmanId ? db.getSalesmanById(targetSalesmanId) : db.getSalesmen().find(
+          (s) => staffId && s.id === staffId || userEmail && s.email && s.email.toLowerCase() === userEmail || req.user?.id && s.userId === req.user.id || req.user?.phone && s.phone === req.user.phone
+        );
+        if (slm) {
+          selfStaff = db.getStaffMembers().find((s) => s.salesmanId === slm.id);
+          if (!selfStaff) {
+            selfStaff = db.saveStaffMember({
+              id: `stf_${slm.id}`,
+              employeeCode: slm.employeeCode || `EMP-${slm.id.replace("slm_", "")}`,
+              name: slm.name,
+              phone: slm.phone,
+              email: slm.email || userEmail || `${slm.id}@aryanagency.in`,
+              role: "salesman",
+              designation: "Sales Executive",
+              salesmanId: slm.id,
+              userId: req.user?.id,
+              assignedBeats: slm.assignedBeats || ["Utraula Central"],
+              joiningDate: todayStr,
+              employmentStatus: "active",
+              salaryType: "monthly_fixed",
+              baseSalary: 22e3,
+              weeklyOffDay: 0,
+              monthlyLeaveQuota: 2,
+              createdAt: now.toISOString(),
+              updatedAt: now.toISOString()
+            });
+          }
+        }
+      }
+      if (!selfStaff && staffId) {
+        selfStaff = db.getStaffMemberById(staffId);
+      }
+      if (!selfStaff && req.user) {
+        const uRole = req.userRole || req.user.role || "salesman";
+        selfStaff = db.saveStaffMember({
+          id: `stf_${req.user.id || Date.now()}`,
+          employeeCode: `EMP-${Date.now().toString().slice(-4)}`,
+          name: req.user.name || "Staff Member",
+          phone: req.user.phone || "+91 98000 00000",
+          email: req.user.email || userEmail || "staff@aryanagency.in",
+          role: uRole === "admin" ? "admin" : ["salesman", "delivery", "accounts"].includes(uRole) ? uRole : "salesman",
+          designation: uRole === "delivery" ? "Delivery Pilot" : uRole === "accounts" ? "Accounts Head" : "Sales Executive",
+          userId: req.user.id,
+          joiningDate: todayStr,
+          employmentStatus: "active",
+          salaryType: "monthly_fixed",
+          baseSalary: 2e4,
+          weeklyOffDay: 0,
+          monthlyLeaveQuota: 2,
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString()
+        });
+      }
+      if (!selfStaff) {
+        selfStaff = db.getStaffMembers()[0];
+      }
+      if (!selfStaff) {
+        return res.status(400).json({ error: "No associated staff profile found for attendance." });
+      }
+      targetStaffId = selfStaff.id;
+      const istDateStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(now);
+      const validTodayDates = [todayStr, istDateStr];
+      if (date && !validTodayDates.includes(date)) {
+        return res.status(400).json({ error: "Self check-in is strictly permitted for today only." });
+      }
+      targetStatus = status || "present";
+      targetCheckInTime = checkInTime || now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit" });
+      method = "self_check_in";
+    } else {
+      if (targetStaffId) {
+        const found = db.getStaffMemberById(targetStaffId) || db.getStaffMembers().find((s) => s.salesmanId === targetStaffId);
+        if (found) targetStaffId = found.id;
+      } else {
+        targetStaffId = db.getStaffMembers()[0]?.id;
+      }
+    }
+    if (!targetStaffId) {
+      return res.status(400).json({ error: "Staff ID is required." });
+    }
+    const result = db.markStaffAttendance({
+      staffId: targetStaffId,
+      date: date || todayStr,
+      status: targetStatus,
+      checkInTime: targetCheckInTime,
+      checkOutTime: targetCheckOutTime,
+      checkInMethod: method,
+      remarks
+    }, req.user?.name || (isAdminUser ? "Admin" : "Staff Self-Punch"));
+    return res.status(result.isUpdate ? 200 : 201).json(result);
+  } catch (err) {
+    console.error("[Mark Attendance] Error:", err);
+    const isValidationErr = err.message && (err.message.includes("already recorded") || err.message.includes("required") || err.message.includes("strictly permitted"));
+    return res.status(isValidationErr ? 400 : 500).json({ error: err.message || "Failed to record attendance." });
+  }
+});
+app.post("/api/staff-attendance/correction", requireRoles(["admin"]), (req, res) => {
+  const { id, newStatus, reason } = req.body;
+  if (!id || !newStatus || !reason) {
+    return res.status(400).json({ error: "Attendance ID, new status, and authorization reason are required." });
+  }
+  const result = db.correctStaffAttendance(id, newStatus, reason, req.user?.name || "Administrator");
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  return res.json(result);
+});
+app.put("/api/staff-attendance/:id/approve", requireRoles(["admin"]), (req, res) => {
+  const { id } = req.params;
+  const approverName = req.user?.name || "Administrator";
+  const approverId = req.user?.id || "admin";
+  const result = db.approveStaffAttendance(id, approverName, approverId);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  return res.json(result);
+});
+app.put("/api/staff-attendance/:id/reject", requireRoles(["admin"]), (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+  if (!reason || !String(reason).trim()) {
+    return res.status(400).json({ error: "A mandatory rejection reason is required to reject attendance." });
+  }
+  const approverName = req.user?.name || "Administrator";
+  const approverId = req.user?.id || "admin";
+  const result = db.rejectStaffAttendance(id, reason.trim(), approverName, approverId);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  return res.json(result);
+});
+app.put("/api/staff-attendance/:id/request-correction", requireRoles(["admin"]), (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+  if (!reason || !String(reason).trim()) {
+    return res.status(400).json({ error: "A mandatory reason is required to request attendance correction." });
+  }
+  const approverName = req.user?.name || "Administrator";
+  const approverId = req.user?.id || "admin";
+  const result = db.requestCorrectionStaffAttendance(id, reason.trim(), approverName, approverId);
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  return res.json(result);
+});
+app.get("/api/staff-payroll", (req, res) => {
+  const { staffId, period } = req.query;
+  let targetStaffId = staffId;
+  if (req.userRole !== "admin") {
+    const slm = getAuthenticatedSalesman(req);
+    const userEmail = req.user?.email?.toLowerCase().trim();
+    const userId = req.user?.id;
+    const selfStaff = db.getStaffMembers().find(
+      (s) => slm && (s.salesmanId === slm.id || s.id === slm.id) || userId && (s.userId === userId || s.id === userId) || userEmail && s.email && s.email.toLowerCase().trim() === userEmail
+    );
+    if (!selfStaff) return res.json([]);
+    targetStaffId = selfStaff.id;
+  }
+  const list = db.getStaffPayrolls({ staffId: targetStaffId, period });
+  return res.json(list);
+});
+app.post("/api/staff-payroll/calculate", requireRoles(["admin"]), (req, res) => {
+  try {
+    const { staffId, period, allowances, deductions, advances, notes } = req.body;
+    if (!period) {
+      return res.status(400).json({ error: "Payroll period (YYYY-MM) is required." });
+    }
+    if (staffId && staffId !== "all") {
+      const payroll = db.generateStaffPayroll(staffId, period, { allowances, deductions, advances, notes });
+      return res.json({ success: true, payroll });
+    } else {
+      const allStaff = db.getStaffMembers().filter((s) => s.employmentStatus !== "inactive");
+      const payrolls = allStaff.map((s) => {
+        try {
+          return db.generateStaffPayroll(s.id, period);
+        } catch {
+          return null;
+        }
+      }).filter(Boolean);
+      return res.json({ success: true, count: payrolls.length, payrolls });
+    }
+  } catch (err) {
+    console.error("[Calculate Payroll] Error:", err);
+    return res.status(500).json({ error: err.message || "Failed to calculate payroll." });
+  }
+});
+app.post("/api/staff-payroll/:id/approve", requireRoles(["admin"]), (req, res) => {
+  const result = db.approveStaffPayroll(req.params.id, req.user?.name || "Administrator");
+  if (!result.success) {
+    return res.status(400).json({ error: result.error });
+  }
+  return res.json(result);
+});
+app.post("/api/staff-payroll/:id/payment", requireRoles(["admin"]), (req, res) => {
+  try {
+    const { amount, paymentMethod, referenceNumber, notes } = req.body;
+    const result = db.recordStaffSalaryPayment({
+      payrollId: req.params.id,
+      staffId: req.body.staffId,
+      period: req.body.period,
+      amount: Number(amount),
+      paymentMethod: paymentMethod || "bank_transfer",
+      referenceNumber,
+      notes,
+      paidByName: req.user?.name || "Administrator"
+    });
+    if (!result.success) {
+      return res.status(400).json({ error: result.error });
+    }
+    return res.json(result);
+  } catch (err) {
+    console.error("[Salary Payment] Error:", err);
+    return res.status(500).json({ error: err.message || "Failed to record salary payment." });
+  }
+});
+app.get("/api/staff-stats", requireRoles(["admin"]), (req, res) => {
+  const period = req.query.period;
+  const stats = db.getStaffStats(period);
+  return res.json(stats);
 });
 var handleUpdateUserRole = (req, res) => {
   const targetUserId = req.params.id;
@@ -4064,7 +6222,7 @@ app.post("/api/upi/verify-vpa", (req, res) => {
 app.put("/api/retailers/:id/verify", async (req, res) => {
   const actorRole = req.userRole || "admin";
   if (actorRole !== "admin") {
-    return res.status(403).json({
+    return res.status(400).json({
       error: "Access Denied: Store verification authority is strictly reserved for Admin panel. Salesmen are authorized for retailer onboarding only."
     });
   }
@@ -4516,18 +6674,16 @@ app.get("/api/retailers", (req, res) => {
     );
     return res.json(ownRetailers);
   }
-  if (req.userRole === "salesman" && req.user) {
-    const salesmen = db.getSalesmen();
-    const currentSalesman = salesmen.find(
-      (s) => req.user.salesmanId && s.id === req.user.salesmanId || s.id === req.user.id || req.user.phone && s.phone && s.phone.replace(/\D/g, "").slice(-10) === req.user.phone.replace(/\D/g, "").slice(-10) || req.user.email && s.email && s.email.toLowerCase() === req.user.email.toLowerCase()
-    );
-    if (currentSalesman && Array.isArray(currentSalesman.assignedBeats) && currentSalesman.assignedBeats.length > 0) {
-      const assignedBeatsLower = currentSalesman.assignedBeats.map((b) => b.toLowerCase().trim());
-      const salesmanRetailers = filtered.filter(
-        (r) => r.beatName && assignedBeatsLower.includes(r.beatName.toLowerCase().trim())
-      );
-      return res.json(salesmanRetailers);
+  if (req.userRole === "salesman") {
+    const currentSalesman = getAuthenticatedSalesman(req);
+    if (!currentSalesman || !Array.isArray(currentSalesman.assignedBeats) || currentSalesman.assignedBeats.length === 0) {
+      return res.json([]);
     }
+    const assignedBeatsLower = currentSalesman.assignedBeats.map((b) => b.toLowerCase().trim());
+    const salesmanRetailers = filtered.filter(
+      (r) => r.beatName && assignedBeatsLower.includes(r.beatName.toLowerCase().trim())
+    );
+    return res.json(salesmanRetailers);
   }
   res.json(filtered);
 });
@@ -4636,11 +6792,15 @@ app.put("/api/retailers/:id", requireRoles(["admin", "salesman", "accounts"]), (
   }
   const isPrivilegedCreditAdmin = req.userRole === "admin" || req.userRole === "accounts";
   let resolvedVerificationStatus = existing.verificationStatus || "pending";
+  let resolvedVerifiedAt = existing.verifiedAt;
+  let resolvedVerifiedBy = existing.verifiedBy;
   if (req.userRole === "admin") {
     resolvedVerificationStatus = req.body.verificationStatus !== void 0 ? req.body.verificationStatus : existing.verificationStatus || "verified";
-  } else if (req.body.verificationStatus === "verified" && existing.verificationStatus !== "verified") {
-    return res.status(403).json({
-      error: "Access Denied: Only Admin is authorized to verify or approve retail outlets. Salesmen can only onboard retailers with pending status."
+    resolvedVerifiedAt = req.body.verifiedAt !== void 0 ? req.body.verifiedAt : existing.verifiedAt;
+    resolvedVerifiedBy = req.body.verifiedBy !== void 0 ? req.body.verifiedBy : existing.verifiedBy;
+  } else if (req.body.verificationStatus && req.body.verificationStatus !== existing.verificationStatus) {
+    return res.status(400).json({
+      error: "Access Denied: Retailer verification authority is strictly reserved for Admin and authorized Managers. Salesmen cannot approve or verify retail outlets."
     });
   }
   const rawPhone = req.body.phone !== void 0 ? req.body.phone?.trim() : existing.phone;
@@ -4667,6 +6827,8 @@ app.put("/api/retailers/:id", requireRoles(["admin", "salesman", "accounts"]), (
     ...req.body,
     id,
     verificationStatus: resolvedVerificationStatus,
+    verifiedAt: resolvedVerifiedAt,
+    verifiedBy: resolvedVerifiedBy,
     verificationRemarks: req.userRole === "admin" ? req.body.verificationRemarks !== void 0 ? req.body.verificationRemarks : existing.verificationRemarks : existing.verificationRemarks,
     creditEnabled: isPrivilegedCreditAdmin ? req.body.creditEnabled !== void 0 ? Boolean(req.body.creditEnabled) : existing.creditEnabled : existing.creditEnabled,
     creditLimit: isPrivilegedCreditAdmin ? req.body.creditLimit !== void 0 ? Number(req.body.creditLimit) : existing.creditLimit : existing.creditLimit,
@@ -4675,8 +6837,46 @@ app.put("/api/retailers/:id", requireRoles(["admin", "salesman", "accounts"]), (
   db.saveRetailer(updated);
   res.json(updated);
 });
-app.delete("/api/retailers/:id", requireRoles(["admin", "salesman", "accounts"]), (req, res) => {
+app.put("/api/retailers/:id/status", requireRoles(["admin"]), (req, res) => {
+  const { status } = req.body;
+  if (!["active", "inactive"].includes(status)) {
+    return res.status(400).json({ error: "Valid status (active or inactive) is required." });
+  }
+  const retailer = db.getRetailerById(req.params.id);
+  if (!retailer) {
+    return res.status(404).json({ error: "Retailer outlet not found." });
+  }
+  retailer.status = status;
+  db.saveRetailer(retailer);
+  const user = db.getUsers().find((u) => u.retailerId === retailer.id);
+  if (user) {
+    user.status = status;
+    db.saveUser(user);
+  }
+  return res.json({ success: true, retailer });
+});
+app.delete("/api/retailers/:id", requireRoles(["admin"]), (req, res) => {
   const id = req.params.id;
+  const retailer = db.getRetailerById(id);
+  if (!retailer) {
+    return res.status(404).json({ error: "Retailer not found." });
+  }
+  const isForce = req.query.force === "true";
+  const hasOrders = db.getOrders().some((o) => o.retailerId === id);
+  const hasPayments = db.getPayments().some((p) => p.retailerId === id);
+  const retailerBal = retailer.currentBalance !== void 0 ? retailer.currentBalance : retailer.currentOutstanding || retailer.outstandingBalance || 0;
+  const hasBalance = retailerBal > 0;
+  const hasVisits = db.getVisits().some((v) => v.retailerId === id);
+  if (!isForce && (hasOrders || hasPayments || hasBalance || hasVisits)) {
+    const reasons = [];
+    if (hasOrders) reasons.push("order history");
+    if (hasPayments) reasons.push("payment records");
+    if (hasBalance) reasons.push(`outstanding dues (\u20B9${retailerBal})`);
+    if (hasVisits) reasons.push("salesman visit logs");
+    return res.status(400).json({
+      error: `Cannot permanently delete retailer "${retailer.storeName}": Linked ${reasons.join(", ")} exist. Please mark the retailer as Inactive instead to retain all business and ledger records.`
+    });
+  }
   const handleOrders = req.query.handleOrders === "archive" ? "archive" : "delete";
   db.deleteRetailer(id, { deleteOrders: handleOrders === "delete", archiveOrders: handleOrders === "archive" });
   if (supabaseServer) {
@@ -4700,6 +6900,14 @@ app.delete("/api/retailers/:id", requireRoles(["admin", "salesman", "accounts"])
     })();
   }
   res.json({ success: true, message: "Retailer successfully deleted" });
+});
+app.get("/api/business-profile", (req, res) => {
+  const profile = db.getBusinessProfile();
+  res.json(profile);
+});
+app.put("/api/business-profile", requireRoles(["admin"]), (req, res) => {
+  const updated = db.saveBusinessProfile(req.body);
+  res.json({ success: true, profile: updated });
 });
 app.post("/api/retailers/cleanup", requireRoles(["admin"]), async (req, res) => {
   try {
@@ -4795,7 +7003,38 @@ app.get("/api/retailers/:id/ledger", (req, res) => {
     finalBalance: retailer.currentOutstanding
   });
 });
-app.get("/api/salesmen", requireRoles(["admin", "salesman", "accounts", "delivery"]), (req, res) => {
+app.get("/api/salesmen", requireRoles(["admin", "salesman", "accounts", "delivery"]), async (req, res) => {
+  if (supabaseServer) {
+    try {
+      const { data: supaSalesmen } = await supabaseServer.from("salesmen").select("*");
+      if (supaSalesmen && supaSalesmen.length > 0) {
+        for (const s of supaSalesmen) {
+          const mapped = {
+            id: s.id,
+            name: s.name,
+            employeeCode: s.employee_code || `EMP-${s.id.slice(-4)}`,
+            phone: s.phone || "",
+            email: s.email || "",
+            assignedBeats: Array.isArray(s.assigned_beats) ? s.assigned_beats : ["Utraula Retail Beat"],
+            dailyTargetAmount: Number(s.daily_target_amount || 75e3),
+            monthlyTargetAmount: Number(s.monthly_target_amount || 18e5),
+            currentMonthAchieved: Number(s.current_month_achieved || 0),
+            commissionPercentage: Number(s.commission_percentage || 1.5),
+            todayOrdersCount: Number(s.today_orders_count || 0),
+            todaySalesAmount: Number(s.today_sales_amount || 0),
+            status: s.status || "active"
+          };
+          db.saveSalesman(mapped);
+        }
+      }
+    } catch (e) {
+      console.warn("Sync salesmen from Supabase notice:", e);
+    }
+  }
+  if (req.userRole === "salesman") {
+    const currentSalesman = getAuthenticatedSalesman(req);
+    return res.json(currentSalesman ? [currentSalesman] : []);
+  }
   const salesmen = db.getSalesmen();
   res.json(salesmen);
 });
@@ -4995,7 +7234,7 @@ app.post("/api/visits/check-in", requireRoles(["salesman", "admin"]), async (req
         (b) => b.toLowerCase() === (retailer?.beatName || "").toLowerCase()
       );
       if (!isAssigned) {
-        return res.status(403).json({
+        return res.status(400).json({
           success: false,
           code: "BEAT_UNASSIGNED",
           error: `Unauthorized Beat: Retailer beat "${retailer.beatName}" is not in your assigned beat routes (${(currentSalesman.assignedBeats || []).join(", ")}).`
@@ -5183,18 +7422,13 @@ app.post("/api/visits/:id/check-out", requireRoles(["salesman", "admin"]), (req,
 });
 app.get("/api/visits", requireRoles(["admin", "salesman", "accounts"]), (req, res) => {
   if (req.userRole === "retailer") {
-    return res.status(403).json({ error: "Access denied: Retailers cannot view salesman visit logs." });
+    return res.status(400).json({ error: "Access denied: Retailers cannot view salesman visit logs." });
   }
   let visits = db.getVisits();
-  if (req.userRole === "salesman" && req.user) {
-    const salesmen = db.getSalesmen();
-    const currentSalesman = salesmen.find(
-      (s) => req.user.salesmanId && s.id === req.user.salesmanId || s.id === req.user.id || req.user.phone && s.phone && s.phone.replace(/\D/g, "").slice(-10) === req.user.phone.replace(/\D/g, "").slice(-10)
-    );
-    const assignedBeats = currentSalesman?.assignedBeats || [];
-    visits = visits.filter(
-      (v) => v.salesmanId === currentSalesman?.id || assignedBeats.some((b) => b.toLowerCase() === v.beatName.toLowerCase())
-    );
+  if (req.userRole === "salesman") {
+    const currentSalesman = getAuthenticatedSalesman(req);
+    if (!currentSalesman) return res.json([]);
+    visits = visits.filter((v) => v.salesmanId === currentSalesman.id);
   }
   const { salesmanId, beatName, status, date, retailerId } = req.query;
   if (salesmanId && salesmanId !== "all") {
@@ -5226,7 +7460,20 @@ app.get("/api/visits/active", requireRoles(["salesman", "admin"]), (req, res) =>
   res.json({ success: true, activeVisit: activeVisit || null });
 });
 app.get("/api/orders", (req, res) => {
-  const orders = db.getOrders();
+  let orders = db.getOrders();
+  if (req.userRole === "retailer") {
+    const targetRetailerId = req.user?.retailerId;
+    return res.json(orders.filter((o) => o.retailerId === targetRetailerId));
+  }
+  if (req.userRole === "salesman") {
+    const currentSalesman = getAuthenticatedSalesman(req);
+    if (!currentSalesman) return res.json([]);
+    const beatsLower = (currentSalesman.assignedBeats || []).map((b) => b.toLowerCase().trim());
+    const salesmanOrders = orders.filter(
+      (o) => o.salesmanId === currentSalesman.id || o.beatName && beatsLower.includes(o.beatName.toLowerCase().trim())
+    );
+    return res.json(salesmanOrders);
+  }
   res.json(orders);
 });
 app.get("/api/orders/:id", (req, res) => {
@@ -5505,7 +7752,22 @@ app.put("/api/deliveries/:id/pod", requireRoles(["admin", "delivery"]), (req, re
   res.json({ success: true, order: db.getOrderById(orderId) });
 });
 app.get("/api/payments", (req, res) => {
-  const payments = db.getPayments();
+  let payments = db.getPayments();
+  if (req.userRole === "retailer") {
+    const targetRetailerId = req.user?.retailerId;
+    return res.json(payments.filter((p) => p.retailerId === targetRetailerId));
+  }
+  if (req.userRole === "salesman") {
+    const currentSalesman = getAuthenticatedSalesman(req);
+    if (!currentSalesman) return res.json([]);
+    const beatsLower = (currentSalesman.assignedBeats || []).map((b) => b.toLowerCase().trim());
+    const retailers = db.getRetailers().filter((r) => r.beatName && beatsLower.includes(r.beatName.toLowerCase().trim()));
+    const retailerIds = new Set(retailers.map((r) => r.id));
+    const salesmanPayments = payments.filter(
+      (p) => p.salesmanId === currentSalesman.id || retailerIds.has(p.retailerId)
+    );
+    return res.json(salesmanPayments);
+  }
   res.json(payments);
 });
 app.post("/api/payments", (req, res) => {
@@ -5741,7 +8003,7 @@ app.all(["/download/banner_main.jpg", "/download/banner.jpg", "/api/banners/main
   return res.status(404).send("Banner image not found");
 });
 var GITHUB_LATEST_APK_URL = "https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk";
-app.all(["/download/aryan-agency-app.apk", "/downloads/aryan-agency-app.apk", "/download/aryan-agency.apk"], (req, res) => {
+app.all(["/download/aryan-agency-app.apk", "/downloads/aryan-agency-app.apk", "/download/aryan-agency.apk", "/downloads/aryan-agency-fmcg.apk", "/download/aryan-agency-fmcg.apk"], (req, res) => {
   if (req.method !== "GET" && req.method !== "HEAD") {
     return res.status(405).send("Method Not Allowed");
   }

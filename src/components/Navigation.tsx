@@ -438,12 +438,15 @@ export const Navigation: React.FC<NavigationProps> = ({
               <div>
                 <div className="flex items-center space-x-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                  <span className="text-xs font-black uppercase tracking-wider text-[#38bdf8]">
-                    Aryan Agency Menu
+                  <span className="text-sm font-black uppercase tracking-wider text-white">
+                    Apna <span className="text-[#F59E0B]">Store</span>
                   </span>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Role: <b className="text-amber-400 uppercase">{currentRole}</b>
+                <p className="text-[10px] text-slate-300 mt-0.5">
+                  Smart Shopping. Trusted Service.
+                </p>
+                <p className="text-[10px] text-slate-400">
+                  Powered by Aryan Agency • <b className="text-amber-400 uppercase">{currentRole}</b>
                 </p>
               </div>
               <button

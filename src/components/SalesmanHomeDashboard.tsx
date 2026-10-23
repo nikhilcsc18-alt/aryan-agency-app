@@ -49,7 +49,8 @@ import {
   TaskType,
   StaffAttendance,
   StaffPayroll,
-  StaffMember
+  StaffMember,
+  PaymentRecord
 } from '../types';
 import { formatINR, api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -87,11 +88,13 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
   const [tasks, setTasks] = useState<SalesmanTask[]>([]);
   const [visits, setVisits] = useState<SalesmanVisit[]>([]);
   const [loadingTasks, setLoadingTasks] = useState(true);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [taskFilter, setTaskFilter] = useState<'all' | 'pending' | 'visit' | 'follow_up' | 'order_booking' | 'completed'>('all');
 
   // Retailer Beat Tracking State
   const [retailerSearch, setRetailerSearch] = useState('');
   const [retailerTab, setRetailerTab] = useState<'all' | 'remaining' | 'visited'>('all');
+  const [isBeatsModalOpen, setIsBeatsModalOpen] = useState(false);
 
   // Task Completion Modal State
   const [completingTask, setCompletingTask] = useState<SalesmanTask | null>(null);
@@ -181,16 +184,18 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
     try {
       setLoadingTasks(true);
       const curMonth = new Date().toISOString().slice(0, 7);
-      const [fetchedTasks, fetchedVisits, fetchedAtt, fetchedPay, fetchedStaff] = await Promise.all([
+      const [fetchedTasks, fetchedVisits, fetchedAtt, fetchedPay, fetchedStaff, fetchedPayments] = await Promise.all([
         api.getSalesmanTasks(activeSalesman.id).catch(() => []),
         api.getVisits({ salesmanId: activeSalesman.id }).catch(() => []),
         api.getStaffAttendance({ month: curMonth }).catch(() => []),
         api.getStaffPayrolls({ period: curMonth }).catch(() => []),
-        api.getStaffMembers().catch(() => [])
+        api.getStaffMembers().catch(() => []),
+        api.getPayments().catch(() => [])
       ]);
       setTasks(fetchedTasks || []);
       setVisits(fetchedVisits || []);
       setMyAttendanceList(fetchedAtt || []);
+      setPayments(fetchedPayments || []);
       if (fetchedPay && fetchedPay.length > 0) {
         setMyPayroll(fetchedPay[0]);
       }
@@ -393,6 +398,44 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
   const pendingTasksCount = tasks.filter(t => t.status === 'pending' || t.status === 'in_progress').length;
 
   // -------------------------------------------------------------
+  // Real Collections Calculations
+  // -------------------------------------------------------------
+  const myPayments = useMemo(() => {
+    return (payments || []).filter(p => {
+      if (!p || p.status !== 'confirmed') return false;
+      const isSalesmanMatch = (p.collectorName && activeSalesman.name && p.collectorName.toLowerCase() === activeSalesman.name.toLowerCase());
+      const isRetailerInBeat = assignedRetailers.some(r => r.id === p.retailerId);
+      return isSalesmanMatch || isRetailerInBeat;
+    });
+  }, [payments, activeSalesman, assignedRetailers]);
+
+  const dateFilteredPayments = useMemo(() => {
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay());
+    const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
+
+    return myPayments.filter(p => {
+      const pDate = (p.paymentDate || '').slice(0, 10);
+      if (dateFilter === 'today') return pDate === todayStr;
+      if (dateFilter === 'this_week') return pDate >= startOfWeekStr;
+      if (dateFilter === 'this_month') return pDate.startsWith(currentMonthStr);
+      return true;
+    });
+  }, [myPayments, dateFilter, todayStr, currentMonthStr]);
+
+  const periodCollectionAmount = useMemo(() => {
+    return dateFilteredPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  }, [dateFilteredPayments]);
+
+  const todayPayments = useMemo(() => {
+    return myPayments.filter(p => (p.paymentDate || '').slice(0, 10) === todayStr);
+  }, [myPayments, todayStr]);
+
+  const todayCollectionAmount = useMemo(() => {
+    return todayPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+  }, [todayPayments]);
+
+  // -------------------------------------------------------------
   // Task Handlers
   // -------------------------------------------------------------
   const handleOpenCompleteModal = (task: SalesmanTask) => {
@@ -488,53 +531,87 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
     <div className="space-y-6 pb-12 animate-in fade-in duration-200">
       
       {/* ========================================================================= */}
-      {/* 1. TOP EXECUTIVE HEADER & CONTROLS                                         */}
+      {/* 1. COMPACT SALESMAN PROFILE & EXECUTIVE COMMAND BAR                       */}
       {/* ========================================================================= */}
-      <div className="bg-slate-900 text-white rounded-2xl p-5 md:p-6 shadow-xl border border-slate-800 relative overflow-hidden">
-        {/* Ambient background glow */}
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 w-80 h-80 bg-emerald-600/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="bg-gradient-to-r from-[#0B1E3F] via-[#0F274E] to-[#13284C] text-white rounded-2xl p-3.5 sm:p-5 shadow-lg border border-blue-900/60 relative overflow-hidden">
+        {/* Ambient subtle light accents */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-start space-x-3.5">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold text-lg shadow-md shrink-0 border border-white/20">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
+          {/* Salesman Identity */}
+          <div className="flex items-center space-x-3 min-w-0">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-amber-500 text-white flex items-center justify-center font-black text-lg shadow-md shrink-0 border border-white/20">
               {activeSalesman.name.split(' ').map(n => n[0]).join('')}
             </div>
-            <div>
-              <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white">
+            <div className="min-w-0">
+              {/* Salesman Name & Badges */}
+              <div className="flex items-center space-x-2 flex-wrap">
+                <h1 className="text-base sm:text-lg font-black tracking-tight text-white truncate">
                   {activeSalesman.name}
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-950/90 text-blue-200 border border-blue-800 shrink-0">
                   {activeSalesman.employeeCode}
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 flex items-center space-x-1">
+                <span className="text-[10px] font-bold text-emerald-300 flex items-center space-x-1 shrink-0">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>On Field Active</span>
+                  <span>On Field</span>
                 </span>
               </div>
 
-              {/* Beat Tags */}
-              <div className="flex items-center space-x-1.5 text-xs text-slate-300 mt-1.5 flex-wrap gap-y-1">
-                <Route className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span className="font-semibold text-slate-200">Assigned Beat Routes:</span>
-                {assignedBeats.map((b, idx) => (
-                  <span key={idx} className="bg-slate-800 px-2 py-0.5 rounded text-[11px] text-slate-200 border border-slate-700">
-                    {b}
-                  </span>
-                ))}
+              {/* Compact Assigned Beats & ID Card link */}
+              <div className="flex items-center space-x-2 text-xs text-slate-300 mt-0.5 flex-wrap">
+                <span className="text-slate-400 text-[11px]">Assigned Beats:</span>
+                <span className="font-bold text-amber-300 text-[11px]">
+                  {assignedBeats.length > 0 ? `${assignedBeats.length} Beat${assignedBeats.length > 1 ? 's' : ''}` : 'All Outlets'}
+                </span>
+                <button 
+                  type="button"
+                  onClick={() => setIsBeatsModalOpen(true)}
+                  className="text-[11px] font-bold text-amber-400 hover:text-amber-300 underline underline-offset-2 cursor-pointer transition-colors"
+                >
+                  View Beats →
+                </button>
+                <span className="text-slate-500">•</span>
+                <button
+                  type="button"
+                  onClick={() => setIsIdCardOpen(true)}
+                  className="text-[11px] text-blue-300 hover:text-white underline underline-offset-2 cursor-pointer transition-colors"
+                >
+                  Staff ID Card
+                </button>
               </div>
             </div>
           </div>
 
-          {/* Quick Date Filter & Live Refresh */}
-          <div className="flex items-center space-x-2.5 self-start md:self-auto">
-            <div className="bg-slate-800/80 p-1 rounded-xl border border-slate-700 flex items-center text-xs">
+          {/* Controls: Attendance Widget + Period Toggle + Refresh */}
+          <div className="flex flex-wrap items-center gap-2 self-start md:self-auto shrink-0">
+            {/* Quick Attendance Punch / Status */}
+            {todayAttendance ? (
+              <div className="px-2.5 py-1.5 rounded-xl bg-emerald-950/70 border border-emerald-700/60 text-emerald-200 text-xs font-semibold flex items-center space-x-1.5 shadow-2xs">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="text-[11px]">Checked In {todayAttendance.checkInTime ? `(${todayAttendance.checkInTime})` : ''}</span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handlePunchAttendance}
+                disabled={isPunchingAttendance}
+                className="px-3 py-1.5 min-h-[38px] rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer active:scale-95 border border-emerald-400/30"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-emerald-200" />
+                <span>{isPunchingAttendance ? 'Punching...' : 'Punch Attendance'}</span>
+              </button>
+            )}
+
+            {/* Date Filter Tabs */}
+            <div className="bg-[#0B1E3F]/90 p-0.5 rounded-xl border border-blue-900/80 flex items-center text-xs shadow-inner">
               <button
                 type="button"
                 onClick={() => setDateFilter('today')}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                  dateFilter === 'today' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-300 hover:text-white'
+                className={`px-2.5 py-1 min-h-[34px] rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                  dateFilter === 'today' 
+                    ? 'bg-amber-500 text-slate-950 shadow-xs' 
+                    : 'text-slate-300 hover:text-white'
                 }`}
               >
                 Today
@@ -542,226 +619,279 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
               <button
                 type="button"
                 onClick={() => setDateFilter('this_week')}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                  dateFilter === 'this_week' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-300 hover:text-white'
+                className={`px-2.5 py-1 min-h-[34px] rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                  dateFilter === 'this_week' 
+                    ? 'bg-amber-500 text-slate-950 shadow-xs' 
+                    : 'text-slate-300 hover:text-white'
                 }`}
               >
-                This Week
+                Week
               </button>
               <button
                 type="button"
                 onClick={() => setDateFilter('this_month')}
-                className={`px-3 py-1.5 rounded-lg font-semibold transition-all cursor-pointer ${
-                  dateFilter === 'this_month' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-300 hover:text-white'
+                className={`px-2.5 py-1 min-h-[34px] rounded-lg font-bold text-xs transition-all cursor-pointer ${
+                  dateFilter === 'this_month' 
+                    ? 'bg-amber-500 text-slate-950 shadow-xs' 
+                    : 'text-slate-300 hover:text-white'
                 }`}
               >
-                This Month
+                Month
               </button>
             </div>
 
+            {/* Refresh Live Field Data */}
             <button
               type="button"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 transition-colors cursor-pointer flex items-center justify-center shrink-0"
-              title="Refresh Live Field Data"
+              className="p-2 min-w-[36px] min-h-[36px] bg-[#13284C] hover:bg-blue-800/60 text-slate-200 rounded-xl border border-blue-800/80 transition-colors cursor-pointer flex items-center justify-center shrink-0 shadow-2xs active:scale-95"
+              title="Refresh Live Salesman Data"
+              aria-label="Refresh Data"
             >
-              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-blue-400' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-amber-400' : ''}`} />
             </button>
           </div>
         </div>
+      </div>
 
-        {/* Quick Actions Action Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mt-5 pt-4 border-t border-slate-800">
+      {/* ========================================================================= */}
+      {/* 2. SECTION 1: DISTRIBUTION OVERVIEW (COMPACT 2-COLUMN GRID + ROW)          */}
+      {/* ========================================================================= */}
+      <section aria-labelledby="distribution-overview-heading" className="space-y-2.5">
+        <div className="flex items-center justify-between">
+          <h2 id="distribution-overview-heading" className="text-sm font-black text-slate-900 tracking-tight flex items-center space-x-1.5">
+            <span className="w-2 h-2 rounded-full bg-amber-500" />
+            <span>Distribution Overview</span>
+          </h2>
+          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+            {dateFilter === 'today' ? "Today" : dateFilter === 'this_week' ? "This Week" : "This Month"}
+          </span>
+        </div>
+
+        {/* 2-Column Grid for the 4 Core Metrics */}
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
+          {/* Card 1: Today's Sales Amount */}
+          <div className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200/90 shadow-xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <span>Today's Sales</span>
+                <span className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                </span>
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1.5 font-mono">
+                {formatINR(todaySalesAmount)}
+              </div>
+            </div>
+            <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-emerald-700 font-semibold truncate">
+              {todayOrdersCount} booked · {todayDeliveredOrders.length} delivered
+            </div>
+          </div>
+
+          {/* Card 2: Total Orders */}
           <button
             type="button"
-            onClick={() => onOpenNewOrderForRetailer()}
-            className="px-3.5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
+            onClick={() => onNavigateTab('orders')}
+            className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200/90 shadow-xs hover:border-blue-400 transition-all flex flex-col justify-between text-left cursor-pointer group active:scale-[0.99]"
+            title="View Orders History"
           >
-            <ShoppingCart className="w-4 h-4 text-amber-300" />
-            <span>Book New Order</span>
+            <div>
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <span>Total Orders</span>
+                <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                  <ShoppingCart className="w-3.5 h-3.5" />
+                </span>
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1.5 font-mono flex items-baseline justify-between">
+                <span>{dateFilteredOrders.length}</span>
+                <span className="text-[10px] text-blue-600 font-bold group-hover:translate-x-0.5 transition-transform flex items-center">
+                  View <ChevronRight className="w-3 h-3 ml-0.5" />
+                </span>
+              </div>
+            </div>
+            <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] text-slate-600 font-medium truncate">
+              {dateFilteredOrders.filter(o => o.status === 'delivered').length} delivered · {dateFilteredOrders.filter(o => o.status !== 'delivered').length} pipeline
+            </div>
           </button>
 
+          {/* Card 3: Retailer Visits */}
           <button
             type="button"
             onClick={() => {
               const el = document.getElementById('retailer-beat-section');
               el?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold border border-slate-700 transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
+            className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200/90 shadow-xs hover:border-amber-400 transition-all flex flex-col justify-between text-left cursor-pointer group active:scale-[0.99]"
+            title="View Retailer Beat Outlets"
           >
-            <Store className="w-4 h-4 text-emerald-400" />
-            <span>My Retailers ({assignedRetailers.length})</span>
+            <div>
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <span>Retailer Visits</span>
+                <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                  <Store className="w-3.5 h-3.5" />
+                </span>
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1.5 font-mono flex items-baseline space-x-1">
+                <span>{retailersVisitedCount}</span>
+                <span className="text-xs text-slate-400 font-normal">/ {totalAssignedRetailersCount}</span>
+              </div>
+              {/* Mini progress bar */}
+              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-1.5">
+                <div 
+                  className="bg-amber-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.round((retailersVisitedCount / Math.max(1, totalAssignedRetailersCount)) * 100))}%` }}
+                />
+              </div>
+            </div>
+            <div className="mt-2 pt-1.5 border-t border-slate-100 text-[11px] flex items-center justify-between">
+              <span className="text-emerald-700 font-semibold">{retailersVisitedCount} visited</span>
+              <span className="text-amber-700 font-bold">{retailersRemainingCount} left</span>
+            </div>
           </button>
 
+          {/* Card 4: Collection */}
+          <button
+            type="button"
+            onClick={() => onNavigateTab('payments')}
+            className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200/90 shadow-xs hover:border-emerald-400 transition-all flex flex-col justify-between text-left cursor-pointer group active:scale-[0.99]"
+            title="View Payment Collections & Khata"
+          >
+            <div>
+              <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                <span>Collection</span>
+                <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                  <IndianRupee className="w-3.5 h-3.5" />
+                </span>
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-1.5 font-mono">
+                {formatINR(periodCollectionAmount)}
+              </div>
+            </div>
+            <div className="mt-2.5 pt-2 border-t border-slate-100 text-[11px] flex items-center justify-between">
+              <span className="text-emerald-700 font-bold">{dateFilteredPayments.length} payments</span>
+              <span className="text-blue-600 font-semibold group-hover:translate-x-0.5 transition-transform flex items-center">
+                Ledger <ChevronRight className="w-3 h-3 ml-0.5" />
+              </span>
+            </div>
+          </button>
+        </div>
+
+        {/* Pending Orders: In ONE Short Row */}
+        <button
+          type="button"
+          onClick={() => onNavigateTab('orders')}
+          className="w-full bg-white rounded-xl p-3 sm:p-3.5 border border-slate-200/90 shadow-xs hover:border-blue-400 transition-all flex items-center justify-between text-left cursor-pointer active:scale-[0.99] group"
+          title="View Pending Orders"
+        >
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+              <Clock className="w-4 h-4" />
+            </span>
+            <div className="min-w-0">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-bold text-slate-900">Pending Orders</span>
+                <span className={`text-[10px] font-bold px-2 py-0.2 rounded-full uppercase tracking-wider ${
+                  pendingOrdersCount > 0 ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                }`}>
+                  {pendingOrdersCount} Pending
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                {myOrders.filter(o => o.status === 'booked').length} booked · {myOrders.filter(o => ['confirmed', 'packed', 'dispatched'].includes(o.status)).length} in transit dispatch
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center text-xs font-bold text-blue-600 group-hover:translate-x-0.5 transition-transform shrink-0 ml-2">
+            <span className="hidden sm:inline">View Orders</span>
+            <ChevronRight className="w-4 h-4 ml-0.5" />
+          </div>
+        </button>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* 3. SECTION 2: QUICK ACTIONS (COMPACT 3-COLUMN GRID)                       */}
+      {/* ========================================================================= */}
+      <section aria-labelledby="quick-actions-heading" className="space-y-2">
+        <h2 id="quick-actions-heading" className="text-xs font-bold uppercase tracking-wider text-slate-600">
+          Quick Actions
+        </h2>
+
+        <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+          {/* 1. Book Order */}
+          <button
+            type="button"
+            onClick={() => onOpenNewOrderForRetailer()}
+            className="min-h-[52px] p-2 sm:p-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs transition-all shadow-sm flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 space-y-1"
+            title="Book a New Wholesale Order"
+          >
+            <ShoppingCart className="w-4 h-4 text-slate-950 shrink-0" />
+            <span className="truncate w-full text-[11px] sm:text-xs font-extrabold">Book Order</span>
+          </button>
+
+          {/* 2. Retailers */}
+          <button
+            type="button"
+            onClick={() => {
+              const el = document.getElementById('retailer-beat-section');
+              el?.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="min-h-[52px] p-2 sm:p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold border border-slate-200 transition-all shadow-2xs flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 space-y-1"
+            title="View Assigned Outlets Beat"
+          >
+            <Store className="w-4 h-4 text-blue-600 shrink-0" />
+            <span className="truncate w-full text-[11px] sm:text-xs">Retailers ({assignedRetailers.length})</span>
+          </button>
+
+          {/* 3. Collection */}
+          <button
+            type="button"
+            onClick={() => onNavigateTab('payments')}
+            className="min-h-[52px] p-2 sm:p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold border border-slate-200 transition-all shadow-2xs flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 space-y-1"
+            title="View Payment Collections & Khata Ledgers"
+          >
+            <IndianRupee className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="truncate w-full text-[11px] sm:text-xs">Collection</span>
+          </button>
+
+          {/* 4. Attendance */}
+          <button
+            type="button"
+            onClick={() => setIsAttendanceHistoryOpen(true)}
+            className="min-h-[52px] p-2 sm:p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold border border-slate-200 transition-all shadow-2xs flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 space-y-1"
+            title="View Monthly Attendance Calendar & Leaves"
+          >
+            <Calendar className="w-4 h-4 text-indigo-600 shrink-0" />
+            <span className="truncate w-full text-[11px] sm:text-xs">Attendance</span>
+          </button>
+
+          {/* 5. Tasks */}
           <button
             type="button"
             onClick={() => {
               const el = document.getElementById('tasks-section');
               el?.scrollIntoView({ behavior: 'smooth' });
             }}
-            className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold border border-slate-700 transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
+            className="min-h-[52px] p-2 sm:p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold border border-slate-200 transition-all shadow-2xs flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 space-y-1"
+            title="View Daily Visits & Follow-up Tasks"
           >
-            <CheckSquare className="w-4 h-4 text-purple-400" />
-            <span>My Tasks ({pendingTasksCount})</span>
+            <CheckSquare className="w-4 h-4 text-purple-600 shrink-0" />
+            <span className="truncate w-full text-[11px] sm:text-xs">Tasks ({pendingTasksCount})</span>
           </button>
 
+          {/* 6. Catalog */}
           <button
             type="button"
-            onClick={() => setIsIdCardOpen(true)}
-            className="px-3.5 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-600 text-white text-xs font-bold border border-blue-500/50 transition-all shadow-md flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
-            title="View, Download and Share Official Employee ID Pass"
+            onClick={() => onNavigateTab('products')}
+            className="min-h-[52px] p-2 sm:p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-900 text-xs font-bold border border-slate-200 transition-all shadow-2xs flex flex-col items-center justify-center text-center cursor-pointer active:scale-95 space-y-1"
+            title="Browse Wholesale Product Catalogue"
           >
-            <Award className="w-4 h-4 text-amber-300" />
-            <span>My ID Card</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onNavigateTab('catalogue')}
-            className="px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold border border-slate-700 transition-all flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
-          >
-            <FileText className="w-4 h-4 text-amber-400" />
-            <span>Digital Catalogue</span>
+            <FileText className="w-4 h-4 text-amber-600 shrink-0" />
+            <span className="truncate w-full text-[11px] sm:text-xs">Catalog</span>
           </button>
         </div>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* 2. SECTION A: PERFORMANCE CARDS (TODAY & MONTHLY)                         */}
-      {/* ========================================================================= */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center space-x-2">
-            <TrendingUp className="w-4 h-4 text-blue-600" />
-            <span>Sales & Performance Overview</span>
-          </h2>
-          <span className="text-xs text-slate-500 font-medium">
-            Period: {dateFilter === 'today' ? "Today's Performance" : dateFilter === 'this_week' ? "This Week" : "This Month"}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-          
-          {/* Card 1: Today's Sales Amount */}
-          <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200 shadow-xs hover:border-blue-400/80 transition-all flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500">
-                <span>Today's Sales (₹)</span>
-                <span className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                </span>
-              </div>
-              <div className="text-2xl font-bold text-slate-900 tracking-tight mt-2 font-mono">
-                {formatINR(todaySalesAmount)}
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-emerald-700 font-semibold">{todayOrdersCount} orders booked</span>
-              <span className="text-slate-400">{todayDeliveredOrders.length} delivered</span>
-            </div>
-          </div>
-
-          {/* Card 2: Monthly Sales Amount */}
-          <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200 shadow-xs hover:border-blue-400/80 transition-all flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500">
-                <span>Monthly Sales (₹)</span>
-                <span className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                  <Award className="w-3.5 h-3.5" />
-                </span>
-              </div>
-              <div className="text-2xl font-bold text-slate-900 tracking-tight mt-2 font-mono">
-                {formatINR(monthlySalesAmount)}
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-slate-600 font-medium">{monthlyOrders.length} total orders</span>
-              <span className="text-emerald-700 font-semibold">{monthlyDeliveredOrders.length} fulfilled</span>
-            </div>
-          </div>
-
-          {/* Card 3: Monthly Target & Achievement */}
-          <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200 shadow-xs hover:border-blue-400/80 transition-all flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500">
-                <span>Monthly Target</span>
-                <span className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-                  <Target className="w-3.5 h-3.5" />
-                </span>
-              </div>
-              {isTargetAssigned && monthlyTargetAmount > 0 ? (
-                <>
-                  <div className="text-2xl font-bold text-slate-900 tracking-tight mt-2 font-mono">
-                    {formatINR(monthlyTargetAmount)}
-                  </div>
-                  <div className="mt-1 flex items-center space-x-1.5">
-                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${targetAchievedPercentage >= 80 ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'}`}>
-                      {targetAchievedPercentage}% Achieved
-                    </span>
-                    <span className="text-xs text-slate-500">
-                      Remaining: {formatINR(remainingMonthlyTargetAmount)}
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="mt-2 py-1">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                    Target not assigned
-                  </span>
-                  <p className="text-[11px] text-slate-400 mt-1">Admin will allocate monthly quota</p>
-                </div>
-              )}
-            </div>
-            <div className="mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
-              {isTargetAssigned && dailyTargetAmount > 0 
-                ? `Daily Target: ${formatINR(dailyTargetAmount)} (${dailyAchievedPercentage}% today)`
-                : 'Daily Target: Not assigned'}
-            </div>
-          </div>
-
-          {/* Card 4: Retailers Visited Today & Field Status */}
-          <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200 shadow-xs hover:border-blue-400/80 transition-all flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500">
-                <span>Today's Shop Visits</span>
-                <span className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
-                  <MapPin className="w-3.5 h-3.5" />
-                </span>
-              </div>
-              <div className="text-2xl font-bold text-slate-900 tracking-tight mt-2 font-mono flex items-baseline space-x-1.5">
-                <span>{retailersVisitedCount}</span>
-                <span className="text-xs text-slate-400 font-normal">/ {totalAssignedRetailersCount} Outlets</span>
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-emerald-700 font-semibold">{retailersVisitedCount} verified check-ins</span>
-              <span className="text-amber-700 font-semibold">{retailersRemainingCount} remaining</span>
-            </div>
-          </div>
-
-          {/* Card 5: Pending Tasks & Pending Orders */}
-          <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200 shadow-xs hover:border-blue-400/80 transition-all flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-500">
-                <span>Pending Tasks & Orders</span>
-                <span className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
-                  <Clock className="w-3.5 h-3.5" />
-                </span>
-              </div>
-              <div className="text-2xl font-bold text-slate-900 tracking-tight mt-2 font-mono flex items-baseline space-x-1.5">
-                <span>{pendingTasksCount + pendingOrdersCount}</span>
-                <span className="text-xs text-slate-400 font-normal">Active Items</span>
-              </div>
-            </div>
-            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-              <span className="text-purple-700 font-semibold">{pendingTasksCount} tasks pending</span>
-              <span className="text-amber-700 font-semibold">{pendingOrdersCount} orders queued</span>
-            </div>
-          </div>
-
-        </div>
-      </div>
+      </section>
 
       {/* ========================================================================= */}
       {/* 3. SECTION B: SALES TARGET PROGRESS BAR                                   */}
@@ -1757,8 +1887,8 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 text-xs">
               <div className="flex justify-between items-start border-b border-slate-200 pb-2">
                 <div>
-                  <div className="font-black text-slate-900 text-sm">ARYAN AGENCY</div>
-                  <div className="text-[10px] text-slate-500">Apna Store FMCG Distribution • Utraula, UP</div>
+                  <div className="font-black text-slate-900 text-sm">APNA STORE</div>
+                  <div className="text-[10px] text-slate-500">Powered by Aryan Agency • FMCG Distribution • Utraula, UP</div>
                 </div>
                 <div className="text-right font-mono">
                   <span className="font-bold text-blue-700">{myPayroll.period}</span>
@@ -1817,6 +1947,76 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
                 type="button"
                 onClick={() => setIsSalaryStatementOpen(false)}
                 className="px-4 py-1.5 bg-slate-900 text-white rounded-lg text-xs font-bold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assigned Beats Modal */}
+      {isBeatsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="p-4 bg-gradient-to-r from-[#0B1E3F] via-[#0F274E] to-[#13284C] text-white flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Route className="w-4 h-4 text-amber-400" />
+                <h3 className="text-sm font-bold tracking-tight">Assigned Beats ({assignedBeats.length})</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBeatsModalOpen(false)}
+                className="p-1 rounded-lg text-slate-300 hover:text-white cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-2.5 max-h-[60vh] overflow-y-auto">
+              <p className="text-xs text-slate-500 font-medium pb-1">
+                Field distribution beats assigned to <strong className="text-slate-800">{activeSalesman.name}</strong>:
+              </p>
+              {assignedBeats.length === 0 ? (
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500">
+                  No individual beats assigned. All depot retailer outlets are accessible for order booking.
+                </div>
+              ) : (
+                assignedBeats.map((beatName, idx) => {
+                  const outletsInBeat = assignedRetailers.filter(r => (r.beatName || '').toLowerCase() === beatName.toLowerCase());
+                  const visitedInBeat = outletsInBeat.filter(r => visitedRetailerIdsToday.has(r.id)).length;
+                  return (
+                    <div key={idx} className="p-3 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl flex items-center justify-between text-xs transition-colors">
+                      <div className="min-w-0 pr-2">
+                        <div className="font-bold text-slate-900 truncate">{beatName}</div>
+                        <div className="text-[11px] text-slate-500 mt-0.5">
+                          {outletsInBeat.length} Assigned Outlets · {visitedInBeat} Visited Today
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsBeatsModalOpen(false);
+                          setRetailerSearch(beatName);
+                          const el = document.getElementById('retailer-beat-section');
+                          el?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 font-bold text-[11px] shrink-0 cursor-pointer border border-blue-200/60"
+                      >
+                        Filter Beat
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="p-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500">Total Outlets: <strong>{assignedRetailers.length}</strong></span>
+              <button
+                type="button"
+                onClick={() => setIsBeatsModalOpen(false)}
+                className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold cursor-pointer"
               >
                 Close
               </button>

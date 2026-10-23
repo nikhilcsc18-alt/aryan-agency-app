@@ -167,14 +167,14 @@ export const AppDownloadModal: React.FC<AppDownloadModalProps> = ({
               <div>
                 <div className="flex items-center space-x-2">
                   <h3 className="text-base font-bold tracking-tight text-white">
-                    Aryan Agency Mobile App
+                    Apna Store Mobile App
                   </h3>
                   <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold">
                     Android APK
                   </span>
                 </div>
                 <p className="text-xs text-blue-200 mt-0.5">
-                  FMCG Distribution & Kirana Ordering on your phone
+                  Powered by Aryan Agency • FMCG Distribution
                 </p>
               </div>
             </div>

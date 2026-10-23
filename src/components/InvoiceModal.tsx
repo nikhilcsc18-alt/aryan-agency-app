@@ -62,9 +62,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
           
           {/* Header Title */}
           <div className="text-center pb-3 border-b-2 border-slate-800">
-            <div className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">GST TAX INVOICE • ORIGINAL FOR RECIPIENT</div>
-            <h1 className="text-2xl font-black tracking-tight text-[#1e293b] mt-0.5">{ARYAN_AGENCY_PROFILE.businessName.toUpperCase()}</h1>
-            <p className="text-[11px] text-slate-700 font-medium">{ARYAN_AGENCY_PROFILE.tagline}</p>
+            <h1 className="text-2xl font-black tracking-tight text-[#1e293b] mt-0.5">APNA STORE</h1>
+            <p className="text-[11px] text-slate-700 font-medium">Powered by Aryan Agency • FMCG Distribution</p>
             <p className="text-[11px] text-slate-600">
               {ARYAN_AGENCY_PROFILE.fullAddress}
             </p>

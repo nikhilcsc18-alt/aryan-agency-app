@@ -102,8 +102,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <p className="text-xs text-slate-500 mt-1">
             {isSalesman 
-              ? `Daily Beat Indenting & Route Operations • Logged in as ${currentUser?.name}`
-              : `Depot operations for Bangalore Central & East Zones • Active session for ${currentUser?.name}`}
+              ? `Apna Store Daily Beat Operations • Powered by Aryan Agency • Logged in as ${currentUser?.name}`
+              : `Apna Store Depot Operations • Powered by Aryan Agency • Logged in as ${currentUser?.name}`}
           </p>
         </div>
 

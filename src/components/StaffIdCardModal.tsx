@@ -100,12 +100,12 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(8);
-      doc.text(ARYAN_AGENCY_PROFILE.businessName.toUpperCase(), 4, 5);
+      doc.text('APNA STORE', 4, 5);
 
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(4.5);
+      doc.setFontSize(4);
       doc.setTextColor(203, 213, 225); // slate-300
-      doc.text(ARYAN_AGENCY_PROFILE.businessType, 4, 8.5);
+      doc.text('Powered by Aryan Agency • FMCG Distribution', 4, 8.5);
 
       // Gold badge "STAFF ID"
       doc.setFillColor(245, 158, 11); // amber-500
@@ -412,10 +412,10 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({
                     </div>
                     <div>
                       <div className="text-xs font-black tracking-wider uppercase text-white leading-tight">
-                        {ARYAN_AGENCY_PROFILE.businessName}
+                        APNA STORE
                       </div>
                       <div className="text-[9px] font-semibold text-blue-200 tracking-wide">
-                        {ARYAN_AGENCY_PROFILE.businessType}
+                        Powered by Aryan Agency • FMCG Distribution
                       </div>
                     </div>
                   </div>

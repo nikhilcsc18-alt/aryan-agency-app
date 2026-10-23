@@ -1,6 +1,6 @@
 {
 	"appId": "com.aryanagency.app",
-	"appName": "Aryan Agency",
+	"appName": "Apna Store",
 	"webDir": "dist",
 	"plugins": {
 		"PushNotifications": {
@@ -9,6 +9,16 @@
 				"sound",
 				"alert"
 			]
+		},
+		"SplashScreen": {
+			"launchShowDuration": 2500,
+			"launchAutoHide": true,
+			"backgroundColor": "#0B1E3F",
+			"androidSplashResourceName": "splash",
+			"androidScaleType": "CENTER_CROP",
+			"showSpinner": false,
+			"splashFullScreen": true,
+			"splashImmersive": true
 		}
 	}
 }

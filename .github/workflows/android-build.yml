@@ -69,24 +69,49 @@ jobs:
         run: chmod +x android/gradlew
 
       - name: Ensure consistent signing keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS || 'aryanagency' }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          EXPECTED_FINGERPRINT: ${{ secrets.EXPECTED_CERT_SHA256 || '5F:80:8D:01:C9:D1:6F:17:EA:71:1D:8E:2E:6B:40:74:14:CC:69:5D:7D:F3:F8:76:38:42:D2:54:3A:0D:AC:0E' }}
         run: |
           mkdir -p ~/.android
-          if [ -f android/app/release.keystore ]; then
-            echo "Using committed android/app/release.keystore"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Decoding persistent production keystore from GitHub Secret..."
+            echo "$KEYSTORE_BASE64" | tr -d '\r\n ' | base64 -d > android/app/release.keystore
             cp -f android/app/release.keystore android/app/debug.keystore
             cp -f android/app/release.keystore ~/.android/debug.keystore
-          elif [ -f android/app/debug.keystore ]; then
-            echo "Using committed android/app/debug.keystore"
-            cp -f android/app/debug.keystore ~/.android/debug.keystore
-          elif [ -n "${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}" ]; then
-            echo "Decoding persistent keystore from secret"
-            echo "${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+          elif [ -f android/app/release.keystore ]; then
+            echo "Using local android/app/release.keystore..."
             cp -f android/app/release.keystore android/app/debug.keystore
             cp -f android/app/release.keystore ~/.android/debug.keystore
+          elif [ -f certs/production.keystore ]; then
+            echo "Using certs/production.keystore..."
+            cp -f certs/production.keystore android/app/release.keystore
+            cp -f certs/production.keystore android/app/debug.keystore
+            cp -f certs/production.keystore ~/.android/debug.keystore
           else
-            echo "FATAL: No consistent signing keystore found! To maintain update compatibility across releases, a consistent keystore must be provided."
+            echo "================================================================================="
+            echo "FATAL: No consistent signing keystore found!"
+            echo "To maintain update compatibility and prevent INSTALL_FAILED_UPDATE_INCOMPATIBLE,"
+            echo "configure the following repository secret in GitHub:"
+            echo "  Repository: nikhilcsc18-alt/aryan-agency-app"
+            echo "  Path: Settings -> Secrets and variables -> Actions"
+            echo "  Secret Name: ANDROID_RELEASE_KEYSTORE_BASE64"
+            echo "================================================================================="
             exit 1
           fi
+
+          echo "Verifying keystore certificate fingerprint..."
+          FP=$(keytool -list -v -keystore android/app/release.keystore -storepass "${KEYSTORE_PASSWORD:-AryanAgencyProd2026!}" 2>/dev/null | grep -i "SHA256:" | head -n 1 | awk '{print $2}' || true)
+          echo "Found Certificate SHA256: $FP"
+          echo "Expected Fingerprint:     $EXPECTED_FINGERPRINT"
+          if [ -n "$FP" ] && [ "$FP" != "$EXPECTED_FINGERPRINT" ]; then
+            echo "ERROR: Keystore signing fingerprint ($FP) does not match expected production fingerprint ($EXPECTED_FINGERPRINT)!"
+            exit 1
+          fi
+          echo "Keystore verified successfully."
 
       - name: Build APK
         working-directory: android

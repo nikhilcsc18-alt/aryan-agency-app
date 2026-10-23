@@ -524,13 +524,13 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-bold text-xs text-white">Aryan Agency App</span>
+              <span className="font-bold text-xs text-white">Apna Store</span>
               <span className="font-mono text-[10px] font-black bg-blue-500/30 text-blue-200 px-2 py-0.5 rounded-full border border-blue-400/30">
-                {appConfig.version || 'v1.3.2'}
+                {appConfig.version || 'v1.3.4'}
               </span>
             </div>
             <p className="text-[10px] text-blue-200">
-              Live Cloud Sync • Load latest barcode catalog and features
+              Smart Shopping. Trusted Service. • Powered by Aryan Agency
             </p>
           </div>
         </div>
@@ -1317,11 +1317,11 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
             className="text-emerald-600 dark:text-emerald-400 hover:underline font-bold flex items-center space-x-1 cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
-            <span>Download APK ({appConfig.version || 'v1.3.2'})</span>
+            <span>Download APK ({appConfig.version || 'v1.3.4'})</span>
           </button>
         </div>
         <p className="text-[11px] text-slate-400">
-          Aryan Agency FMCG Distribution Suite • Android App {appConfig.version || 'v1.3.2'}
+          Apna Store • Smart Shopping. Trusted Service. • Powered by Aryan Agency • Android App {appConfig.version || 'v1.3.4'}
         </p>
       </div>
 

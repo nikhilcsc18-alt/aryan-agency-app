@@ -6,8 +6,70 @@ interface AryanAgencyLogoProps {
   theme?: 'dark' | 'light' | 'auto';
   className?: string;
   useImageAsset?: boolean;
+  showTagline?: boolean;
 }
 
+/**
+ * Clean SVG Brand Symbol for Apna Store / Aryan Agency
+ */
+export const ApnaStoreVectorIcon: React.FC<{ size?: number; className?: string }> = ({ 
+  size = 32, 
+  className = '' 
+}) => {
+  return (
+    <svg 
+      width={size} 
+      height={size} 
+      viewBox="0 0 44 44" 
+      fill="none" 
+      xmlns="http://www.w3.org/2000/svg"
+      className={`shrink-0 drop-shadow-xs ${className}`}
+      aria-label="Apna Store Logo"
+    >
+      <defs>
+        <linearGradient id="apna-blue-grad" x1="6" y1="6" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#1E3A8A" />
+          <stop offset="1" stopColor="#0B1E3F" />
+        </linearGradient>
+        <linearGradient id="apna-gold-grad" x1="12" y1="14" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#FBBF24" />
+          <stop offset="1" stopColor="#F59E0B" />
+        </linearGradient>
+      </defs>
+
+      {/* Rounded Navy Container */}
+      <rect x="2" y="2" width="40" height="40" rx="10" fill="url(#apna-blue-grad)" stroke="#2563EB" strokeWidth="1.5" strokeOpacity="0.4" />
+
+      {/* Modern Shopping Store Bag / Carton Icon */}
+      {/* Bag / Basket Body */}
+      <path 
+        d="M10 17C10 15.8954 10.8954 15 12 15H32C33.1046 15 34 15.8954 34 17L32 34C32 35.1046 31.1046 36 30 36H14C12.8954 36 12 35.1046 12 34L10 17Z" 
+        fill="#1E293B" 
+        stroke="#60A5FA" 
+        strokeWidth="1.5"
+      />
+
+      {/* Bag Handle */}
+      <path 
+        d="M16 15V12C16 9.79086 17.7909 8 20 8H24C26.2091 8 28 9.79086 28 12V15" 
+        stroke="#F59E0B" 
+        strokeWidth="2" 
+        strokeLinecap="round" 
+      />
+
+      {/* Dynamic Golden "A" Accent / Tick */}
+      <path 
+        d="M22 19L27 28H23L22 25.5H19L22 19Z" 
+        fill="url(#apna-gold-grad)" 
+      />
+      <circle cx="28.5" cy="20.5" r="2" fill="#FBBF24" />
+    </svg>
+  );
+};
+
+/**
+ * Standard FMCG Basket/Store Logo variant
+ */
 export const AryanAgencyFMCGLogo: React.FC<{
   className?: string;
   size?: 'sm' | 'md' | 'lg';
@@ -19,225 +81,59 @@ export const AryanAgencyFMCGLogo: React.FC<{
   theme = 'dark',
   showSubline = true
 }) => {
-  const isDark = theme === 'dark';
-  const iconSizes = {
-    sm: { basket: 32, text: 'text-xs', sub: 'text-[9px]' },
-    md: { basket: 42, text: 'text-sm', sub: 'text-[10px]' },
-    lg: { basket: 52, text: 'text-lg', sub: 'text-xs' }
-  }[size];
-
   return (
-    <div className={`inline-flex flex-col items-center select-none ${className}`}>
-      {/* Shopping Basket with FMCG Products */}
-      <div className="relative flex items-center justify-center">
-        <svg 
-          width={iconSizes.basket} 
-          height={iconSizes.basket * 0.8} 
-          viewBox="0 0 54 44" 
-          fill="none" 
-          xmlns="http://www.w3.org/2000/svg"
-          className="drop-shadow-xs"
-        >
-          {/* Products inside basket */}
-          {/* Orange juice carton / bottle */}
-          <rect x="10" y="8" width="10" height="18" rx="2" fill="#F97316" />
-          <rect x="13" y="4" width="4" height="4" rx="1" fill="#EA580C" />
-          <circle cx="15" cy="15" r="2.5" fill="#FEF08A" />
-
-          {/* Cyan detergent / spray bottle */}
-          <path d="M23 10C23 7 26 7 26 5H29C29 7 32 7 32 10V26H23V10Z" fill="#06B6D4" />
-          <rect x="25" y="2" width="5" height="3" rx="1" fill="#0891B2" />
-          <path d="M29 5L33 3" stroke="#0891B2" strokeWidth="1.5" strokeLinecap="round" />
-
-          {/* Green beverage bottle */}
-          <rect x="34" y="9" width="9" height="17" rx="2" fill="#10B981" />
-          <rect x="36.5" y="5" width="4" height="4" rx="1" fill="#059669" />
-
-          {/* Wire Shopping Basket */}
-          {/* Handles */}
-          <path 
-            d="M13 22L19 12M41 22L35 12" 
-            stroke="#38BDF8" 
-            strokeWidth="2" 
-            strokeLinecap="round" 
-          />
-          {/* Basket Body */}
-          <path 
-            d="M6 21H48L42 38C41.5 39.5 40 40.5 38.5 40.5H15.5C14 40.5 12.5 39.5 12 38L6 21Z" 
-            fill="#0284C7" 
-            stroke="#38BDF8" 
-            strokeWidth="2"
-          />
-          {/* Basket Grid Lines */}
-          <path d="M12 27H42" stroke="#BAE6FD" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.8" />
-          <path d="M15 33H39" stroke="#BAE6FD" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.8" />
-          <path d="M20 21V39M27 21V39M34 21V39" stroke="#BAE6FD" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.6" />
-        </svg>
-      </div>
-
-      {/* Typography: ARYAN AGENCY with dynamic orange arc */}
-      <div className="flex flex-col items-center mt-0.5 leading-none">
-        <div className="relative flex flex-col items-center">
-          <div className="flex items-center">
-            <span className={`font-black tracking-wider uppercase ${isDark ? 'text-white' : 'text-slate-900'} ${iconSizes.text}`}>
-              ARYAN
-            </span>
-            <span className={`font-black tracking-wider uppercase text-[#F59E0B] ml-1 ${iconSizes.text}`}>
-              AGENCY
-            </span>
-          </div>
-          {/* Curved orange smile swoosh */}
-          <svg className="w-full h-1.5 -mt-0.5 overflow-visible" viewBox="0 0 60 6" fill="none">
-            <path 
-              d="M3 1.5C18 5 42 5 57 1.5" 
-              stroke="#EA580C" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-            />
-          </svg>
-        </div>
-        
-        {showSubline && (
-          <span className={`font-bold tracking-tight text-[9px] mt-0.5 ${isDark ? 'text-slate-200' : 'text-slate-600'} uppercase`}>
-            FMCG Distribution
-          </span>
-        )}
-      </div>
-    </div>
+    <AryanAgencyLogo 
+      variant="horizontal" 
+      size={size} 
+      theme={theme} 
+      className={className} 
+      showTagline={showSubline} 
+    />
   );
 };
 
+/**
+ * Main Apna Store Brand Logo Component
+ * Strict Brand Specification:
+ * - Small logo on the left
+ * - "Apna Store" on the right
+ * - Tagline: "Smart Shopping. Trusted Service."
+ * - Subtle: "Powered by Aryan Agency" below
+ * - No prominent FMCG distribution text, no duplicate logos
+ */
 export const AryanAgencyLogo: React.FC<AryanAgencyLogoProps> = ({
   variant = 'horizontal',
   size = 'md',
   theme = 'auto',
   className = '',
-  useImageAsset = false
+  showTagline = true
 }) => {
+  const isDark = theme === 'dark';
+
   // Size metrics
   const sizeConfig = {
-    xs: { icon: 20, box: 'w-6 h-6', text: 'text-xs', sub: 'text-[8px]' },
-    sm: { icon: 28, box: 'w-8 h-8', text: 'text-sm', sub: 'text-[9px]' },
-    md: { icon: 36, box: 'w-10 h-10', text: 'text-base', sub: 'text-[10px]' },
-    lg: { icon: 48, box: 'w-14 h-14', text: 'text-xl', sub: 'text-xs' },
-    xl: { icon: 64, box: 'w-20 h-20', text: 'text-2xl', sub: 'text-sm' },
-    '2xl': { icon: 84, box: 'w-28 h-28', text: 'text-3xl', sub: 'text-base' }
+    xs: { iconSize: 24, title: 'text-xs', tagline: 'text-[9px]', sub: 'text-[8px]' },
+    sm: { iconSize: 30, title: 'text-sm sm:text-base', tagline: 'text-[10px]', sub: 'text-[9px]' },
+    md: { iconSize: 36, title: 'text-base sm:text-lg', tagline: 'text-[11px]', sub: 'text-[9.5px]' },
+    lg: { iconSize: 44, title: 'text-lg sm:text-xl', tagline: 'text-xs', sub: 'text-[10px]' },
+    xl: { iconSize: 52, title: 'text-xl sm:text-2xl', tagline: 'text-xs', sub: 'text-[11px]' },
+    '2xl': { iconSize: 64, title: 'text-2xl sm:text-3xl', tagline: 'text-sm', sub: 'text-xs' }
   }[size];
-
-  // Colors based on theme
-  const textColor = theme === 'dark' ? 'text-white' : theme === 'light' ? 'text-slate-900' : 'text-slate-900 dark:text-white';
-  const subTextColor = theme === 'dark' ? 'text-slate-400' : theme === 'light' ? 'text-slate-500' : 'text-slate-500 dark:text-slate-400';
-  const badgeBg = theme === 'dark' ? 'bg-slate-800 text-blue-300 border-slate-700' : 'bg-blue-50 text-blue-700 border-blue-200';
-
-  // SVG Geometric FMCG Distribution Icon
-  const renderVectorSymbol = (iconSize: number) => (
-    <svg 
-      width={iconSize} 
-      height={iconSize} 
-      viewBox="0 0 48 48" 
-      fill="none" 
-      xmlns="http://www.w3.org/2000/svg"
-      className="shrink-0 drop-shadow-xs"
-      aria-label="Aryan Agency FMCG Distribution Mark"
-    >
-      <defs>
-        <linearGradient id="aa-blue-top" x1="12" y1="6" x2="36" y2="20" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#3b82f6" />
-          <stop offset="1" stopColor="#2563eb" />
-        </linearGradient>
-        <linearGradient id="aa-blue-left" x1="10" y1="20" x2="24" y2="42" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#1d4ed8" />
-          <stop offset="1" stopColor="#1e3a8a" />
-        </linearGradient>
-        <linearGradient id="aa-blue-right" x1="24" y1="20" x2="38" y2="42" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#0f172a" />
-          <stop offset="1" stopColor="#1e293b" />
-        </linearGradient>
-        <linearGradient id="aa-amber-arrow" x1="16" y1="18" x2="34" y2="28" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#f59e0b" />
-          <stop offset="1" stopColor="#d97706" />
-        </linearGradient>
-        <filter id="subtle-shadow" x="-10%" y="-10%" width="120%" height="120%">
-          <feDropShadow dx="0" dy="1.5" stdDeviation="1" floodOpacity="0.25" />
-        </filter>
-      </defs>
-
-      {/* Isometric Distribution Carton Facet - Top (depot storage roof) */}
-      <path 
-        d="M24 4L40 13.5L24 23L8 13.5L24 4Z" 
-        fill="url(#aa-blue-top)" 
-      />
-
-      {/* Carton Facet - Left (FMCG bulk pack) */}
-      <path 
-        d="M8 15L23 23.8V42L8 33V15Z" 
-        fill="url(#aa-blue-left)" 
-      />
-
-      {/* Carton Facet - Right (Dispatch warehouse bay) */}
-      <path 
-        d="M25 23.8L40 15V33L25 42V23.8Z" 
-        fill="url(#aa-blue-right)" 
-      />
-
-      {/* Monogram 'A' & Velocity Delivery Arrow (Supply chain in motion) */}
-      <path 
-        d="M24 10L32 18.5H26.5V27.5L21.5 27.5V18.5H16L24 10Z" 
-        fill="url(#aa-amber-arrow)"
-        filter="url(#subtle-shadow)"
-      />
-
-      {/* Front Accent Line / Retail Shelf Divider */}
-      <path 
-        d="M13 25L23 31M25 31L35 25" 
-        stroke="#ffffff" 
-        strokeWidth="1.5" 
-        strokeLinecap="round" 
-        strokeOpacity="0.4"
-      />
-    </svg>
-  );
 
   // 1. PURE ICON ONLY
   if (variant === 'icon') {
-    if (useImageAsset) {
-      return (
-        <img 
-          src="/assets/aryan_agency_icon.png" 
-          alt="Aryan Agency"
-          className={`${sizeConfig.box} object-contain rounded-lg ${className}`}
-          referrerPolicy="no-referrer"
-        />
-      );
-    }
     return (
-      <div className={`inline-flex items-center justify-center ${className}`}>
-        {renderVectorSymbol(sizeConfig.icon)}
+      <div className={`inline-flex items-center justify-center shrink-0 ${className}`}>
+        <ApnaStoreVectorIcon size={sizeConfig.iconSize} />
       </div>
     );
   }
 
-  // 2. SQUARE APP ICON (Android App Icon / Favicon / High-vis avatar format)
+  // 2. SQUARE APP ICON
   if (variant === 'square') {
-    if (useImageAsset) {
-      return (
-        <div className={`relative ${sizeConfig.box} rounded-2xl overflow-hidden shadow-md border border-slate-700/50 bg-slate-900 ${className}`}>
-          <img 
-            src="/assets/aryan_agency_icon.png" 
-            alt="Aryan Agency App Icon"
-            className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
-          />
-        </div>
-      );
-    }
-
     return (
-      <div 
-        className={`relative inline-flex items-center justify-center ${sizeConfig.box} rounded-2xl bg-gradient-to-br from-slate-900 via-[#1e293b] to-blue-950 p-2 shadow-lg border border-slate-700/60 ring-1 ring-white/10 ${className}`}
-      >
-        {renderVectorSymbol(sizeConfig.icon)}
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/20 via-transparent to-white/10 pointer-events-none" />
+      <div className={`inline-flex items-center justify-center rounded-2xl p-1 bg-[#0B1E3F] border border-blue-900 shadow-md shrink-0 ${className}`}>
+        <ApnaStoreVectorIcon size={sizeConfig.iconSize} />
       </div>
     );
   }
@@ -245,59 +141,45 @@ export const AryanAgencyLogo: React.FC<AryanAgencyLogoProps> = ({
   // 3. BADGE / PILL
   if (variant === 'badge') {
     return (
-      <div className={`inline-flex items-center space-x-2 px-2.5 py-1 rounded-full border ${badgeBg} ${className}`}>
-        {renderVectorSymbol(18)}
-        <span className="font-bold tracking-tight text-xs">Aryan Agency</span>
-        <span className="text-[10px] uppercase font-semibold opacity-75">FMCG</span>
+      <div className={`inline-flex items-center space-x-2 px-2.5 py-1 rounded-full border ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-slate-100 text-slate-800 border-slate-200'} ${className}`}>
+        <ApnaStoreVectorIcon size={18} />
+        <span className="font-black tracking-tight text-xs">
+          Apna <span className="text-[#F59E0B]">Store</span>
+        </span>
       </div>
     );
   }
 
-  // 3.5 FMCG SHOPPING BASKET BRAND MARK
-  if (variant === 'fmcg-basket') {
-    return (
-      <AryanAgencyFMCGLogo 
-        size={size === 'sm' || size === 'xs' ? 'sm' : size === 'lg' || size === 'xl' || size === '2xl' ? 'lg' : 'md'} 
-        theme={theme === 'light' ? 'light' : 'dark'}
-        className={className}
-      />
-    );
-  }
-
-  // 4. HORIZONTAL BRAND LOGO (Header, Login Screen, Invoices)
-  if (useImageAsset) {
-    return (
-      <div className={`inline-flex items-center ${className}`}>
-        <img 
-          src="/assets/aryan_agency_horizontal.png" 
-          alt="Aryan Agency FMCG Distribution"
-          className="h-10 sm:h-12 w-auto object-contain rounded-sm"
-          referrerPolicy="no-referrer"
-        />
-      </div>
-    );
-  }
-
+  // 4. STANDARD HORIZONTAL / FMCG-BASKET BRAND LOCKUP
+  // Layout: Small logo on left, "Apna Store" on right, tagline "Smart Shopping. Trusted Service.", subtle "Powered by Aryan Agency" below.
   return (
-    <div className={`inline-flex items-center space-x-3 select-none ${className}`}>
-      {/* Icon emblem */}
-      <div className={`relative shrink-0 flex items-center justify-center rounded-xl bg-gradient-to-br from-[#1e293b] to-[#0f172a] p-2 border border-slate-700/80 shadow-xs ring-1 ring-blue-500/20`}>
-        {renderVectorSymbol(sizeConfig.icon)}
+    <div className={`inline-flex items-center space-x-2.5 select-none text-left ${className}`}>
+      {/* Small logo on the left */}
+      <div className="shrink-0 flex items-center justify-center">
+        <ApnaStoreVectorIcon size={sizeConfig.iconSize} />
       </div>
 
-      {/* Typography */}
-      <div className="flex flex-col leading-tight">
-        <div className="flex items-center space-x-2">
-          <span className={`font-extrabold tracking-tight font-sans ${sizeConfig.text} ${textColor}`}>
-            Aryan Agency
+      {/* Brand Text on the right */}
+      <div className="flex flex-col justify-center leading-tight min-w-0">
+        <div className="flex items-center space-x-1">
+          <span className={`font-black tracking-tight font-sans ${sizeConfig.title} ${isDark ? 'text-white' : 'text-slate-900'}`}>
+            Apna
           </span>
-          <span className="hidden sm:inline-block text-[9px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-500 border border-amber-500/20">
-            FMCG
+          <span className={`font-black tracking-tight font-sans ${sizeConfig.title} text-[#F59E0B]`}>
+            Store
           </span>
         </div>
-        <span className={`font-semibold uppercase tracking-widest ${sizeConfig.sub} ${subTextColor}`}>
-          Distribution & Wholesale ERP
-        </span>
+
+        {showTagline && (
+          <>
+            <span className={`font-medium tracking-normal ${sizeConfig.tagline} ${isDark ? 'text-slate-300' : 'text-slate-600'} leading-none mt-0.5 truncate`}>
+              Smart Shopping. Trusted Service.
+            </span>
+            <span className={`font-normal ${sizeConfig.sub} ${isDark ? 'text-slate-400' : 'text-slate-400'} leading-none mt-0.5 truncate`}>
+              Powered by Aryan Agency
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
