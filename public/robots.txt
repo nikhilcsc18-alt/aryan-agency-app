@@ -1,0 +1,37 @@
+# Robots.txt for Apna Store • Powered by Aryan Agency
+# Official website: https://aryanagency.in/
+
+User-agent: *
+Allow: /
+Allow: /assets/
+Allow: /download/
+Allow: /favicon*
+Allow: /*.css$
+Allow: /*.js$
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.svg$
+Allow: /*.webp$
+Allow: /*.ico$
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /staff/
+
+User-agent: Googlebot
+Allow: /
+Allow: /assets/
+Allow: /download/
+
+User-agent: Googlebot-Image
+Allow: /assets/
+Allow: /download/
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.svg$
+Allow: /*.webp$
+Allow: /*.ico$
+
+Sitemap: https://aryanagency.in/sitemap.xml

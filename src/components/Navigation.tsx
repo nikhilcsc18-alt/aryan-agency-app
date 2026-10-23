@@ -443,7 +443,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   </span>
                 </div>
                 <p className="text-[10px] text-slate-300 mt-0.5">
-                  Smart Shopping. Trusted Service.
+                  Smart Shopping. Trusted Services.
                 </p>
                 <p className="text-[10px] text-slate-400">
                   Powered by Aryan Agency • <b className="text-amber-400 uppercase">{currentRole}</b>

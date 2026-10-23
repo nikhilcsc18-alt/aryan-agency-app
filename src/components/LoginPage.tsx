@@ -372,7 +372,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </button>
           )}
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-semibold text-slate-200">Apna Store • Smart Shopping. Trusted Service.</span>
+          <span className="font-semibold text-slate-200">Apna Store • Smart Shopping. Trusted Services.</span>
         </div>
         <a 
           href="tel:+919140529661" 
@@ -416,7 +416,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                     APNA <span className="text-amber-400 ml-1.5 font-extrabold">STORE</span>
                   </h1>
                   <p className="text-[11px] text-blue-200/90 font-medium">
-                    Smart Shopping. Trusted Service.
+                    Smart Shopping. Trusted Services.
                   </p>
                   <p className="text-[10px] text-slate-400 font-normal">
                     Powered by Aryan Agency
@@ -522,7 +522,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               <h2 className="text-xl font-black text-slate-900 tracking-tight">
                 Apna <span className="text-amber-500 font-extrabold">Store</span>
               </h2>
-              <p className="text-[11px] text-slate-600 font-medium">Smart Shopping. Trusted Service.</p>
+              <p className="text-[11px] text-slate-600 font-medium">Smart Shopping. Trusted Services.</p>
               <p className="text-[10px] text-slate-400">Powered by Aryan Agency</p>
             </div>
 

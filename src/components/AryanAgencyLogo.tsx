@@ -173,7 +173,7 @@ export const AryanAgencyLogo: React.FC<AryanAgencyLogoProps> = ({
         {showTagline && (
           <>
             <span className={`font-medium tracking-normal ${sizeConfig.tagline} ${isDark ? 'text-slate-300' : 'text-slate-600'} leading-none mt-0.5 truncate`}>
-              Smart Shopping. Trusted Service.
+              Smart Shopping. Trusted Services.
             </span>
             <span className={`font-normal ${sizeConfig.sub} ${isDark ? 'text-slate-400' : 'text-slate-400'} leading-none mt-0.5 truncate`}>
               Powered by Aryan Agency

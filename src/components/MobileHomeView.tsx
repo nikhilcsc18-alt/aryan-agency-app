@@ -530,7 +530,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
               </span>
             </div>
             <p className="text-[10px] text-blue-200">
-              Smart Shopping. Trusted Service. • Powered by Aryan Agency
+              Smart Shopping. Trusted Services. • Powered by Aryan Agency
             </p>
           </div>
         </div>
@@ -1321,7 +1321,7 @@ export const MobileHomeView: React.FC<MobileHomeViewProps> = ({
           </button>
         </div>
         <p className="text-[11px] text-slate-400">
-          Apna Store • Smart Shopping. Trusted Service. • Powered by Aryan Agency • Android App {appConfig.version || 'v1.3.4'}
+          Apna Store • Smart Shopping. Trusted Services. • Powered by Aryan Agency • Android App {appConfig.version || 'v1.3.4'}
         </p>
       </div>
 

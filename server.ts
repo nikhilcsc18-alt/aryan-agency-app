@@ -4685,6 +4685,51 @@ app.post('/api/app/version', requireRoles(['admin']), (req, res) => {
   res.json({ success: true, versionConfig: updated, message: 'App version updated on server. All mobile devices will now see this update.' });
 });
 
+// Dedicated SEO endpoints: robots.txt and sitemap.xml
+app.get('/robots.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  const possiblePaths = [
+    path.join(process.cwd(), 'public', 'robots.txt'),
+    path.join(process.cwd(), 'dist', 'robots.txt'),
+  ];
+  const robotsPath = possiblePaths.find(p => fs.existsSync(p));
+  if (robotsPath) {
+    return res.sendFile(robotsPath);
+  }
+  return res.send(
+`User-agent: *
+Allow: /
+Allow: /assets/
+Allow: /download/
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /staff/
+
+User-agent: Googlebot
+Allow: /
+Allow: /assets/
+
+Sitemap: https://aryanagency.in/sitemap.xml
+`
+  );
+});
+
+app.get('/sitemap.xml', (req, res) => {
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  const possiblePaths = [
+    path.join(process.cwd(), 'public', 'sitemap.xml'),
+    path.join(process.cwd(), 'dist', 'sitemap.xml'),
+  ];
+  const sitemapPath = possiblePaths.find(p => fs.existsSync(p));
+  if (sitemapPath) {
+    return res.sendFile(sitemapPath);
+  }
+  return res.status(404).send('Sitemap not found');
+});
+
 // Explicit 404 handler for unmatched /api/* requests so Vite SPA never returns index.html for API calls
 app.all('/api/*', (req, res) => {
   res.status(404).json({ error: `API route not found: ${req.method} ${req.originalUrl}` });
