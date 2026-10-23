@@ -16,6 +16,7 @@ export interface BusinessProfile {
   district: string;
   state: string;
   pincode: string;
+  pincodeVerified?: boolean;
   fullAddress: string;
   primaryMobile: string;
   supportPhoneFormatted: string;
@@ -39,8 +40,9 @@ export const ARYAN_AGENCY_PROFILE: BusinessProfile = {
   city: 'Utraula',
   district: 'Balrampur',
   state: 'Uttar Pradesh',
-  pincode: '271604', // Confirmed PIN Code
-  fullAddress: 'Hatan Road, Gurudyaldeeh, Utraula, Balrampur, Uttar Pradesh – 271604',
+  pincode: '', // PIN code pending Admin confirmation; not guessed or invented
+  pincodeVerified: false,
+  fullAddress: 'Hatan Road, Gurudyaldeeh, Utraula, Balrampur, Uttar Pradesh',
   primaryMobile: '9140529661',
   supportPhoneFormatted: '+91 9140529661',
   email: 'aryanagency@zohomail.in',
@@ -51,6 +53,16 @@ export const ARYAN_AGENCY_PROFILE: BusinessProfile = {
   officialDomain: 'aryanagency.in',
   operatingHours: '9:00 AM – 8:00 PM (Monday – Saturday)'
 };
+
+/**
+ * Returns formatted company address, displaying PIN code only if explicitly verified by Admin
+ */
+export function getVerifiedCompanyAddress(profile: BusinessProfile = ARYAN_AGENCY_PROFILE): string {
+  if (profile.pincode && profile.pincodeVerified) {
+    return `${profile.fullAddress} – ${profile.pincode}`;
+  }
+  return profile.fullAddress;
+}
 
 /**
  * Format standard company letterhead for PDF or printable documents

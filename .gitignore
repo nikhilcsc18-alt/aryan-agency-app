@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+*.keystore
+*.jks
+*.pem
+certs/
+android/app/*.keystore
+android/app/*.jks

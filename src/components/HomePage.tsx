@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AryanAgencyLogo } from './AryanAgencyLogo';
 import { AppDownloadModal } from './AppDownloadModal';
+import { ARYAN_AGENCY_PROFILE, getVerifiedCompanyAddress } from '../lib/businessProfile';
 import { 
   LogIn, 
   UserPlus, 
@@ -810,18 +811,18 @@ export const HomePage: React.FC<HomePageProps> = ({ onOpenAuth }) => {
               <div className="space-y-2 text-xs">
                 <div className="flex items-start space-x-2">
                   <MapPin className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-                  <span>Main Depot, Subhash Nagar, Hatan Road, Utraula, District Balrampur, Uttar Pradesh - 271604</span>
+                  <span>{getVerifiedCompanyAddress()}</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <a href="tel:+919140529661" className="text-slate-200 hover:text-white font-semibold">
-                    +91 9140529661
+                  <a href={`tel:${ARYAN_AGENCY_PROFILE.primaryMobile}`} className="text-slate-200 hover:text-white font-semibold">
+                    {ARYAN_AGENCY_PROFILE.supportPhoneFormatted}
                   </a>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Mail className="w-4 h-4 text-blue-400 shrink-0" />
-                  <a href="mailto:aryanagency@zohomail.in" className="text-slate-200 hover:text-white">
-                    aryanagency@zohomail.in
+                  <a href={`mailto:${ARYAN_AGENCY_PROFILE.email}`} className="text-slate-200 hover:text-white">
+                    {ARYAN_AGENCY_PROFILE.email}
                   </a>
                 </div>
                 <div className="flex items-center space-x-2">

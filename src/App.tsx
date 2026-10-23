@@ -23,6 +23,7 @@ import { MobileHomeView } from './components/MobileHomeView';
 import { BannerManagementView } from './components/BannerManagementView';
 import { AccountDetailsModal } from './components/AccountDetailsModal';
 import { AppUpdateChecker } from './components/AppUpdateChecker';
+import { SalesmanIdCardView } from './components/SalesmanIdCardView';
 import { NotificationPanel } from './components/NotificationPanel';
 import { BarcodeScannerModal } from './components/BarcodeScannerModal';
 import { RetailerVerificationPendingModal } from './components/RetailerVerificationPendingModal';
@@ -1180,6 +1181,8 @@ function MainApp() {
             <SalesmenView
               salesmen={salesmen}
               retailers={retailers}
+              orders={orders}
+              payments={payments}
               onSaveSalesman={handleSaveSalesman}
               onDeleteSalesman={handleDeleteSalesman}
               onDeleteBeat={handleDeleteBeat}
@@ -1289,6 +1292,22 @@ function MainApp() {
                 salesmen={salesmen}
                 retailers={retailers}
                 onNavigateTab={(tab) => setActiveTab(tab as any)}
+              />
+            </ErrorBoundary>
+          </ProtectedRoute>
+        )}
+
+        {/* Salesman Digital ID Pass View */}
+        {activeTab === 'idcard' && (
+          <ProtectedRoute 
+            pageName="My Staff ID Card"
+            allowedRoles={['admin', 'salesman']}
+            onNavigateHome={() => setActiveTab(getRoleHomeTab())}
+          >
+            <ErrorBoundary fallbackTitle="My Staff ID Card">
+              <SalesmanIdCardView
+                salesman={currentSalesman}
+                onNavigateHome={() => setActiveTab(getRoleHomeTab())}
               />
             </ErrorBoundary>
           </ProtectedRoute>

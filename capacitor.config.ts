@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.aryanagency.fmcg',
+  appId: 'com.aryanagency.app',
   appName: 'Aryan Agency',
   webDir: 'dist',
   plugins: {

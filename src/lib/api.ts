@@ -279,6 +279,9 @@ export const api = {
 
   // Auth & Users
   async getUsers(): Promise<User[]> {
+    if (activeUserRole && activeUserRole !== 'admin') {
+      return safeJsonFetch<User[]>('/api/auth/users', {}, []);
+    }
     if (isSupabaseConfigured) {
       try {
         const users = await supabaseService.getUsers();
@@ -702,6 +705,11 @@ export const api = {
       console.warn('Local getRetailers fetch notice:', e);
     }
 
+    // Role Scoping: Salesman and Retailer accounts are strictly isolated to their own beat/outlet
+    if (activeUserRole === 'salesman' || activeUserRole === 'retailer') {
+      return Array.isArray(localList) ? localList : [];
+    }
+
     let supabaseList: Retailer[] = [];
     if (isSupabaseConfigured) {
       try {
@@ -895,23 +903,23 @@ export const api = {
     );
   },
 
-  async deleteRetailer(id: string, handleOrders: 'delete' | 'archive' = 'delete'): Promise<{ success: boolean }> {
-    let supabaseSuccess = false;
+  async deleteRetailer(id: string, handleOrders: 'delete' | 'archive' = 'delete'): Promise<{ success: boolean; message?: string }> {
+    // 1. Call backend delete API (enforces role check, integrity checks, cascades, and business data protection)
+    const localRes = await safeMutationFetch<{ success: boolean; message?: string }>(
+      `/api/retailers/${encodeURIComponent(id)}?handleOrders=${handleOrders}`,
+      { method: 'DELETE' }
+    );
+
+    // 2. Sync with Supabase if configured
     if (isSupabaseConfigured) {
       try {
-        const res = await supabaseService.deleteRetailer(id, handleOrders);
-        if (res !== null) supabaseSuccess = true;
+        await supabaseService.deleteRetailer(id, handleOrders);
       } catch (e: any) {
         console.warn('Supabase deleteRetailer notice:', e?.message || e);
       }
     }
-    try {
-      const localRes = await safeMutationFetch<{ success: boolean }>(`/api/retailers/${id}?handleOrders=${handleOrders}`, { method: 'DELETE' }, { success: true });
-      return { success: supabaseSuccess || localRes.success };
-    } catch (localErr) {
-      console.warn('Local deleteRetailer notice (treated as deleted):', localErr);
-      return { success: true };
-    }
+
+    return localRes;
   },
 
   async cleanupRetailers(retailerIds: string[], handleOrders: 'delete' | 'archive' = 'delete'): Promise<{ success: boolean; deletedCount: number; affectedOrders: number; message?: string }> {
@@ -955,6 +963,10 @@ export const api = {
 
   // Salesmen
   async getSalesmen(): Promise<Salesman[]> {
+    if (activeUserRole === 'salesman') {
+      const local = await safeJsonFetch<Salesman[]>('/api/salesmen', {}, []);
+      return Array.isArray(local) ? local : [];
+    }
     let list: Salesman[] = [];
     if (isSupabaseConfigured) {
       try {
@@ -1071,6 +1083,17 @@ export const api = {
     );
   },
 
+  async updateSalesmanTask(id: string, updates: Partial<SalesmanTask>): Promise<{ success: boolean; task: SalesmanTask }> {
+    return safeMutationFetch<{ success: boolean; task: SalesmanTask }>(
+      `/api/salesman-tasks/${encodeURIComponent(id)}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      }
+    );
+  },
+
   async updateSalesmanTaskStatus(id: string, status: TaskStatus, completionNotes?: string): Promise<{ success: boolean; task: SalesmanTask }> {
     return safeMutationFetch<{ success: boolean; task: SalesmanTask }>(
       `/api/salesman-tasks/${id}/status`,
@@ -1141,6 +1164,10 @@ export const api = {
 
   // Orders
   async getOrders(): Promise<Order[]> {
+    if (activeUserRole === 'salesman' || activeUserRole === 'retailer') {
+      const orders = await safeJsonFetch<Order[]>('/api/orders', {}, []);
+      return Array.isArray(orders) ? orders : [];
+    }
     let ordersList: Order[] = [];
     if (isSupabaseConfigured) {
       try {
@@ -1660,12 +1687,6 @@ export const api = {
     });
   },
 
-  async deleteStaffMember(id: string): Promise<{ success: boolean; message: string }> {
-    return safeMutationFetch<{ success: boolean; message: string }>(`/api/staff/${encodeURIComponent(id)}`, {
-      method: 'DELETE'
-    });
-  },
-
   async getStaffAttendance(query?: { staffId?: string; date?: string; month?: string; startDate?: string; endDate?: string }): Promise<StaffAttendance[]> {
     const params = new URLSearchParams();
     if (query?.staffId) params.append('staffId', query.staffId);
@@ -1690,6 +1711,28 @@ export const api = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, newStatus, reason })
+    });
+  },
+
+  async approveStaffAttendance(id: string): Promise<{ success: boolean; attendance: StaffAttendance }> {
+    return safeMutationFetch<{ success: boolean; attendance: StaffAttendance }>(`/api/staff-attendance/${encodeURIComponent(id)}/approve`, {
+      method: 'PUT'
+    });
+  },
+
+  async rejectStaffAttendance(id: string, reason: string): Promise<{ success: boolean; attendance: StaffAttendance }> {
+    return safeMutationFetch<{ success: boolean; attendance: StaffAttendance }>(`/api/staff-attendance/${encodeURIComponent(id)}/reject`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason })
+    });
+  },
+
+  async requestCorrectionStaffAttendance(id: string, reason: string): Promise<{ success: boolean; attendance: StaffAttendance }> {
+    return safeMutationFetch<{ success: boolean; attendance: StaffAttendance }>(`/api/staff-attendance/${encodeURIComponent(id)}/request-correction`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason })
     });
   },
 
@@ -1743,6 +1786,44 @@ export const api = {
       totalPayrollAmount: 0,
       disbursedPayrollAmount: 0,
       pendingPayrollAmount: 0
+    });
+  },
+
+  async updateStaffStatus(id: string, status: 'active' | 'inactive' | 'on_leave'): Promise<{ success: boolean; staff: StaffMember }> {
+    return safeMutationFetch<{ success: boolean; staff: StaffMember }>(`/api/staff/${encodeURIComponent(id)}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+  },
+
+  async deleteStaffMember(id: string, force = false): Promise<{ success: boolean }> {
+    return safeMutationFetch<{ success: boolean }>(`/api/staff/${encodeURIComponent(id)}${force ? '?force=true' : ''}`, {
+      method: 'DELETE'
+    });
+  },
+
+  async getStaffAuditTestCandidates(): Promise<{ candidates: { staff: StaffMember; isLikelyTest: boolean; linkedCounts: { attendance: number; payroll: number; orders: number; tasks: number } }[] }> {
+    return safeJsonFetch('/api/staff/audit-test-candidates', {}, { candidates: [] });
+  },
+
+  async updateRetailerStatus(id: string, status: 'active' | 'inactive'): Promise<{ success: boolean; retailer: Retailer }> {
+    return safeMutationFetch<{ success: boolean; retailer: Retailer }>(`/api/retailers/${encodeURIComponent(id)}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+  },
+
+  async getBusinessProfile(): Promise<any> {
+    return safeJsonFetch('/api/business-profile', {}, null);
+  },
+
+  async updateBusinessProfile(payload: any): Promise<{ success: boolean; profile: any }> {
+    return safeMutationFetch<{ success: boolean; profile: any }>('/api/business-profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
   }
 };

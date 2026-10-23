@@ -1,4 +1,4 @@
-package com.aryanagency.fmcg;
+package com.aryanagency.app;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -11,7 +11,6 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         try {
             if (this.bridge != null && this.bridge.getWebView() != null) {
                 WebView webView = this.bridge.getWebView();

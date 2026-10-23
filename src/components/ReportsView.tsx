@@ -191,7 +191,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     fromDate: customFromDate,
     toDate: customToDate,
     retailerId: selectedRetailerId,
-    salesmanId: selectedSalesmanId,
+    salesmanId: currentRole === 'salesman' ? (currentUser?.salesmanId || salesmen[0]?.id || 'none') : selectedSalesmanId,
     deliveryPersonId: selectedDeliveryPersonId,
     productId: selectedProductId,
     brand: selectedBrand,
@@ -1003,6 +1003,21 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     { id: 'profit_margin', label: 'Profit & Margin', icon: <Percent className="w-4 h-4" /> }
   ];
 
+  const availableReportTabs = useMemo(() => {
+    if (currentRole === 'salesman') {
+      return reportTabs.filter(tab => 
+        ['sales', 'visits', 'outstanding', 'payment_collection', 'product_sales', 'brand_sales', 'category_sales', 'customer_sales', 'salesman_sales'].includes(tab.id)
+      );
+    }
+    return reportTabs;
+  }, [currentRole, reportTabs]);
+
+  useEffect(() => {
+    if (currentRole === 'salesman' && ['profit_margin', 'purchase', 'gst', 'delivery'].includes(activeReportType)) {
+      setActiveReportType('sales');
+    }
+  }, [currentRole, activeReportType]);
+
   return (
     <div className="space-y-5 pb-16 print:p-0 print:space-y-2">
       {/* 1. Header & Quick Export Action Bar */}
@@ -1064,7 +1079,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       {/* 2. Report Type Selector Ribbon */}
       <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-2 overflow-x-auto print:hidden">
         <div className="flex items-center space-x-1 min-w-max">
-          {reportTabs.map(tab => {
+          {availableReportTabs.map(tab => {
             const isActive = activeReportType === tab.id;
             return (
               <button
@@ -1262,11 +1277,12 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             <div>
               <label className="block text-slate-600 font-medium mb-1">Salesman</label>
               <select
-                value={selectedSalesmanId}
+                value={currentRole === 'salesman' ? (currentUser?.salesmanId || salesmen[0]?.id || '') : selectedSalesmanId}
+                disabled={currentRole === 'salesman'}
                 onChange={(e) => { setSelectedSalesmanId(e.target.value); setCurrentPage(1); }}
-                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-slate-800 focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500"
               >
-                <option value="all">All Salesmen</option>
+                {currentRole !== 'salesman' && <option value="all">All Salesmen</option>}
                 {salesmen.map(s => (
                   <option key={s.id} value={s.id}>{s.name} ({s.employeeCode || 'EMP'})</option>
                 ))}

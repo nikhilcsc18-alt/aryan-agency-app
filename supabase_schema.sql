@@ -557,7 +557,9 @@ END $$;
 
 -- 1. USERS RLS POLICIES
 DROP POLICY IF EXISTS "users_select_policy" ON users;
-CREATE POLICY "users_select_policy" ON users FOR SELECT USING (true);
+CREATE POLICY "users_select_policy" ON users FOR SELECT USING (
+    is_admin() OR id = auth.uid()::text OR lower(email) = lower(auth.jwt()->>'email')
+);
 
 DROP POLICY IF EXISTS "users_insert_policy" ON users;
 CREATE POLICY "users_insert_policy" ON users FOR INSERT WITH CHECK (
@@ -651,9 +653,11 @@ CREATE TRIGGER trg_check_retailer_verification_authority
     FOR EACH ROW
     EXECUTE FUNCTION public.check_retailer_verification_authority();
 
--- 5. SALESMEN RLS POLICIES (Admin manages, all can view)
+-- 5. SALESMEN RLS POLICIES (Admin manages; salesman can only view own record)
 DROP POLICY IF EXISTS "salesmen_select_policy" ON salesmen;
-CREATE POLICY "salesmen_select_policy" ON salesmen FOR SELECT USING (true);
+CREATE POLICY "salesmen_select_policy" ON salesmen FOR SELECT USING (
+    is_admin() OR user_id = auth.uid()::text OR lower(email) = lower(auth.jwt()->>'email')
+);
 
 DROP POLICY IF EXISTS "salesmen_admin_modify" ON salesmen;
 CREATE POLICY "salesmen_admin_modify" ON salesmen FOR INSERT WITH CHECK (is_admin());

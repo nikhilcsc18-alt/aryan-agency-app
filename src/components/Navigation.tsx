@@ -22,7 +22,8 @@ import {
   ShieldCheck,
   BarChart3,
   BookOpen,
-  UserCheck
+  UserCheck,
+  Award
 } from 'lucide-react';
 import { NavTab } from '../types';
 export type { NavTab };
@@ -92,6 +93,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       { id: 'orders', label: 'Booked Orders', icon: <ShoppingCart className="w-5 h-5" /> },
       { id: 'retailers', label: 'My Beat Outlets', icon: <Store className="w-5 h-5" /> },
       { id: 'staff', label: 'My Attendance & Salary', icon: <UserCheck className="w-5 h-5" />, description: 'Attendance, History & Payslips' },
+      { id: 'idcard', label: 'My ID Card', icon: <Award className="w-5 h-5" />, description: 'Digital Pass, PDF & Share' },
       { id: 'catalogue', label: 'Digital Catalogue', icon: <BookOpen className="w-5 h-5" />, description: 'Download PDF & Share' },
       { id: 'reports', label: 'Reports & Intelligence', icon: <BarChart3 className="w-5 h-5" /> },
       { id: 'products', label: 'Catalog & Schemes', icon: <Package className="w-5 h-5" /> },

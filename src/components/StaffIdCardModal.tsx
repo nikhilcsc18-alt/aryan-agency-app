@@ -20,7 +20,7 @@ import QRCode from 'qrcode';
 import jsPDF from 'jspdf';
 import { StaffMember } from '../types';
 import { AryanAgencyFMCGLogo } from './AryanAgencyLogo';
-import { ARYAN_AGENCY_PROFILE } from '../lib/businessProfile';
+import { ARYAN_AGENCY_PROFILE, getVerifiedCompanyAddress } from '../lib/businessProfile';
 
 interface StaffIdCardModalProps {
   staff: StaffMember;
@@ -171,7 +171,7 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({
       doc.rect(0, cardH - 5, cardW, 5, 'F');
       doc.setTextColor(203, 213, 225);
       doc.setFontSize(3.8);
-      doc.text(`${ARYAN_AGENCY_PROFILE.fullAddress} · Ph: ${ARYAN_AGENCY_PROFILE.supportPhoneFormatted}`, cardW / 2, cardH - 1.8, { align: 'center' });
+      doc.text(`${getVerifiedCompanyAddress(ARYAN_AGENCY_PROFILE)} · Ph: ${ARYAN_AGENCY_PROFILE.supportPhoneFormatted}`, cardW / 2, cardH - 1.8, { align: 'center' });
 
       // ==========================================
       // PAGE 2: BACK OF THE ID CARD
@@ -198,7 +198,7 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(4.2);
       doc.setTextColor(71, 85, 105);
-      doc.text(ARYAN_AGENCY_PROFILE.fullAddress, 4, 14.5);
+      doc.text(getVerifiedCompanyAddress(ARYAN_AGENCY_PROFILE), 4, 14.5);
       doc.text(`Care Desk: ${ARYAN_AGENCY_PROFILE.supportPhoneFormatted}`, 4, 18);
       doc.text(`Email: ${ARYAN_AGENCY_PROFILE.email}`, 4, 21.5);
       doc.text(`GSTIN: ${ARYAN_AGENCY_PROFILE.gstin} · PAN: ${ARYAN_AGENCY_PROFILE.panNumber}`, 4, 25);
@@ -230,7 +230,7 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({
       doc.text('Official Property Notice:', 6, 35);
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(3.8);
-      doc.text(`This card is property of ${ARYAN_AGENCY_PROFILE.businessName}. If found, please return to: ${ARYAN_AGENCY_PROFILE.fullAddress} or call ${ARYAN_AGENCY_PROFILE.supportPhoneFormatted}.`, 6, 37.5);
+      doc.text(`This card is property of ${ARYAN_AGENCY_PROFILE.businessName}. If found, please return to: ${getVerifiedCompanyAddress(ARYAN_AGENCY_PROFILE)} or call ${ARYAN_AGENCY_PROFILE.supportPhoneFormatted}.`, 6, 37.5);
 
       // Signatures
       doc.setFont('helvetica', 'normal');
@@ -472,10 +472,12 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({
                         <Phone className="w-3 h-3 text-slate-400 shrink-0" />
                         <span className="font-semibold font-mono">{staff.phone}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Mail className="w-3 h-3 text-slate-400 shrink-0" />
-                        <span className="truncate text-[10px] text-slate-600">{staff.email || 'aryanagency@zohomail.in'}</span>
-                      </div>
+                      {staff.email ? (
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Mail className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span className="truncate text-[10px] text-slate-600">{staff.email}</span>
+                        </div>
+                      ) : null}
                       <div className="flex items-center justify-between text-[10px] text-slate-500 pt-0.5">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-3 h-3 text-slate-400" />
@@ -499,7 +501,7 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({
 
                 {/* Bottom Footer Ribbon */}
                 <div className="px-4 py-1.5 bg-slate-900 text-slate-300 text-[8px] flex items-center justify-between">
-                  <span className="truncate">{ARYAN_AGENCY_PROFILE.fullAddress}</span>
+                  <span className="truncate">{getVerifiedCompanyAddress(ARYAN_AGENCY_PROFILE)}</span>
                   <span className="flex items-center gap-1 font-mono text-amber-400 shrink-0 ml-2">
                     <ShieldCheck className="w-2.5 h-2.5" /> OFFICIAL PASS
                   </span>
@@ -533,7 +535,7 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({
                         {ARYAN_AGENCY_PROFILE.businessName}
                       </div>
                       <p className="text-slate-600 text-[9.5px]">
-                        {ARYAN_AGENCY_PROFILE.fullAddress}
+                        {getVerifiedCompanyAddress(ARYAN_AGENCY_PROFILE)}
                       </p>
                       <div className="font-mono text-[9px] text-slate-700 pt-0.5 space-y-0.5">
                         <div><b>Care Helpline:</b> {ARYAN_AGENCY_PROFILE.supportPhoneFormatted}</div>
@@ -569,7 +571,7 @@ export const StaffIdCardModal: React.FC<StaffIdCardModalProps> = ({
 
                   {/* Return Notice */}
                   <div className="bg-amber-50/80 border border-amber-200 rounded p-1.5 text-[8.5px] text-amber-900 leading-tight">
-                    <span className="font-bold">Important Notice:</span> This identity pass is non-transferable property of {ARYAN_AGENCY_PROFILE.businessName}. If found lost, please return to distributor address ({ARYAN_AGENCY_PROFILE.fullAddress}) or call <span className="font-bold font-mono">{ARYAN_AGENCY_PROFILE.supportPhoneFormatted}</span>.
+                    <span className="font-bold">Important Notice:</span> This identity pass is non-transferable property of {ARYAN_AGENCY_PROFILE.businessName}. If found lost, please return to distributor address ({getVerifiedCompanyAddress(ARYAN_AGENCY_PROFILE)}) or call <span className="font-bold font-mono">{ARYAN_AGENCY_PROFILE.supportPhoneFormatted}</span>.
                   </div>
 
                   {/* Signatures Row */}

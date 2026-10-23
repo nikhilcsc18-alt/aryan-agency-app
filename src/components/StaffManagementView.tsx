@@ -31,7 +31,9 @@ import {
   Check, 
   RefreshCw,
   Building,
-  UserPlus
+  UserPlus,
+  Share2,
+  Eye
 } from 'lucide-react';
 import { 
   StaffMember, 
@@ -50,6 +52,7 @@ import { api, formatINR, formatINRDecimals } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { StaffIdCardModal } from './StaffIdCardModal';
 import { AryanAgencyFMCGLogo } from './AryanAgencyLogo';
+import { ARYAN_AGENCY_PROFILE, getVerifiedCompanyAddress } from '../lib/businessProfile';
 
 interface StaffManagementViewProps {
   salesmen?: Salesman[];
@@ -65,7 +68,13 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
   const { currentUser, isAdmin } = useAuth();
 
   // Active Main Tab: 'directory' | 'attendance' | 'payroll' | 'reports'
-  const [activeTab, setActiveTab] = useState<'directory' | 'attendance' | 'payroll' | 'reports'>('directory');
+  const [activeTab, setActiveTab] = useState<'directory' | 'attendance' | 'payroll' | 'reports'>(isAdmin ? 'directory' : 'attendance');
+
+  useEffect(() => {
+    if (!isAdmin && (activeTab === 'directory' || activeTab === 'reports')) {
+      setActiveTab('attendance');
+    }
+  }, [isAdmin, activeTab]);
 
   // Core Data States
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
@@ -86,6 +95,19 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
   const [selectedStaffForCalendar, setSelectedStaffForCalendar] = useState<string>('all');
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7)); // YYYY-MM
 
+  // Attendance Approval & Workflow States
+  const [attendanceSubTab, setAttendanceSubTab] = useState<'approvals' | 'daily_sheet' | 'calendar'>('approvals');
+  const [approvalStaffFilter, setApprovalStaffFilter] = useState<string>('all');
+  const [approvalStatusFilter, setApprovalStatusFilter] = useState<string>('all');
+  const [approvalDateStart, setApprovalDateStart] = useState<string>('');
+  const [approvalDateEnd, setApprovalDateEnd] = useState<string>('');
+  const [approvalBeatFilter, setApprovalBeatFilter] = useState<string>('all');
+  const [rejectingAttendanceRecord, setRejectingAttendanceRecord] = useState<StaffAttendance | null>(null);
+  const [rejectReason, setRejectReason] = useState<string>('');
+  const [correctionAttendanceRecord, setCorrectionAttendanceRecord] = useState<StaffAttendance | null>(null);
+  const [correctionReason, setCorrectionReason] = useState<string>('');
+  const [viewingAuditTrailRecord, setViewingAuditTrailRecord] = useState<StaffAttendance | null>(null);
+
   // Payroll Controls
   const [payrollPeriod, setPayrollPeriod] = useState(() => new Date().toISOString().slice(0, 7)); // YYYY-MM
 
@@ -96,6 +118,15 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
   const [correctingAttendance, setCorrectingAttendance] = useState<StaffAttendance | null>(null);
   const [payingPayroll, setPayingPayroll] = useState<StaffPayroll | null>(null);
   const [viewingPayslip, setViewingPayslip] = useState<StaffPayroll | null>(null);
+  
+  // New Action & Audit States
+  const [viewingStaffDetails, setViewingStaffDetails] = useState<StaffMember | null>(null);
+  const [statusChangeCandidate, setStatusChangeCandidate] = useState<{ staff: StaffMember; newStatus: 'active' | 'inactive' } | null>(null);
+  const [deletingStaffCandidate, setDeletingStaffCandidate] = useState<{ staff: StaffMember; dependencyError?: string } | null>(null);
+  const [isCleanupAuditModalOpen, setIsCleanupAuditModalOpen] = useState(false);
+  const [auditCandidates, setAuditCandidates] = useState<{ staff: StaffMember; isLikelyTest: boolean; linkedCounts: { attendance: number; payroll: number; orders: number; tasks: number } }[]>([]);
+  const [selectedCleanupIds, setSelectedCleanupIds] = useState<string[]>([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
 
   // Form state for Add/Edit Staff
   const [formData, setFormData] = useState({
@@ -155,7 +186,7 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
       setLoading(true);
       const [fetchedStaff, fetchedAttendance, fetchedPayroll] = await Promise.all([
         api.getStaffMembers(),
-        api.getStaffAttendance({ month: selectedMonth }),
+        api.getStaffAttendance(),
         api.getStaffPayrolls({ period: payrollPeriod })
       ]);
       setStaffList(fetchedStaff || []);
@@ -329,6 +360,65 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
     }
   };
 
+  // Attendance Approval Actions
+  const handleApproveAttendance = async (attendanceId: string) => {
+    try {
+      setActionLoading(true);
+      await api.approveStaffAttendance(attendanceId);
+      setStatusMessage({ text: 'Attendance record approved successfully! Marked as verified and payable.', type: 'success' });
+      await loadData();
+    } catch (err: any) {
+      console.error('[Approve Attendance] Error:', err);
+      setStatusMessage({ text: err.message || 'Failed to approve attendance.', type: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleConfirmRejectAttendance = async () => {
+    if (!rejectingAttendanceRecord) return;
+    if (!rejectReason.trim()) {
+      setStatusMessage({ text: 'A mandatory rejection reason is required.', type: 'error' });
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      await api.rejectStaffAttendance(rejectingAttendanceRecord.id, rejectReason.trim());
+      setStatusMessage({ text: 'Attendance rejected. Excluded from payable payroll days.', type: 'success' });
+      setRejectingAttendanceRecord(null);
+      setRejectReason('');
+      await loadData();
+    } catch (err: any) {
+      console.error('[Reject Attendance] Error:', err);
+      setStatusMessage({ text: err.message || 'Failed to reject attendance.', type: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleConfirmRequestCorrection = async () => {
+    if (!correctionAttendanceRecord) return;
+    if (!correctionReason.trim()) {
+      setStatusMessage({ text: 'A reason or directive is required to request attendance correction.', type: 'error' });
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+      await api.requestCorrectionStaffAttendance(correctionAttendanceRecord.id, correctionReason.trim());
+      setStatusMessage({ text: 'Correction requested for attendance record. Status updated.', type: 'success' });
+      setCorrectionAttendanceRecord(null);
+      setCorrectionReason('');
+      await loadData();
+    } catch (err: any) {
+      console.error('[Correction Request] Error:', err);
+      setStatusMessage({ text: err.message || 'Failed to request correction.', type: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Bulk Mark All as Present
   const handleBulkMarkPresent = async () => {
     try {
@@ -481,6 +571,139 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
     document.body.removeChild(link);
   };
 
+  // ==========================================
+  // Staff Active/Inactive & Safe Delete Handlers
+  // ==========================================
+  const handlePromptStatusChange = (staff: StaffMember, newStatus: 'active' | 'inactive') => {
+    if (staff.role === 'admin' && newStatus === 'inactive') {
+      alert('Administrator accounts cannot be deactivated.');
+      return;
+    }
+    setStatusChangeCandidate({ staff, newStatus });
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!statusChangeCandidate) return;
+    const { staff, newStatus } = statusChangeCandidate;
+    try {
+      setActionLoading(true);
+      await api.updateStaffStatus(staff.id, newStatus);
+      setStaffList(prev => prev.map(s => s.id === staff.id ? { ...s, employmentStatus: newStatus } : s));
+      setStatusChangeCandidate(null);
+      setStatusMessage({ 
+        text: `Staff member "${staff.name}" marked ${newStatus.toUpperCase()}. Historical attendance, payroll, and order records are preserved.`, 
+        type: 'success' 
+      });
+    } catch (err: any) {
+      alert(err.message || 'Failed to update employment status.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handlePromptDeleteStaff = (staff: StaffMember) => {
+    if (staff.role === 'admin') {
+      alert('Administrator accounts cannot be deleted.');
+      return;
+    }
+    // Check if staff has attendance or payroll or sales history
+    const hasAtt = attendanceList.some(a => a.staffId === staff.id);
+    const hasPay = payrollList.some(p => p.staffId === staff.id);
+    const reasons: string[] = [];
+    if (hasAtt) reasons.push('attendance history');
+    if (hasPay) reasons.push('payroll records');
+    if (reasons.length > 0) {
+      setDeletingStaffCandidate({ 
+        staff, 
+        dependencyError: `Staff member "${staff.name}" has linked ${reasons.join(' and ')}. Permanent deletion would break historical audit records. Please mark the staff member as Inactive instead.` 
+      });
+    } else {
+      setDeletingStaffCandidate({ staff });
+    }
+  };
+
+  const handleConfirmDeleteStaff = async (force = false) => {
+    if (!deletingStaffCandidate) return;
+    const staff = deletingStaffCandidate.staff;
+    try {
+      setActionLoading(true);
+      await api.deleteStaffMember(staff.id, force);
+      setStaffList(prev => prev.filter(s => s.id !== staff.id));
+      setDeletingStaffCandidate(null);
+      setStatusMessage({ text: `Staff record "${staff.name}" removed safely.`, type: 'success' });
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete staff member.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDirectShareIdCard = async (staff: StaffMember) => {
+    const verifyUrl = `https://${ARYAN_AGENCY_PROFILE.officialDomain}/verify/staff/${staff.employeeCode}`;
+    const shareText = `Official Employee Pass: ${staff.name} (${staff.employeeCode}), ${staff.designation} at ${ARYAN_AGENCY_PROFILE.businessName}. Company Helpline: ${ARYAN_AGENCY_PROFILE.supportPhoneFormatted}.`;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: `${ARYAN_AGENCY_PROFILE.businessName} Staff ID - ${staff.name}`,
+          text: shareText,
+          url: verifyUrl
+        });
+        setStatusMessage({ text: 'Staff ID card shared successfully.', type: 'success' });
+        return;
+      } catch {}
+    }
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(`${shareText}\nVerification: ${verifyUrl}`);
+      setStatusMessage({ text: 'Staff ID pass details & verification link copied to clipboard.', type: 'success' });
+    } else {
+      alert(`Staff ID Pass:\n${shareText}\n${verifyUrl}`);
+    }
+  };
+
+  // ==========================================
+  // Test Data Cleanup & Audit Handlers
+  // ==========================================
+  const openCleanupAuditModal = async () => {
+    try {
+      setLoadingAudit(true);
+      setIsCleanupAuditModalOpen(true);
+      const res = await api.getStaffAuditTestCandidates();
+      const candidates = res?.candidates || [];
+      setAuditCandidates(candidates);
+      // Pre-select only candidates marked as isLikelyTest
+      const likelyTestIds = candidates
+        .filter(c => c.isLikelyTest)
+        .map(c => c.staff.id);
+      setSelectedCleanupIds(likelyTestIds);
+    } catch (err: any) {
+      console.error('Failed to audit staff candidates:', err);
+      alert('Failed to load candidate audit list.');
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
+
+  const handleExecuteStaffCleanup = async () => {
+    if (selectedCleanupIds.length === 0) return;
+    try {
+      setActionLoading(true);
+      for (const id of selectedCleanupIds) {
+        await api.deleteStaffMember(id, true);
+      }
+      setStaffList(prev => prev.filter(s => !selectedCleanupIds.includes(s.id)));
+      setIsCleanupAuditModalOpen(false);
+      setSelectedCleanupIds([]);
+      setStatusMessage({ 
+        text: `Successfully cleaned selected test records. Genuine staff members, real logins, and business history preserved.`, 
+        type: 'success' 
+      });
+    } catch (err: any) {
+      alert(err.message || 'Failed to remove selected test records.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Filtered Staff for Directory
   const filteredStaff = useMemo(() => {
     return staffList.filter(s => {
@@ -566,6 +789,16 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
               <>
                 <button
                   type="button"
+                  onClick={openCleanupAuditModal}
+                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold flex items-center gap-1.5 border border-slate-300 transition-colors cursor-pointer"
+                  title="Audit and Safely Remove Test / Dummy Staff"
+                >
+                  <ShieldCheck className="w-4 h-4 text-amber-600" />
+                  <span>Test Data Cleanup</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={openAddStaff}
                   className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
@@ -594,84 +827,132 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
           </div>
         )}
 
-        {/* 4 Performance Metric Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
-          {/* Card 1: Total Staff */}
-          <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80">
-            <div className="flex items-center justify-between text-slate-500 mb-1">
-              <span className="text-xs font-medium">Authorized Staff</span>
-              <Users className="w-4 h-4 text-blue-600" />
+        {/* Metric Cards: Admin sees whole workforce; Non-admin sees only their own profile & dues */}
+        {isAdmin ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
+            {/* Card 1: Total Staff */}
+            <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80">
+              <div className="flex items-center justify-between text-slate-500 mb-1">
+                <span className="text-xs font-medium">Authorized Staff</span>
+                <Users className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-slate-900">
+                {staffList.length}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2">
+                <span className="text-emerald-700 font-semibold">{staffList.filter(s => s.employmentStatus === 'active').length} Active</span>
+                <span>•</span>
+                <span className="text-amber-700 font-semibold">{staffList.filter(s => s.employmentStatus === 'on_leave').length} On Leave</span>
+              </div>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900">
-              {staffList.length}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2">
-              <span className="text-emerald-700 font-semibold">{staffList.filter(s => s.employmentStatus === 'active').length} Active</span>
-              <span>•</span>
-              <span className="text-amber-700 font-semibold">{staffList.filter(s => s.employmentStatus === 'on_leave').length} On Leave</span>
-            </div>
-          </div>
 
-          {/* Card 2: Today's Attendance */}
-          <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80">
-            <div className="flex items-center justify-between text-slate-500 mb-1">
-              <span className="text-xs font-medium">Today's Attendance</span>
-              <UserCheck className="w-4 h-4 text-emerald-600" />
+            {/* Card 2: Today's Attendance */}
+            <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80">
+              <div className="flex items-center justify-between text-slate-500 mb-1">
+                <span className="text-xs font-medium">Today's Attendance</span>
+                <UserCheck className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-emerald-700">
+                {todayAttendanceStats.present + (todayAttendanceStats.halfDay ? todayAttendanceStats.halfDay * 0.5 : 0)} / {todayAttendanceStats.totalStaff}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2">
+                <span className="text-emerald-700 font-medium">{todayAttendanceStats.present} Present</span>
+                <span>•</span>
+                <span className="text-rose-700 font-medium">{todayAttendanceStats.absent} Absent</span>
+                {todayAttendanceStats.notMarked > 0 && (
+                  <span className="text-amber-700 font-bold">({todayAttendanceStats.notMarked} Unmarked)</span>
+                )}
+              </div>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-emerald-700">
-              {todayAttendanceStats.present + (todayAttendanceStats.halfDay ? todayAttendanceStats.halfDay * 0.5 : 0)} / {todayAttendanceStats.totalStaff}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-2">
-              <span className="text-emerald-700 font-medium">{todayAttendanceStats.present} Present</span>
-              <span>•</span>
-              <span className="text-rose-700 font-medium">{todayAttendanceStats.absent} Absent</span>
-              {todayAttendanceStats.notMarked > 0 && (
-                <span className="text-amber-700 font-bold">({todayAttendanceStats.notMarked} Unmarked)</span>
-              )}
-            </div>
-          </div>
 
-          {/* Card 3: Monthly Net Payroll */}
-          <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80">
-            <div className="flex items-center justify-between text-slate-500 mb-1">
-              <span className="text-xs font-medium">Payroll Liability ({payrollPeriod})</span>
-              <IndianRupee className="w-4 h-4 text-indigo-600" />
+            {/* Card 3: Monthly Net Payroll */}
+            <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80">
+              <div className="flex items-center justify-between text-slate-500 mb-1">
+                <span className="text-xs font-medium">Payroll Liability ({payrollPeriod})</span>
+                <IndianRupee className="w-4 h-4 text-indigo-600" />
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-slate-900">
+                {formatINR(payrollStats.totalNet)}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+                <span>{payrollStats.totalCount} Calculated</span>
+                <span className="font-semibold text-indigo-700">{payrollStats.approvedCount} Approved</span>
+              </div>
             </div>
-            <div className="text-xl sm:text-2xl font-black text-slate-900">
-              {formatINR(payrollStats.totalNet)}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>{payrollStats.totalCount} Calculated</span>
-              <span className="font-semibold text-indigo-700">{payrollStats.approvedCount} Approved</span>
-            </div>
-          </div>
 
-          {/* Card 4: Disbursed vs Pending */}
-          <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80">
-            <div className="flex items-center justify-between text-slate-500 mb-1">
-              <span className="text-xs font-medium">Disbursed vs Due</span>
-              <CreditCard className="w-4 h-4 text-amber-600" />
-            </div>
-            <div className="text-xl sm:text-2xl font-black text-emerald-700">
-              {formatINR(payrollStats.totalPaid)}
-            </div>
-            <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
-              <span>Pending Due:</span>
-              <span className="font-bold text-rose-700">{formatINR(payrollStats.totalDue)}</span>
+            {/* Card 4: Disbursed vs Pending */}
+            <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80">
+              <div className="flex items-center justify-between text-slate-500 mb-1">
+                <span className="text-xs font-medium">Disbursed vs Due</span>
+                <CreditCard className="w-4 h-4 text-amber-600" />
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-emerald-700">
+                {formatINR(payrollStats.totalPaid)}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+                <span>Pending Due:</span>
+                <span className="font-bold text-rose-700">{formatINR(payrollStats.totalDue)}</span>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-6">
+            <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80">
+              <div className="flex items-center justify-between text-slate-500 mb-1">
+                <span className="text-xs font-medium">My Profile</span>
+                <Users className="w-4 h-4 text-blue-600" />
+              </div>
+              <div className="text-base font-black text-slate-900 truncate">
+                {staffList[0]?.name || currentUser?.name || 'Sales Executive'}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-1 font-mono">
+                {staffList[0]?.employeeCode || 'DSR'} • {staffList[0]?.phone || currentUser?.phone || ''}
+              </div>
+            </div>
+
+            <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80">
+              <div className="flex items-center justify-between text-slate-500 mb-1">
+                <span className="text-xs font-medium">Today's Punch Status</span>
+                <UserCheck className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div className="text-base font-black text-slate-900 capitalize">
+                {attendanceList.find(a => a.date === attendanceDate)?.status?.replace('_', ' ') || 'Not Checked In'}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-1">
+                {attendanceList.find(a => a.date === attendanceDate)?.checkInTime 
+                  ? `Punch In: ${attendanceList.find(a => a.date === attendanceDate)?.checkInTime}` 
+                  : 'Punch in your attendance below'}
+              </div>
+            </div>
+
+            <div className="bg-slate-50/80 rounded-xl p-4 border border-slate-200/80">
+              <div className="flex items-center justify-between text-slate-500 mb-1">
+                <span className="text-xs font-medium">My Salary ({payrollPeriod})</span>
+                <IndianRupee className="w-4 h-4 text-indigo-600" />
+              </div>
+              <div className="text-base font-black text-slate-900">
+                {formatINR(payrollStats.totalNet)}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
+                <span>Disbursed: <strong className="text-emerald-700">{formatINR(payrollStats.totalPaid)}</strong></span>
+                {payrollStats.totalDue > 0 && <span className="text-rose-700 font-bold">Due: {formatINR(payrollStats.totalDue)}</span>}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tab Buttons Navigation */}
         <div className="flex border-b border-slate-200 mt-6 -mb-5 sm:-mb-6 overflow-x-auto space-x-6 text-xs sm:text-sm font-bold">
-          <button
-            type="button"
-            onClick={() => setActiveTab('directory')}
-            className={`pb-3 border-b-2 flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'directory' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Staff Directory ({staffList.length})</span>
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('directory')}
+              className={`pb-3 border-b-2 flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'directory' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+            >
+              <Users className="w-4 h-4" />
+              <span>Staff Directory ({staffList.length})</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -679,7 +960,12 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
             className={`pb-3 border-b-2 flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'attendance' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
           >
             <Calendar className="w-4 h-4" />
-            <span>Attendance & Monthly Logs</span>
+            <span>{isAdmin ? 'Attendance & Approvals' : 'My Attendance & Check-In'}</span>
+            {isAdmin && attendanceList.filter(a => a.approvalStatus === 'pending' || (a.checkInMethod === 'self_check_in' && !a.approvalStatus)).length > 0 && (
+              <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-amber-500 text-white animate-pulse">
+                {attendanceList.filter(a => a.approvalStatus === 'pending' || (a.checkInMethod === 'self_check_in' && !a.approvalStatus)).length} pending
+              </span>
+            )}
           </button>
 
           <button
@@ -688,24 +974,26 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
             className={`pb-3 border-b-2 flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'payroll' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
           >
             <IndianRupee className="w-4 h-4" />
-            <span>Salary & Monthly Payroll</span>
+            <span>{isAdmin ? 'Salary & Monthly Payroll' : 'My Salary & Payslips'}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('reports')}
-            className={`pb-3 border-b-2 flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'reports' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>Workforce Reports & Audit</span>
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('reports')}
+              className={`pb-3 border-b-2 flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${activeTab === 'reports' ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Workforce Reports & Audit</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* ========================================================================= */}
       {/* TAB 1: STAFF DIRECTORY & PROFILES                                         */}
       {/* ========================================================================= */}
-      {activeTab === 'directory' && (
+      {isAdmin && activeTab === 'directory' && (
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
           
           {/* Search & Filter Toolbar */}
@@ -865,29 +1153,85 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
                         </div>
                       </td>
 
-                      {/* Actions */}
+                      {/* Actions Menu */}
                       <td className="p-3.5 text-right">
-                        <div className="flex items-center justify-end space-x-1.5">
-                          {/* ID Card Action */}
+                        <div className="flex items-center justify-end flex-wrap gap-1">
+                          {/* View Details */}
+                          <button
+                            type="button"
+                            onClick={() => setViewingStaffDetails(staff)}
+                            className="p-1.5 text-slate-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            title="View Staff Profile Details"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Generate / Download ID Card */}
                           <button
                             type="button"
                             onClick={() => setIdCardStaff(staff)}
-                            className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
-                            title="Generate & Print Digital ID Card"
+                            className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Generate & Download Print-Ready ID Card"
                           >
-                            <Award className="w-3.5 h-3.5" />
+                            <Award className="w-3 h-3" />
                             <span>ID Card</span>
                           </button>
 
+                          {/* Share ID Card */}
+                          <button
+                            type="button"
+                            onClick={() => handleDirectShareIdCard(staff)}
+                            className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                            title="Share Official Employee ID Pass"
+                          >
+                            <Share2 className="w-3.5 h-3.5" />
+                          </button>
+
                           {isAdmin && (
-                            <button
-                              type="button"
-                              onClick={() => openEditStaff(staff)}
-                              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                              title="Edit Staff & Salary Details"
-                            >
-                              <Edit3 className="w-4 h-4" />
-                            </button>
+                            <>
+                              {/* Edit Details */}
+                              <button
+                                type="button"
+                                onClick={() => openEditStaff(staff)}
+                                className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                                title="Edit Staff & Salary Details"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Mark Active / Mark Inactive */}
+                              {staff.employmentStatus === 'active' ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handlePromptStatusChange(staff, 'inactive')}
+                                  disabled={staff.role === 'admin'}
+                                  className="px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded text-[10px] font-bold transition-colors cursor-pointer disabled:opacity-40"
+                                  title="Mark Inactive (Preserves all historical records)"
+                                >
+                                  Deactivate
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handlePromptStatusChange(staff, 'active')}
+                                  className="px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[10px] font-bold transition-colors cursor-pointer"
+                                  title="Mark Active"
+                                >
+                                  Activate
+                                </button>
+                              )}
+
+                              {/* Delete Staff Member (with dependency & safety checks) */}
+                              <button
+                                type="button"
+                                onClick={() => handlePromptDeleteStaff(staff)}
+                                disabled={staff.role === 'admin'}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer disabled:opacity-30"
+                                title="Delete Staff Member (Dependency Checked)"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -911,10 +1255,12 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
               <div>
                 <h2 className="text-base font-bold text-slate-900">
-                  Daily Workforce Attendance Sheet
+                  {isAdmin ? 'Daily Workforce Attendance Sheet' : 'My Daily Attendance & Check-In'}
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Mark daily Present, Absent, Half Day, Paid Leave, Unpaid Leave or Weekly Off
+                  {isAdmin 
+                    ? 'Mark daily Present, Absent, Half Day, Paid Leave, Unpaid Leave or Weekly Off' 
+                    : 'Record your daily punch in / punch out, field visits, or leave request'}
                 </p>
               </div>
 
@@ -1111,16 +1457,22 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
                   className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl bg-white font-mono font-bold text-slate-800"
                 />
 
-                <select
-                  value={selectedStaffForCalendar}
-                  onChange={(e) => setSelectedStaffForCalendar(e.target.value)}
-                  className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl bg-white font-medium text-slate-700"
-                >
-                  <option value="all">All Staff Members</option>
-                  {staffList.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.employeeCode})</option>
-                  ))}
-                </select>
+                {isAdmin ? (
+                  <select
+                    value={selectedStaffForCalendar}
+                    onChange={(e) => setSelectedStaffForCalendar(e.target.value)}
+                    className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl bg-white font-medium text-slate-700"
+                  >
+                    <option value="all">All Staff Members</option>
+                    {staffList.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.employeeCode})</option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="px-3 py-1.5 text-xs border border-slate-200 rounded-xl bg-slate-50 font-bold text-slate-700">
+                    {staffList[0]?.name || currentUser?.name}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1211,10 +1563,12 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-100">
             <div>
               <h2 className="text-base font-bold text-slate-900">
-                Monthly Staff Salary & Payroll Calculation
+                {isAdmin ? 'Monthly Staff Salary & Payroll Calculation' : 'My Monthly Salary & Payslips'}
               </h2>
               <p className="text-xs text-slate-500">
-                Calculate payable wages from verified attendance, approve payroll, and record disbursement vouchers
+                {isAdmin 
+                  ? 'Calculate payable wages from verified attendance, approve payroll, and record disbursement vouchers'
+                  : 'View your earned salary, attendance calculation, allowances, and download payslips'}
               </p>
             </div>
 
@@ -1398,7 +1752,7 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
       {/* ========================================================================= */}
       {/* TAB 4: WORKFORCE REPORTS & AUDIT TRAIL                                     */}
       {/* ========================================================================= */}
-      {activeTab === 'reports' && (
+      {isAdmin && activeTab === 'reports' && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Card A: Monthly Attendance Summary */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 sm:p-6 space-y-4">
@@ -1996,9 +2350,9 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
               {/* Header */}
               <div className="flex justify-between items-start border-b border-slate-200 pb-3">
                 <div>
-                  <h4 className="font-extrabold text-sm text-slate-900 uppercase">Aryan Agency</h4>
-                  <p className="text-[11px] text-slate-500">Apna Store FMCG Wholesale Distribution</p>
-                  <p className="text-[10px] text-slate-400">Utraula, Balrampur - 271604, UP • GSTIN: 09AAACA1234B1Z5</p>
+                  <h4 className="font-extrabold text-sm text-slate-900 uppercase">{ARYAN_AGENCY_PROFILE.businessName}</h4>
+                  <p className="text-[11px] text-slate-500">{ARYAN_AGENCY_PROFILE.businessType}</p>
+                  <p className="text-[10px] text-slate-400">{getVerifiedCompanyAddress(ARYAN_AGENCY_PROFILE)} • GSTIN: {ARYAN_AGENCY_PROFILE.gstin}</p>
                 </div>
                 <div className="text-right">
                   <span className="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-slate-200 text-slate-800">
@@ -2101,6 +2455,418 @@ export const StaffManagementView: React.FC<StaffManagementViewProps> = ({
                 <div>Authorized Signatory (Aryan Agency)</div>
               </div>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 5: VIEW STAFF PROFILE DETAILS MODAL                                 */}
+      {/* ========================================================================= */}
+      {viewingStaffDetails && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 my-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 overflow-hidden flex items-center justify-center text-blue-700 font-bold text-lg shrink-0">
+                  {viewingStaffDetails.photoUrl ? (
+                    <img src={viewingStaffDetails.photoUrl} alt={viewingStaffDetails.name} className="w-full h-full object-cover" />
+                  ) : (
+                    viewingStaffDetails.name.charAt(0)
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">{viewingStaffDetails.name}</h3>
+                  <p className="text-xs font-semibold text-blue-700">{viewingStaffDetails.designation} • {viewingStaffDetails.employeeCode}</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setViewingStaffDetails(null)}
+                className="p-1 rounded text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div className="flex justify-between py-1 border-b border-slate-100">
+                <span className="text-slate-500">Employment Status</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${viewingStaffDetails.employmentStatus === 'active' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'}`}>
+                  {viewingStaffDetails.employmentStatus}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-100">
+                <span className="text-slate-500">Mobile Phone</span>
+                <span className="font-mono font-semibold text-slate-900">{viewingStaffDetails.phone}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-100">
+                <span className="text-slate-500">Email Address</span>
+                <span className="font-mono text-slate-900">{viewingStaffDetails.email || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-100">
+                <span className="text-slate-500">Department / Role</span>
+                <span className="font-semibold text-slate-900 capitalize">{viewingStaffDetails.role}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-100">
+                <span className="text-slate-500">Date of Joining</span>
+                <span className="font-semibold text-slate-900">{viewingStaffDetails.joiningDate}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-100">
+                <span className="text-slate-500">Base Salary</span>
+                <span className="font-bold text-slate-900 font-mono">
+                  {formatINR(viewingStaffDetails.baseSalary)} ({viewingStaffDetails.salaryType.replace('_', ' ')})
+                </span>
+              </div>
+              {viewingStaffDetails.assignedBeats && viewingStaffDetails.assignedBeats.length > 0 && (
+                <div className="py-1 border-b border-slate-100">
+                  <span className="text-slate-500 block mb-1">Assigned Beat Routes:</span>
+                  <div className="flex flex-wrap gap-1">
+                    {viewingStaffDetails.assignedBeats.map((b, i) => (
+                      <span key={i} className="px-2 py-0.5 bg-blue-50 text-blue-800 border border-blue-200 rounded text-[10px]">
+                        {b}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {viewingStaffDetails.emergencyContact && (
+                <div className="py-1 border-b border-slate-100 text-slate-700">
+                  <span className="text-slate-500 block">Emergency Contact:</span>
+                  <span className="font-semibold">{viewingStaffDetails.emergencyContact.name} ({viewingStaffDetails.emergencyContact.relation}) - {viewingStaffDetails.emergencyContact.phone}</span>
+                </div>
+              )}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600">
+                <span className="font-bold text-slate-800">Issuing Distributor: </span>
+                {ARYAN_AGENCY_PROFILE.businessName} • {getVerifiedCompanyAddress(ARYAN_AGENCY_PROFILE)} • Helpline: {ARYAN_AGENCY_PROFILE.supportPhoneFormatted}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  const s = viewingStaffDetails;
+                  setViewingStaffDetails(null);
+                  setIdCardStaff(s);
+                }}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Award className="w-3.5 h-3.5" />
+                <span>Open ID Card</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewingStaffDetails(null)}
+                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 6: CONFIRM STAFF STATUS CHANGE (ACTIVE / INACTIVE)                  */}
+      {/* ========================================================================= */}
+      {statusChangeCandidate && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center space-x-3 text-amber-600">
+              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  {statusChangeCandidate.newStatus === 'inactive' ? 'Deactivate Staff Member' : 'Activate Staff Member'}
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  {statusChangeCandidate.staff.name} ({statusChangeCandidate.staff.employeeCode})
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-2 text-slate-700">
+              {statusChangeCandidate.newStatus === 'inactive' ? (
+                <>
+                  <p className="font-semibold text-amber-900">
+                    Important business audit rule:
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-slate-600">
+                    When this staff member leaves or is marked <b>Inactive</b>, their login credentials and app access will be disabled immediately. 
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-emerald-800 font-semibold bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                    ✓ All historical attendance logs, payroll calculations, sales orders, assigned tasks, and recovery records are permanently preserved.
+                  </p>
+                </>
+              ) : (
+                <p className="text-[11px] leading-relaxed text-slate-600">
+                  Activating this staff member will restore their operational status and permit authorized feature access.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setStatusChangeCandidate(null)}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmStatusChange}
+                disabled={actionLoading}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer ${
+                  statusChangeCandidate.newStatus === 'inactive'
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                {actionLoading ? 'Updating...' : `Confirm Mark ${statusChangeCandidate.newStatus.toUpperCase()}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 7: SAFE DELETE STAFF CONFIRMATION                                   */}
+      {/* ========================================================================= */}
+      {deletingStaffCandidate && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center space-x-3 text-rose-600">
+              <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Delete Staff Profile</h3>
+                <p className="text-[11px] text-slate-500">
+                  {deletingStaffCandidate.staff.name} ({deletingStaffCandidate.staff.employeeCode})
+                </p>
+              </div>
+            </div>
+
+            {deletingStaffCandidate.dependencyError ? (
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 text-xs space-y-2">
+                <p className="font-bold text-rose-900">Deletion Blocked for Audit Integrity</p>
+                <p className="text-rose-800 text-[11px] leading-relaxed">
+                  {deletingStaffCandidate.dependencyError}
+                </p>
+                <div className="pt-2 border-t border-rose-200/80 flex items-center justify-between">
+                  <span className="text-[11px] text-rose-900 font-semibold">Recommended action:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const staff = deletingStaffCandidate.staff;
+                      setDeletingStaffCandidate(null);
+                      handlePromptStatusChange(staff, 'inactive');
+                    }}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-bold cursor-pointer"
+                  >
+                    Mark Inactive Instead
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1 text-slate-700">
+                <p className="font-semibold text-slate-900">No active business history linked to this staff profile.</p>
+                <p className="text-[11px] text-slate-500">
+                  This record can be safely removed from the registry.
+                </p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setDeletingStaffCandidate(null)}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              {!deletingStaffCandidate.dependencyError && (
+                <button
+                  type="button"
+                  onClick={() => handleConfirmDeleteStaff(false)}
+                  disabled={actionLoading}
+                  className="px-3.5 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer"
+                >
+                  {actionLoading ? 'Deleting...' : 'Delete Staff Member'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 8: ADMIN-ONLY TEST DATA CLEANUP & AUDIT SCREEN                     */}
+      {/* ========================================================================= */}
+      {isCleanupAuditModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-3xl w-full p-5 sm:p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 my-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-300 text-amber-700 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    Test Data Cleanup &amp; Audit Review
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                      Admin Oversight
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Review staff records created during test cycles. Purge only verified dummy records while preserving genuine staff.
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setIsCleanupAuditModalOpen(false)}
+                className="p-1 rounded text-slate-400 hover:text-slate-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingAudit ? (
+              <div className="py-12 text-center text-slate-400 flex flex-col items-center justify-center space-y-2">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+                <span className="text-xs font-medium">Auditing staff records across attendance, payroll & orders...</span>
+              </div>
+            ) : auditCandidates.length === 0 ? (
+              <div className="py-10 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                <p className="text-xs font-semibold text-slate-600">No staff records in registry to audit.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  <span>Found <b>{auditCandidates.length}</b> staff profiles in registry.</span>
+                  <div className="space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const likely = auditCandidates.filter(c => c.isLikelyTest).map(c => c.staff.id);
+                        setSelectedCleanupIds(likely);
+                      }}
+                      className="text-blue-700 hover:underline font-semibold cursor-pointer"
+                    >
+                      Select Likely Test Only
+                    </button>
+                    <span>•</span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCleanupIds([])}
+                      className="text-slate-500 hover:underline cursor-pointer"
+                    >
+                      Clear Selection
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto max-h-[45vh] border border-slate-200 rounded-xl">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0">
+                      <tr>
+                        <th className="p-3 w-10">Select</th>
+                        <th className="p-3">Staff Candidate</th>
+                        <th className="p-3">Role & Email</th>
+                        <th className="p-3">Joined / Created</th>
+                        <th className="p-3">Linked History</th>
+                        <th className="p-3">Classification</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {auditCandidates.map(({ staff, isLikelyTest, linkedCounts }) => {
+                        const isSelected = selectedCleanupIds.includes(staff.id);
+                        const isProtectedAdmin = staff.role === 'admin';
+                        return (
+                          <tr key={staff.id} className={`hover:bg-slate-50/70 ${isSelected ? 'bg-amber-50/40' : ''}`}>
+                            <td className="p-3">
+                              <input
+                                type="checkbox"
+                                disabled={isProtectedAdmin}
+                                checked={isSelected}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedCleanupIds(prev => [...prev, staff.id]);
+                                  } else {
+                                    setSelectedCleanupIds(prev => prev.filter(id => id !== staff.id));
+                                  }
+                                }}
+                                className="rounded text-amber-600 focus:ring-amber-500 cursor-pointer disabled:opacity-30"
+                              />
+                            </td>
+                            <td className="p-3">
+                              <div className="font-bold text-slate-900">{staff.name}</div>
+                              <div className="font-mono text-[10px] text-slate-400">{staff.employeeCode}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="font-semibold capitalize text-slate-800">{staff.role}</div>
+                              <div className="text-[11px] text-slate-500 truncate max-w-[150px]">{staff.email}</div>
+                            </td>
+                            <td className="p-3 text-[11px] text-slate-600">
+                              {staff.joiningDate}
+                            </td>
+                            <td className="p-3 text-[11px]">
+                              <span className="font-mono text-slate-700">
+                                Att: {linkedCounts.attendance} • Pay: {linkedCounts.payroll} • Ord: {linkedCounts.orders}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              {isProtectedAdmin ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200">
+                                  Protected Admin
+                                </span>
+                              ) : isLikelyTest ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                                  Likely Test Dummy
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  Genuine Staff
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed">
+                  <span className="font-bold">Explicit Confirmation Required: </span>
+                  Deleting selected test records will purge test profiles and their dependent test-only logs. Real staff accounts, real Supabase auth users, and business sales records will stay untouched.
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsCleanupAuditModalOpen(false)}
+                className="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleExecuteStaffCleanup}
+                disabled={selectedCleanupIds.length === 0 || actionLoading}
+                className="px-4 py-1.5 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>
+                  {actionLoading ? 'Purging...' : `Purge Selected (${selectedCleanupIds.length}) Records`}
+                </span>
+              </button>
             </div>
           </div>
         </div>

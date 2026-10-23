@@ -36,6 +36,7 @@ import {
   GeneratedCatalogue
 } from '../lib/cataloguePdfGenerator';
 import { ProductImage } from './ProductImage';
+import { ARYAN_AGENCY_PROFILE, getVerifiedCompanyAddress } from '../lib/businessProfile';
 
 interface CatalogueViewProps {
   products: Product[];
@@ -1017,9 +1018,9 @@ export const CatalogueView: React.FC<CatalogueViewProps> = ({
               </div>
 
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-slate-600">
-                <p className="font-semibold text-slate-800">Distributor Contact Info:</p>
-                <p className="mt-0.5">Station Road, Utraula, Balrampur (UP) - 271304</p>
-                <p>Hotline: +91 98391 23456 | GSTIN: 09BOGPG2620P1ZQ</p>
+                <p className="font-semibold text-slate-800">{ARYAN_AGENCY_PROFILE.businessName} — {ARYAN_AGENCY_PROFILE.businessType}</p>
+                <p className="mt-0.5">{getVerifiedCompanyAddress(ARYAN_AGENCY_PROFILE)}</p>
+                <p>Support Desk: {ARYAN_AGENCY_PROFILE.supportPhoneFormatted} | Email: {ARYAN_AGENCY_PROFILE.email} | GSTIN: {ARYAN_AGENCY_PROFILE.gstin}</p>
               </div>
             </div>
 

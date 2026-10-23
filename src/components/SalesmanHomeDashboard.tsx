@@ -32,7 +32,9 @@ import {
   UserCheck,
   IndianRupee,
   CreditCard,
-  Printer
+  Printer,
+  Share2,
+  Download
 } from 'lucide-react';
 import { 
   Salesman, 
@@ -51,6 +53,8 @@ import {
 } from '../types';
 import { formatINR, api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
+import { StaffIdCardModal } from './StaffIdCardModal';
+import { ARYAN_AGENCY_PROFILE } from '../lib/businessProfile';
 
 interface SalesmanHomeDashboardProps {
   salesman?: Salesman;
@@ -115,7 +119,7 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
         name: currentUser.name,
         phone: currentUser.phone || '',
         email: currentUser.email || '',
-        assignedBeats: ['Utraula Retail Beat', 'Balrampur Central Beat'],
+        assignedBeats: [],
         commissionPercentage: 1.5,
         status: 'active' as const
       };
@@ -126,7 +130,7 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
       name: currentUser?.name || 'Sales Representative',
       phone: currentUser?.phone || '',
       email: currentUser?.email || '',
-      assignedBeats: ['Utraula Retail Beat'],
+      assignedBeats: [],
       commissionPercentage: 1.5,
       status: 'active' as const
     };
@@ -138,6 +142,8 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
   const [isPunchingAttendance, setIsPunchingAttendance] = useState(false);
   const [isAttendanceHistoryOpen, setIsAttendanceHistoryOpen] = useState(false);
   const [isSalaryStatementOpen, setIsSalaryStatementOpen] = useState(false);
+  const [isIdCardOpen, setIsIdCardOpen] = useState(false);
+  const [myStaffProfile, setMyStaffProfile] = useState<StaffMember | null>(null);
 
   const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
   const curMonthStr = useMemo(() => new Date().toISOString().slice(0, 7), []);
@@ -170,22 +176,52 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
     };
   }, [myAttendanceList]);
 
-  // Load Tasks, Visits, Attendance and Payroll for this salesman
+  // Load Tasks, Visits, Attendance, Payroll and Staff Profile for this salesman
   const loadDashboardData = async () => {
     try {
       setLoadingTasks(true);
       const curMonth = new Date().toISOString().slice(0, 7);
-      const [fetchedTasks, fetchedVisits, fetchedAtt, fetchedPay] = await Promise.all([
+      const [fetchedTasks, fetchedVisits, fetchedAtt, fetchedPay, fetchedStaff] = await Promise.all([
         api.getSalesmanTasks(activeSalesman.id).catch(() => []),
         api.getVisits({ salesmanId: activeSalesman.id }).catch(() => []),
         api.getStaffAttendance({ month: curMonth }).catch(() => []),
-        api.getStaffPayrolls({ period: curMonth }).catch(() => [])
+        api.getStaffPayrolls({ period: curMonth }).catch(() => []),
+        api.getStaffMembers().catch(() => [])
       ]);
       setTasks(fetchedTasks || []);
       setVisits(fetchedVisits || []);
       setMyAttendanceList(fetchedAtt || []);
       if (fetchedPay && fetchedPay.length > 0) {
         setMyPayroll(fetchedPay[0]);
+      }
+      if (fetchedStaff && fetchedStaff.length > 0) {
+        const found = fetchedStaff.find((s: StaffMember) => 
+          s.salesmanId === activeSalesman.id ||
+          (s.email && s.email.toLowerCase() === (activeSalesman.email || '').toLowerCase()) ||
+          (currentUser?.id && s.userId === currentUser.id)
+        );
+        if (found) {
+          setMyStaffProfile(found);
+        } else {
+          setMyStaffProfile({
+            id: `stf_${activeSalesman.id}`,
+            employeeCode: activeSalesman.employeeCode || `EMP-${activeSalesman.id.replace('slm_', '')}`,
+            name: activeSalesman.name,
+            phone: activeSalesman.phone || '+91 98000 00000',
+            email: activeSalesman.email || 'sales@aryanagency.in',
+            role: 'salesman',
+            designation: 'Senior Sales Executive',
+            assignedBeats: activeSalesman.assignedBeats || ['Utraula Retail Beat'],
+            joiningDate: '2024-03-15',
+            employmentStatus: 'active',
+            salaryType: 'monthly_fixed',
+            baseSalary: 22000,
+            weeklyOffDay: 0,
+            monthlyLeaveQuota: 2,
+            createdAt: '2024-03-15T00:00:00Z',
+            updatedAt: new Date().toISOString()
+          });
+        }
       }
     } catch (err) {
       console.error('[SalesmanDashboard] Failed to fetch dashboard data:', err);
@@ -204,7 +240,7 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
       const now = new Date();
       const timeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
       const res = await api.markStaffAttendance({
-        staffId: activeSalesman.id,
+        staffId: myStaffProfile?.id || activeSalesman.id,
         date: todayStr,
         status: 'present',
         checkInTime: timeStr,
@@ -240,19 +276,22 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
 
   // Executive's Assigned Beats
   const assignedBeats = useMemo(() => {
-    if (activeSalesman.assignedBeats && activeSalesman.assignedBeats.length > 0) {
+    if (activeSalesman?.assignedBeats && Array.isArray(activeSalesman.assignedBeats)) {
       return activeSalesman.assignedBeats;
     }
-    return ['Utraula Retail Beat'];
-  }, [activeSalesman.assignedBeats]);
+    return [];
+  }, [activeSalesman?.assignedBeats]);
 
   // Executive's Assigned Retailers (Strict Data Isolation)
   const assignedRetailers = useMemo(() => {
     return (retailers || []).filter(r => {
       if (!r || !r.id) return false;
-      return assignedBeats.includes(r.beatName);
+      const beatMatch = r.beatName && assignedBeats.some(b => b.toLowerCase().trim() === r.beatName.toLowerCase().trim());
+      const directMatch = (r.assignedSalesmanId && r.assignedSalesmanId === activeSalesman.id) ||
+                          (r.salesmanId && r.salesmanId === activeSalesman.id);
+      return Boolean(beatMatch || directMatch);
     });
-  }, [retailers, assignedBeats]);
+  }, [retailers, assignedBeats, activeSalesman?.id]);
 
   // Filtered Orders for this Sales Executive
   const myOrders = useMemo(() => {
@@ -533,7 +572,7 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
         </div>
 
         {/* Quick Actions Action Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-5 pt-4 border-t border-slate-800">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mt-5 pt-4 border-t border-slate-800">
           <button
             type="button"
             onClick={() => onOpenNewOrderForRetailer()}
@@ -565,6 +604,16 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
           >
             <CheckSquare className="w-4 h-4 text-purple-400" />
             <span>My Tasks ({pendingTasksCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsIdCardOpen(true)}
+            className="px-3.5 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-600 text-white text-xs font-bold border border-blue-500/50 transition-all shadow-md flex items-center justify-center space-x-2 cursor-pointer active:scale-95"
+            title="View, Download and Share Official Employee ID Pass"
+          >
+            <Award className="w-4 h-4 text-amber-300" />
+            <span>My ID Card</span>
           </button>
 
           <button
@@ -1774,6 +1823,15 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Salesman Digital ID Card Modal */}
+      {isIdCardOpen && myStaffProfile && (
+        <StaffIdCardModal
+          staff={myStaffProfile}
+          isOpen={isIdCardOpen}
+          onClose={() => setIsIdCardOpen(false)}
+        />
       )}
 
     </div>

@@ -324,6 +324,9 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRetailer, setEditingRetailer] = useState<Partial<Retailer> | null>(null);
   const [deletingRetailerId, setDeletingRetailerId] = useState<string | null>(null);
+  const [isDeletingRetailer, setIsDeletingRetailer] = useState(false);
+  const [deleteRetailerError, setDeleteRetailerError] = useState<string | null>(null);
+  const [retailerStatusCandidate, setRetailerStatusCandidate] = useState<{ retailer: Retailer; newStatus: 'active' | 'inactive' } | null>(null);
   const [modalError, setModalError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -441,11 +444,18 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
         )) ||
         (currentUser.phone && r.phone && r.phone.replace(/\D/g, '').slice(-10) === currentUser.phone.replace(/\D/g, '').slice(-10))
       )
-    : (currentUser?.role === 'salesman' && currentSalesman && Array.isArray(currentSalesman.assignedBeats) && currentSalesman.assignedBeats.length > 0)
+    : currentUser?.role === 'salesman'
     ? (() => {
-        const beatsLower = currentSalesman.assignedBeats.map(b => b.toLowerCase().trim());
-        const matched = localRetailers.filter(r => r.beatName && beatsLower.includes(r.beatName.toLowerCase().trim()));
-        return matched.length > 0 ? matched : localRetailers;
+        if (!currentSalesman) return [];
+        const beatsLower = Array.isArray(currentSalesman.assignedBeats)
+          ? currentSalesman.assignedBeats.map(b => b.toLowerCase().trim())
+          : [];
+        return localRetailers.filter(r => {
+          const beatMatch = r.beatName && beatsLower.includes(r.beatName.toLowerCase().trim());
+          const directMatch = (r.assignedSalesmanId && r.assignedSalesmanId === currentSalesman.id) ||
+                              (r.salesmanId && r.salesmanId === currentSalesman.id);
+          return beatMatch || directMatch;
+        });
       })()
     : localRetailers;
 
@@ -846,16 +856,36 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
     const targetId = deletingRetailerId;
     const handling = singleDeleteOrderHandling;
     
-    // Instant optimistic removal from UI
-    setLocalRetailers(prev => prev.filter(r => r.id !== targetId));
-    setDeletingRetailerId(null);
-
-    if (onDeleteRetailer) {
-      try {
+    setIsDeletingRetailer(true);
+    setDeleteRetailerError(null);
+    try {
+      if (onDeleteRetailer) {
         await onDeleteRetailer(targetId, handling);
-      } catch (err) {
-        console.error('Failed to delete retailer:', err);
+      } else {
+        await api.deleteRetailer(targetId, handling);
       }
+      setLocalRetailers(prev => prev.filter(r => r.id !== targetId));
+      setDeletingRetailerId(null);
+    } catch (err: any) {
+      console.error('Failed to delete retailer:', err);
+      setDeleteRetailerError(err?.message || 'Failed to delete retailer. Please try again.');
+    } finally {
+      setIsDeletingRetailer(false);
+    }
+  };
+
+  const handleConfirmRetailerStatusChange = async () => {
+    if (!retailerStatusCandidate) return;
+    const { retailer, newStatus } = retailerStatusCandidate;
+    try {
+      setIsSaving(true);
+      await api.updateRetailerStatus(retailer.id, newStatus);
+      setLocalRetailers(prev => prev.map(r => r.id === retailer.id ? { ...r, status: newStatus } : r));
+      setRetailerStatusCandidate(null);
+    } catch (err: any) {
+      alert(err?.message || 'Failed to update retailer status.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1400,22 +1430,46 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                       type="button"
                       onClick={() => handleOpenEdit(retailer)}
                       className="p-1 text-slate-500 hover:text-blue-600 rounded-md cursor-pointer"
-                      title="Edit Retailer Details"
+                      title="View & Edit Retailer Details"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
                   )}
                   
-                  {(isAdmin || isSalesman) && (
-                    <button
-                      type="button"
-                      onClick={() => setDeletingRetailerId(retailer.id)}
-                      className="px-2 py-1 text-xs font-semibold rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors flex items-center space-x-1 cursor-pointer"
-                      title="Delete this Retailer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
-                      <span>Delete</span>
-                    </button>
+                  {isAdmin && (
+                    <>
+                      {/* Admin-Only Mark Active / Inactive */}
+                      {retailer.status === 'inactive' ? (
+                        <button
+                          type="button"
+                          onClick={() => setRetailerStatusCandidate({ retailer, newStatus: 'active' })}
+                          className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition-colors cursor-pointer"
+                          title="Mark Retailer Active"
+                        >
+                          Activate
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setRetailerStatusCandidate({ retailer, newStatus: 'inactive' })}
+                          className="px-2 py-0.5 text-[11px] font-bold rounded-md bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors cursor-pointer"
+                          title="Mark Retailer Inactive (Preserves all historical orders and ledger records)"
+                        >
+                          Deactivate
+                        </button>
+                      )}
+
+                      {/* Admin-Only Delete */}
+                      <button
+                        type="button"
+                        onClick={() => setDeletingRetailerId(retailer.id)}
+                        className="px-2 py-1 text-xs font-semibold rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors flex items-center space-x-1 cursor-pointer"
+                        title="Delete Retailer Outlet (Audit Protected)"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Delete</span>
+                      </button>
+                    </>
                   )}
 
                   {!isRetailer && (isSalesman || isAdmin) && (
@@ -2143,7 +2197,7 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
 
               {/* Submit Buttons */}
               <div className="pt-3 border-t border-slate-100 flex items-center justify-between space-x-2">
-                {editingRetailer.id && (isAdmin || isSalesman) && (
+                {editingRetailer.id && isAdmin && (
                   <button
                     type="button"
                     onClick={() => {
@@ -2308,6 +2362,11 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
         const targetRetailer = localRetailers.find(r => r.id === deletingRetailerId) || retailers.find(r => r.id === deletingRetailerId);
         const storeOrders = (orders || []).filter(o => o.retailerId === deletingRetailerId);
         const storeOrdersTotal = storeOrders.reduce((sum, o) => sum + (o.grandTotal || o.totalAmount || 0), 0);
+        const storeVisits = (localVisits || visits || []).filter(v => v.retailerId === deletingRetailerId);
+        const storeOutstanding = (targetRetailer?.currentBalance !== undefined 
+          ? targetRetailer.currentBalance 
+          : (targetRetailer?.currentOutstanding || (targetRetailer as any)?.outstandingBalance || 0));
+        const isBlocked = storeOrders.length > 0 || storeOutstanding > 0 || storeVisits.length > 0;
 
         return (
           <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
@@ -2325,66 +2384,157 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
               <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1">
                 <p className="font-bold text-slate-900">{targetRetailer?.storeName || 'Selected Store'}</p>
                 <p className="text-slate-500">Owner: {targetRetailer?.ownerName || '-'} • Beat: {targetRetailer?.beatName || '-'}</p>
-                {storeOrders.length > 0 && (
-                  <p className="text-amber-800 font-semibold pt-1 border-t border-slate-200">
-                    ⚠️ Found {storeOrders.length} associated order(s) totaling {formatINR(storeOrdersTotal)}.
-                  </p>
+                {targetRetailer?.phone && (
+                  <p className="text-slate-500">Phone: {targetRetailer.phone}</p>
                 )}
               </div>
 
-              {storeOrders.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-slate-700">How should associated order data be handled?</p>
-                  <label className="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50">
-                    <input
-                      type="radio"
-                      name="singleDeleteOrderHandling"
-                      checked={singleDeleteOrderHandling === 'delete'}
-                      onChange={() => setSingleDeleteOrderHandling('delete')}
-                      className="mt-0.5 text-rose-600 focus:ring-rose-500 cursor-pointer"
-                    />
-                    <div>
-                      <span className="font-bold text-slate-900">Cascade delete associated orders & payments</span>
-                      <p className="text-[11px] text-slate-500">Completely purge test orders so sales figures stay clean.</p>
-                    </div>
-                  </label>
-                  <label className="flex items-start space-x-2 text-xs text-slate-700 cursor-pointer p-2.5 rounded-lg border border-slate-200 hover:bg-slate-50">
-                    <input
-                      type="radio"
-                      name="singleDeleteOrderHandling"
-                      checked={singleDeleteOrderHandling === 'archive'}
-                      onChange={() => setSingleDeleteOrderHandling('archive')}
-                      className="mt-0.5 text-rose-600 focus:ring-rose-500 cursor-pointer"
-                    />
-                    <div>
-                      <span className="font-bold text-slate-900">Cancel & archive orders</span>
-                      <p className="text-[11px] text-slate-500">Mark orders as Cancelled [Account Purged] to preserve history.</p>
-                    </div>
-                  </label>
+              {deleteRetailerError && (
+                <div className="p-3 bg-rose-50 border border-rose-300 rounded-lg text-xs text-rose-800 space-y-1">
+                  <p className="font-bold flex items-center space-x-1">
+                    <span>⚠️ Deletion Failed:</span>
+                  </p>
+                  <p className="leading-relaxed">{deleteRetailerError}</p>
+                </div>
+              )}
+
+              {isBlocked ? (
+                <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs space-y-2">
+                  <p className="font-bold text-rose-900">Permanent Deletion Blocked</p>
+                  <p className="text-rose-800 text-[11px] leading-relaxed">
+                    This retail store cannot be permanently deleted because business and audit history is attached:
+                  </p>
+                  <ul className="list-disc pl-4 text-[11px] text-rose-900 space-y-0.5">
+                    {storeOrders.length > 0 && (
+                      <li><b>{storeOrders.length} linked order(s)</b> totaling {formatINR(storeOrdersTotal)}</li>
+                    )}
+                    {storeOutstanding > 0 && (
+                      <li><b>Outstanding dues</b> of {formatINR(storeOutstanding)}</li>
+                    )}
+                    {storeVisits.length > 0 && (
+                      <li><b>{storeVisits.length} salesman check-in visit record(s)</b></li>
+                    )}
+                  </ul>
+                  <p className="text-[11px] text-amber-900 font-semibold bg-amber-100/70 p-2 rounded border border-amber-300">
+                    Recommended action: Mark the retailer as <b>Inactive</b>. This prevents new orders while preserving all ledger, payment, and order records intact.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1 text-slate-700">
+                  <p className="font-semibold text-slate-900">Safe for Removal</p>
+                  <p className="text-[11px] text-slate-500">
+                    No orders, visit logs, or outstanding ledger records are linked to this retailer account. It can be safely deleted.
+                  </p>
                 </div>
               )}
 
               <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setDeletingRetailerId(null)}
-                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                  disabled={isDeletingRetailer}
+                  onClick={() => {
+                    setDeletingRetailerId(null);
+                    setDeleteRetailerError(null);
+                  }}
+                  className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
                 >
                   Cancel
                 </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteConfirmed}
-                  className="px-3.5 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer flex items-center space-x-1.5"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Confirm Permanent Delete</span>
-                </button>
+                {isBlocked ? (
+                  <button
+                    type="button"
+                    disabled={isDeletingRetailer}
+                    onClick={() => {
+                      const ret = targetRetailer;
+                      setDeletingRetailerId(null);
+                      setDeleteRetailerError(null);
+                      if (ret) setRetailerStatusCandidate({ retailer: ret, newStatus: 'inactive' });
+                    }}
+                    className="px-3.5 py-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Mark Inactive Instead
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isDeletingRetailer}
+                    onClick={handleDeleteConfirmed}
+                    className="px-3.5 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs transition-colors cursor-pointer flex items-center space-x-1.5 disabled:opacity-75"
+                  >
+                    {isDeletingRetailer ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    <span>{isDeletingRetailer ? 'Deleting Retailer...' : 'Confirm Permanent Delete'}</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
         );
       })()}
+
+      {/* ========================================================================= */}
+      {/* CONFIRM RETAILER ACTIVE / INACTIVE STATUS CHANGE MODAL                    */}
+      {/* ========================================================================= */}
+      {retailerStatusCandidate && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 max-w-md w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center space-x-3 text-amber-600">
+              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  {retailerStatusCandidate.newStatus === 'inactive' ? 'Deactivate Retailer Store' : 'Activate Retailer Store'}
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  {retailerStatusCandidate.retailer.storeName} ({retailerStatusCandidate.retailer.ownerName})
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-2 text-slate-700">
+              {retailerStatusCandidate.newStatus === 'inactive' ? (
+                <>
+                  <p className="font-semibold text-amber-900">
+                    Business Audit & Data Retention Rule:
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-slate-600">
+                    Marking this retailer <b>Inactive</b> disables new order bookings and suspends login access.
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-emerald-800 font-semibold bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                    ✓ All historical order logs, invoices, payment records, outstanding balances, and ledger history are safely retained.
+                  </p>
+                </>
+              ) : (
+                <p className="text-[11px] leading-relaxed text-slate-600">
+                  Activating this retailer restores them to active beat routes, allowing salesmen to book orders and collect dues.
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setRetailerStatusCandidate(null)}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRetailerStatusChange}
+                disabled={isSaving}
+                className={`px-3.5 py-1.5 text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer ${
+                  retailerStatusCandidate.newStatus === 'inactive'
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                {isSaving ? 'Updating...' : `Confirm Mark ${retailerStatusCandidate.newStatus.toUpperCase()}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* BEAT ROUTE DELETE CONFIRMATION MODAL                                      */}

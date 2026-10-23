@@ -6,6 +6,7 @@ export interface User {
   email: string;
   phone: string;
   role: UserRole;
+  status?: 'active' | 'inactive';
   avatarUrl?: string;
   salesmanId?: string;
   retailerId?: string;
@@ -146,6 +147,7 @@ export interface Retailer {
   panNumber?: string;
   creditLimit: number; // ₹
   currentOutstanding: number; // ₹
+  currentBalance?: number; // ₹ (alias for currentOutstanding)
   creditDaysAllowed: number;
   lat?: number;
   lng?: number;
@@ -398,7 +400,8 @@ export type NavTab =
   | 'verifications'
   | 'reports'
   | 'catalogue'
-  | 'staff';
+  | 'staff'
+  | 'idcard';
 
 export type ReportType = 
   | 'sales' 
@@ -560,9 +563,9 @@ export interface VisitCheckOutPayload {
 // ==========================================
 // Salesman Tasks & Target Management Types
 // ==========================================
-export type TaskType = 'visit' | 'follow_up' | 'order_booking' | 'collection' | 'general';
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
-export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+export type TaskType = 'visit' | 'target' | 'order_booking' | 'collection' | 'follow_up' | 'other' | 'general';
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'closed';
+export type TaskPriority = 'normal' | 'low' | 'medium' | 'high' | 'urgent';
 
 export interface SalesmanTask {
   id: string;
@@ -576,13 +579,21 @@ export interface SalesmanTask {
   retailerPhone?: string;
   retailerAddress?: string;
   beatName?: string;
+  targetAmount?: number; // Target in ₹
+  targetQuantity?: number; // Target Quantity in cases / pcs
+  startDate?: string; // YYYY-MM-DD
   dueDate: string; // YYYY-MM-DD
+  followUpDate?: string; // YYYY-MM-DD
   status: TaskStatus;
   priority: TaskPriority;
   assignedByRole?: string;
   assignedByName?: string;
+  adminNotes?: string;
   completedAt?: string;
   completionNotes?: string;
+  actualSalesBooked?: number;
+  actualSalesDelivered?: number;
+  actualPaymentsCollected?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -670,6 +681,19 @@ export interface AttendanceCorrectionEntry {
   reason: string;
 }
 
+export type AttendanceApprovalStatus = 'pending' | 'approved' | 'rejected' | 'correction_required';
+
+export interface AttendanceApprovalEvent {
+  action: 'submitted' | 'approved' | 'rejected' | 'correction_requested';
+  actorId: string;
+  actorName: string;
+  actorRole: string;
+  timestamp: string;
+  reason?: string;
+  previousApprovalStatus?: AttendanceApprovalStatus;
+  newApprovalStatus?: AttendanceApprovalStatus;
+}
+
 export interface StaffAttendance {
   id: string;
   staffId: string;
@@ -678,11 +702,18 @@ export interface StaffAttendance {
   role: string;
   date: string; // YYYY-MM-DD
   status: AttendanceStatus;
+  approvalStatus?: AttendanceApprovalStatus; // 'pending' | 'approved' | 'rejected' | 'correction_required'
   checkInTime?: string; // HH:mm or ISO
   checkOutTime?: string; // HH:mm or ISO
   checkInMethod?: 'admin_marked' | 'self_check_in' | 'gps_verified';
   workingHours?: number;
   remarks?: string;
+  approvedBy?: string;
+  approvedById?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
+  correctionReason?: string;
+  approvalAuditTrail?: AttendanceApprovalEvent[];
   correctionHistory?: AttendanceCorrectionEntry[];
   createdAt: string;
   updatedAt: string;

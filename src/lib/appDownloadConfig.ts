@@ -28,14 +28,14 @@ export const GITHUB_RELEASE_MIRROR_URL = 'https://github.com/nikhilcsc18-alt/ary
 
 export const DEFAULT_APP_CONFIG: AppDownloadConfig = {
   apkUrl: OFFICIAL_APK_DOWNLOAD_URL,
-  version: 'v1.3.2',
+  version: 'v1.3.4',
   fileSize: '7.7 MB',
-  releaseDate: 'September 2026',
+  releaseDate: 'October 2026',
   minAndroidVersion: 'Android 8.0 (Oreo) or later',
   appName: 'Aryan Agency FMCG Distribution',
-  packageName: 'com.aryanagency.fmcg',
+  packageName: 'com.aryanagency.app',
   isAvailable: true,
-  notes: 'Aryan Agency B2B App v1.3.2 with live barcode scanning, internet product auto-fill, and live cloud sync.'
+  notes: 'Aryan Agency B2B App v1.3.4 with seamless in-app APK update compatibility, live barcode scanning, and cloud sync.'
 };
 
 export function getAppDownloadConfig(): AppDownloadConfig {
@@ -54,11 +54,11 @@ export function getAppDownloadConfig(): AppDownloadConfig {
       parsed.apkUrl = DEFAULT_APP_CONFIG.apkUrl;
     }
     // Auto-upgrade stale cached versions from previous testing
-    if (parsed.version === 'v1.3.0' || parsed.version === 'v1.3.1' || parsed.version === '1.3.0' || parsed.version === '1.3.1') {
+    if (parsed.version === 'v1.3.0' || parsed.version === 'v1.3.1' || parsed.version === 'v1.3.2' || parsed.version === 'v1.3.3') {
       parsed.version = DEFAULT_APP_CONFIG.version;
       parsed.notes = DEFAULT_APP_CONFIG.notes;
     }
-    return { ...DEFAULT_APP_CONFIG, ...parsed, apkUrl: DEFAULT_APP_CONFIG.apkUrl };
+    return { ...DEFAULT_APP_CONFIG, ...parsed, packageName: 'com.aryanagency.app', apkUrl: DEFAULT_APP_CONFIG.apkUrl };
   } catch (err) {
     console.warn('[appDownloadConfig] Error reading config:', err);
     return DEFAULT_APP_CONFIG;

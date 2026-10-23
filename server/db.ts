@@ -71,6 +71,7 @@ export interface DatabaseSchema {
   staffAttendance?: StaffAttendance[];
   staffPayrolls?: StaffPayroll[];
   staffSalaryPayments?: PayrollPaymentRecord[];
+  businessProfile?: any;
 }
 
 function getBannerMainImageUrl(): string {
@@ -260,199 +261,140 @@ const INITIAL_BANNERS: PromotionalBanner[] = [
 
 const INITIAL_STAFF_MEMBERS: StaffMember[] = [
   {
-    id: 'stf_1',
-    employeeCode: 'EMP-AA-101',
-    name: 'Rajesh Kumar',
-    phone: '+91 98860 34567',
-    email: 'rajesh.sales@aryanagency.in',
+    id: 'stf_admin_nikhil',
+    employeeCode: 'EMP-ADM-001',
+    name: 'Nikhil',
+    phone: '+91 96284 62862',
+    email: 'rockygupta928@gmail.com',
+    role: 'admin',
+    designation: 'Operations Administrator',
+    photoUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&auto=format&fit=crop&q=80',
+    joiningDate: '2023-01-01',
+    employmentStatus: 'active',
+    salaryType: 'monthly_fixed',
+    baseSalary: 60000,
+    allowances: [],
+    deductions: [],
+    weeklyOffDay: 0,
+    monthlyLeaveQuota: 4,
+    userId: '01950726-7687-4a86-a911-adc3a124c0ef',
+    createdAt: '2023-01-01T00:00:00Z',
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'stf_slm_1790147316716',
+    employeeCode: 'EMP-AA-104',
+    name: 'Azeem Usmani',
+    phone: '+91 9696914692',
+    email: 'usmani.7565@gmail.com',
     role: 'salesman',
     designation: 'Senior Sales Executive',
     photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80',
-    assignedBeats: ['Utraula Retail Beat', 'Balrampur Central Beat'],
+    assignedBeats: ['Balrampur Central Beat'],
     joiningDate: '2024-03-15',
     employmentStatus: 'active',
     salaryType: 'monthly_fixed',
     baseSalary: 25000,
     allowances: [
-      { id: 'alw_1', title: 'Field Travel Allowance', amount: 3000 },
-      { id: 'alw_2', title: 'Mobile / Data Subsidy', amount: 500 }
-    ],
-    deductions: [
-      { id: 'ded_1', title: 'Provident Fund (PF)', amount: 1800 },
-      { id: 'ded_2', title: 'Professional Tax', amount: 200 }
-    ],
-    weeklyOffDay: 0, // Sunday
-    monthlyLeaveQuota: 2,
-    emergencyContact: { name: 'Sunita Kumar', relation: 'Spouse', phone: '+91 98860 99887' },
-    address: 'Near Old Bus Stand, Utraula, Balrampur - 271604, UP',
-    userId: 'usr_sales_1',
-    salesmanId: 'slm_1',
-    createdAt: '2024-03-15T00:00:00Z',
-    updatedAt: '2026-10-15T00:00:00Z'
-  },
-  {
-    id: 'stf_2',
-    employeeCode: 'EMP-AA-102',
-    name: 'Vikram Singh',
-    phone: '+91 99001 56789',
-    email: 'vikram.sales@aryanagency.in',
-    role: 'salesman',
-    designation: 'Sales Officer - Wholesale',
-    photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
-    assignedBeats: ['Jarwa Rural Beat', 'Tulsipur Provision Beat'],
-    joiningDate: '2024-06-01',
-    employmentStatus: 'active',
-    salaryType: 'monthly_fixed',
-    baseSalary: 24000,
-    allowances: [
-      { id: 'alw_3', title: 'Field Travel Allowance', amount: 3000 }
-    ],
-    deductions: [
-      { id: 'ded_3', title: 'Provident Fund (PF)', amount: 1800 }
-    ],
-    weeklyOffDay: 0,
-    monthlyLeaveQuota: 2,
-    emergencyContact: { name: 'Rajendra Singh', relation: 'Father', phone: '+91 99001 22334' },
-    address: 'Station Road, Balrampur - 271201, UP',
-    userId: 'usr_sales_2',
-    salesmanId: 'slm_2',
-    createdAt: '2024-06-01T00:00:00Z',
-    updatedAt: '2026-10-15T00:00:00Z'
-  },
-  {
-    id: 'stf_3',
-    employeeCode: 'EMP-AA-201',
-    name: 'Suresh Gowda',
-    phone: '+91 97410 78901',
-    email: 'suresh.van1@aryanagency.in',
-    role: 'delivery',
-    designation: 'Lead Delivery Pilot (Van KA-05-AB-1234)',
-    photoUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&auto=format&fit=crop&q=80',
-    assignedBeats: ['Utraula Retail Beat', 'Balrampur Central Beat', 'Tulsipur Road Beat'],
-    joiningDate: '2023-11-10',
-    employmentStatus: 'active',
-    salaryType: 'daily_wage',
-    baseSalary: 850, // ₹850/day
-    allowances: [
-      { id: 'alw_4', title: 'Vehicle Daily Bata', amount: 1500 }
+      { id: 'alw_1', title: 'Field Travel Allowance', amount: 3000 }
     ],
     deductions: [],
     weeklyOffDay: 0,
     monthlyLeaveQuota: 2,
-    emergencyContact: { name: 'Manjula Gowda', relation: 'Spouse', phone: '+91 97410 11223' },
-    address: 'Warehouse Quarters, Utraula Industrial Area, Balrampur - 271604, UP',
-    userId: 'usr_delivery_1',
-    createdAt: '2023-11-10T00:00:00Z',
-    updatedAt: '2026-10-15T00:00:00Z'
+    userId: '9d201217-f71b-42b2-843e-15f0894bfdc3',
+    salesmanId: 'slm_1790147316716',
+    createdAt: '2024-03-15T00:00:00Z',
+    updatedAt: new Date().toISOString()
   },
   {
-    id: 'stf_4',
-    employeeCode: 'EMP-AA-301',
-    name: 'Pooja Agarwal',
-    phone: '+91 98450 67890',
-    email: 'pooja.accounts@aryanagency.in',
-    role: 'accounts',
-    designation: 'Head of Accounts & GST Billing',
-    photoUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&auto=format&fit=crop&q=80',
-    joiningDate: '2023-08-01',
+    id: 'stf_slm_1792073770798',
+    employeeCode: 'EMP-SE-7381',
+    name: 'Nikhil Aryan',
+    phone: '+91 96284 62862',
+    email: 'nkg8369@gmail.com',
+    role: 'salesman',
+    designation: 'Senior Sales Executive',
+    photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80',
+    assignedBeats: ['Utraula Retail Beat'],
+    joiningDate: '2024-06-01',
     employmentStatus: 'active',
     salaryType: 'monthly_fixed',
-    baseSalary: 28000,
+    baseSalary: 25000,
     allowances: [
-      { id: 'alw_5', title: 'Office Conveyance', amount: 2000 }
+      { id: 'alw_2', title: 'Field Travel Allowance', amount: 3000 }
     ],
-    deductions: [
-      { id: 'ded_4', title: 'Provident Fund (PF)', amount: 1800 }
-    ],
+    deductions: [],
     weeklyOffDay: 0,
     monthlyLeaveQuota: 2,
-    emergencyContact: { name: 'Vikas Agarwal', relation: 'Spouse', phone: '+91 98450 44556' },
-    address: 'Civil Lines, Balrampur - 271201, UP',
-    userId: 'usr_accounts_1',
-    createdAt: '2023-08-01T00:00:00Z',
-    updatedAt: '2026-10-15T00:00:00Z'
+    userId: 'bb0f03c0-2389-4c9d-846f-a87653595452',
+    salesmanId: 'slm_1792073770798',
+    createdAt: '2024-06-01T00:00:00Z',
+    updatedAt: new Date().toISOString()
   },
   {
-    id: 'stf_5',
-    employeeCode: 'EMP-AA-001',
-    name: 'Aryan Sharma',
-    phone: '+91 98450 12345',
-    email: 'aryan@aryanagency.in',
-    role: 'admin',
-    designation: 'Managing Director & Super-Stockist Head',
-    photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80',
-    joiningDate: '2022-01-01',
+    id: 'stf_slm_1792142673681',
+    employeeCode: 'EMP-SE-1783',
+    name: 'Ravi Shankar',
+    phone: '+91 97927 39621',
+    email: 'rschaurasiya89@gmail.com',
+    role: 'salesman',
+    designation: 'Senior Sales Executive',
+    photoUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&auto=format&fit=crop&q=80',
+    assignedBeats: ['Rehra Bazar Beat'],
+    joiningDate: '2024-08-01',
     employmentStatus: 'active',
     salaryType: 'monthly_fixed',
-    baseSalary: 65000,
+    baseSalary: 25000,
+    allowances: [
+      { id: 'alw_3', title: 'Field Travel Allowance', amount: 3000 }
+    ],
+    deductions: [],
     weeklyOffDay: 0,
-    monthlyLeaveQuota: 4,
-    emergencyContact: { name: 'R.K. Sharma', relation: 'Family', phone: '+91 98450 99999' },
-    address: 'Aryan Agency HQ, Balrampur Road, Utraula, Balrampur - 271604, UP',
-    userId: 'usr_admin',
-    createdAt: '2022-01-01T00:00:00Z',
-    updatedAt: '2026-10-15T00:00:00Z'
+    monthlyLeaveQuota: 2,
+    userId: 'usr_sales_1792142673681',
+    salesmanId: 'slm_1792142673681',
+    createdAt: '2024-08-01T00:00:00Z',
+    updatedAt: new Date().toISOString()
   }
 ];
 
 const INITIAL_DATA: DatabaseSchema = {
   users: [
     {
-      id: 'usr_admin',
-      name: 'Aryan Sharma',
-      email: 'aryan@aryanagency.in',
-      phone: '+91 98450 12345',
+      id: '01950726-7687-4a86-a911-adc3a124c0ef',
+      name: 'Nikhil (Admin)',
+      email: 'rockygupta928@gmail.com',
+      phone: '+91 96284 62862',
       role: 'admin',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      businessName: 'Aryan Agency FMCG Distribution',
-      businessLogoUrl: '',
-      address: 'Main Road, Utraula',
-      city: 'Balrampur',
-      state: 'Uttar Pradesh',
-      pincode: '271604',
-      gstin: '09BOGPG2620P1ZQ',
-      panNumber: 'BOGPG2620P',
-      locationCoordinates: {
-        lat: 27.3167,
-        lng: 82.4167,
-        addressText: 'Utraula, Balrampur, Uttar Pradesh 271604'
-      },
-      verificationStatus: 'verified'
+      avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80',
+      businessName: 'Aryan Agency FMCG Super-Stockist'
     },
     {
-      id: 'usr_sales_1',
-      name: 'Rajesh Kumar',
-      email: 'rajesh.sales@aryanagency.in',
-      phone: '+91 98860 34567',
+      id: '9d201217-f71b-42b2-843e-15f0894bfdc3',
+      name: 'Azeem Usmani',
+      email: 'usmani.7565@gmail.com',
+      phone: '+91 9696914692',
       role: 'salesman',
-      salesmanId: 'slm_1',
+      salesmanId: 'slm_1790147316716',
       avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80'
     },
     {
-      id: 'usr_sales_2',
-      name: 'Vikram Singh',
-      email: 'vikram.sales@aryanagency.in',
-      phone: '+91 99001 56789',
+      id: 'bb0f03c0-2389-4c9d-846f-a87653595452',
+      name: 'Nikhil Aryan',
+      email: 'nkg8369@gmail.com',
+      phone: '+91 96284 62862',
       role: 'salesman',
-      salesmanId: 'slm_2',
+      salesmanId: 'slm_1792073770798',
       avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80'
     },
     {
-      id: 'usr_delivery_1',
-      name: 'Suresh Gowda (Van KA-05-AB-1234)',
-      email: 'suresh.van1@aryanagency.in',
-      phone: '+91 97410 78901',
-      role: 'delivery',
-      deliveryId: 'del_1',
-      avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80'
-    },
-    {
-      id: 'usr_accounts_1',
-      name: 'Pooja Agarwal (Accounts Head)',
-      email: 'pooja.accounts@aryanagency.in',
-      phone: '+91 98450 67890',
-      role: 'accounts',
-      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80'
+      id: 'usr_sales_1792142673681',
+      name: 'Ravi Shankar',
+      email: 'rschaurasiya89@gmail.com',
+      phone: '+91 97927 39621',
+      role: 'salesman',
+      salesmanId: 'slm_1792142673681',
+      avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80'
     }
   ],
   products: [
@@ -844,48 +786,48 @@ const INITIAL_DATA: DatabaseSchema = {
   retailers: INITIAL_RETAILERS,
   salesmen: [
     {
-      id: 'slm_1',
-      employeeCode: 'EMP-AA-101',
-      name: 'Rajesh Kumar',
-      phone: '+91 98860 34567',
-      email: 'rajesh.sales@aryanagency.in',
-      assignedBeats: ['Utraula Retail Beat', 'Balrampur Central Beat'],
+      id: 'slm_1790147316716',
+      employeeCode: 'EMP-AA-104',
+      name: 'Azeem Usmani',
+      phone: '+91 9696914692',
+      email: 'usmani.7565@gmail.com',
+      assignedBeats: ['Balrampur Central Beat'],
       dailyTargetAmount: 75000,
       monthlyTargetAmount: 1800000,
-      currentMonthAchieved: 1420000,
+      currentMonthAchieved: 0,
       commissionPercentage: 1.5,
-      todayOrdersCount: 6,
-      todaySalesAmount: 64200,
+      todayOrdersCount: 0,
+      todaySalesAmount: 0,
       status: 'active'
     },
     {
-      id: 'slm_2',
-      employeeCode: 'EMP-AA-102',
-      name: 'Vikram Singh',
-      phone: '+91 99001 56789',
-      email: 'vikram.sales@aryanagency.in',
-      assignedBeats: ['Jarwa Rural Beat', 'Tulsipur Provision Beat'],
-      dailyTargetAmount: 65000,
-      monthlyTargetAmount: 1600000,
-      currentMonthAchieved: 1180000,
+      id: 'slm_1792073770798',
+      employeeCode: 'EMP-SE-7381',
+      name: 'Nikhil Aryan',
+      phone: '+91 96284 62862',
+      email: 'nkg8369@gmail.com',
+      assignedBeats: ['Utraula Retail Beat'],
+      dailyTargetAmount: 75000,
+      monthlyTargetAmount: 1800000,
+      currentMonthAchieved: 0,
       commissionPercentage: 1.5,
-      todayOrdersCount: 4,
-      todaySalesAmount: 48900,
+      todayOrdersCount: 0,
+      todaySalesAmount: 0,
       status: 'active'
     },
     {
-      id: 'slm_3',
-      employeeCode: 'EMP-AA-103',
-      name: 'Karthik Nambiar',
-      phone: '+91 97412 88441',
-      email: 'karthik.sales@aryanagency.in',
-      assignedBeats: ['Pachperwa Market Beat', 'Rehra Bazar Beat'],
-      dailyTargetAmount: 90000,
-      monthlyTargetAmount: 2200000,
-      currentMonthAchieved: 1950000,
-      commissionPercentage: 1.8,
-      todayOrdersCount: 5,
-      todaySalesAmount: 89400,
+      id: 'slm_1792142673681',
+      employeeCode: 'EMP-SE-1783',
+      name: 'Ravi Shankar',
+      phone: '+91 97927 39621',
+      email: 'rschaurasiya89@gmail.com',
+      assignedBeats: ['Rehra Bazar Beat'],
+      dailyTargetAmount: 75000,
+      monthlyTargetAmount: 1800000,
+      currentMonthAchieved: 0,
+      commissionPercentage: 1.5,
+      todayOrdersCount: 0,
+      todaySalesAmount: 0,
       status: 'active'
     }
   ],
@@ -1119,8 +1061,51 @@ class Database {
 
         if (Array.isArray(parsed.users)) {
           const originalLen = parsed.users.length;
-          parsed.users = parsed.users.filter((u: any) => u.id !== 'usr_retailer_1');
+          const dummyUserIds = ['usr_sales_1', 'usr_sales_2', 'usr_delivery_1', 'usr_accounts_1', 'usr_admin', 'usr_sales_1792071708611', 'usr_retailer_1'];
+          const dummyNames = ['rajesh kumar', 'vikram singh', 'karthik nambiar', 'aryan ', 'amit verma', 'amit', 'aryan sharma', 'suresh gowda (van ka-05-ab-1234)', 'pooja agarwal (accounts head)'];
+          parsed.users = parsed.users.filter((u: any) => {
+            if (dummyUserIds.includes(u.id)) return false;
+            const nameLower = (u.name || '').toLowerCase().trim();
+            if (dummyNames.includes(nameLower)) return false;
+            return true;
+          });
           if (parsed.users.length !== originalLen) modified = true;
+        }
+
+        if (Array.isArray(parsed.salesmen)) {
+          const originalLen = parsed.salesmen.length;
+          const dummySalesmenIds = ['slm_1', 'slm_2', 'slm_3', 'slm_1791978114917', 'slm_1792071708611'];
+          const dummySalesmenNames = ['rajesh kumar', 'vikram singh', 'karthik nambiar', 'aryan ', 'amit verma'];
+          parsed.salesmen = parsed.salesmen.filter((s: any) => {
+            if (dummySalesmenIds.includes(s.id)) return false;
+            const nameLower = (s.name || '').toLowerCase().trim();
+            if (dummySalesmenNames.includes(nameLower)) return false;
+            return true;
+          });
+          if (parsed.salesmen.length !== originalLen) modified = true;
+        }
+
+        if (Array.isArray(parsed.staffMembers)) {
+          const originalLen = parsed.staffMembers.length;
+          const dummyStaffIds = ['stf_1', 'stf_2', 'stf_3', 'stf_4', 'stf_5', 'stf_bb0f03c0-2389-4c9d-846f-a87653595452'];
+          const dummyStaffNames = ['rajesh kumar', 'vikram singh', 'suresh gowda', 'pooja agarwal', 'aryan sharma', 'amit'];
+          parsed.staffMembers = parsed.staffMembers.filter((s: any) => {
+            if (dummyStaffIds.includes(s.id)) return false;
+            const nameLower = (s.name || '').toLowerCase().trim();
+            if (dummyStaffNames.includes(nameLower)) return false;
+            return true;
+          });
+          // Ensure genuine staff are included
+          INITIAL_STAFF_MEMBERS.forEach(initStaff => {
+            if (!parsed.staffMembers.some((s: any) => s.id === initStaff.id || (s.email && s.email.toLowerCase() === initStaff.email.toLowerCase()))) {
+              parsed.staffMembers.push(initStaff);
+              modified = true;
+            }
+          });
+          if (parsed.staffMembers.length !== originalLen) modified = true;
+        } else {
+          parsed.staffMembers = [...INITIAL_STAFF_MEMBERS];
+          modified = true;
         }
 
         if (!Array.isArray(parsed.banners) || parsed.banners.length === 0) {
@@ -1128,19 +1113,24 @@ class Database {
           modified = true;
         }
 
-        if (!Array.isArray(parsed.staffMembers) || parsed.staffMembers.length === 0) {
-          parsed.staffMembers = INITIAL_STAFF_MEMBERS;
-          modified = true;
-        }
-
         if (!Array.isArray(parsed.staffAttendance)) {
           parsed.staffAttendance = [];
           modified = true;
+        } else {
+          const validStaffIds = new Set(parsed.staffMembers.map((s: any) => s.id));
+          const prevLen = parsed.staffAttendance.length;
+          parsed.staffAttendance = parsed.staffAttendance.filter((a: any) => validStaffIds.has(a.staffId));
+          if (parsed.staffAttendance.length !== prevLen) modified = true;
         }
 
         if (!Array.isArray(parsed.staffPayrolls)) {
           parsed.staffPayrolls = [];
           modified = true;
+        } else {
+          const validStaffIds = new Set(parsed.staffMembers.map((s: any) => s.id));
+          const prevLen = parsed.staffPayrolls.length;
+          parsed.staffPayrolls = parsed.staffPayrolls.filter((p: any) => validStaffIds.has(p.staffId));
+          if (parsed.staffPayrolls.length !== prevLen) modified = true;
         }
 
         if (!Array.isArray(parsed.staffSalaryPayments)) {
@@ -1295,6 +1285,19 @@ class Database {
       this.data.payments = this.data.payments.filter(p => p.retailerId !== id);
     }
 
+    // Also clean up linked user portal login account for this retailer
+    if (this.data.users) {
+      this.data.users = this.data.users.filter(u => u.retailerId !== id);
+    }
+
+    // Also clean up linked tasks and visits
+    if (this.data.salesmanTasks) {
+      this.data.salesmanTasks = this.data.salesmanTasks.filter(t => t.retailerId !== id);
+    }
+    if (this.data.visits) {
+      this.data.visits = this.data.visits.filter(v => v.retailerId !== id);
+    }
+
     this.saveData(this.data);
     return true;
   }
@@ -1328,7 +1331,69 @@ class Database {
   }
 
   public getSalesmanById(id: string): Salesman | undefined {
-    return this.data.salesmen.find(s => s.id === id);
+    if (!id) return undefined;
+    const cleanId = String(id).trim();
+
+    // 1. Direct match by id
+    let found = this.data.salesmen.find(s => s.id === cleanId);
+    if (found) return found;
+
+    // 2. Match by userId or employeeCode
+    found = this.data.salesmen.find(s => s.userId === cleanId || (s.employeeCode && s.employeeCode.toLowerCase() === cleanId.toLowerCase()));
+    if (found) return found;
+
+    // 3. Match from staffMembers
+    const staff = this.data.staffMembers?.find(st => 
+      st.id === cleanId || 
+      st.salesmanId === cleanId || 
+      st.userId === cleanId || 
+      (st.employeeCode && st.employeeCode.toLowerCase() === cleanId.toLowerCase())
+    );
+    if (staff && (staff.role === 'salesman' || staff.salesmanId)) {
+      const synthesized: Salesman = {
+        id: staff.salesmanId || staff.id,
+        name: staff.name,
+        employeeCode: staff.employeeCode || `EMP-${staff.id.slice(-4)}`,
+        phone: staff.phone || '',
+        email: staff.email || '',
+        assignedBeats: staff.assignedBeats || ['Utraula Retail Beat'],
+        dailyTargetAmount: 75000,
+        monthlyTargetAmount: 1800000,
+        currentMonthAchieved: 0,
+        commissionPercentage: 1.5,
+        todayOrdersCount: 0,
+        todaySalesAmount: 0,
+        status: 'active',
+        userId: staff.userId
+      };
+      this.saveSalesman(synthesized);
+      return synthesized;
+    }
+
+    // 4. Match from users
+    const user = this.data.users?.find(u => (u.id === cleanId || u.salesmanId === cleanId) && u.role === 'salesman');
+    if (user) {
+      const synthesized: Salesman = {
+        id: user.salesmanId || user.id,
+        name: user.name,
+        employeeCode: `EMP-${user.id.slice(-4)}`,
+        phone: user.phone || '',
+        email: user.email || '',
+        assignedBeats: ['Utraula Retail Beat'],
+        dailyTargetAmount: 75000,
+        monthlyTargetAmount: 1800000,
+        currentMonthAchieved: 0,
+        commissionPercentage: 1.5,
+        todayOrdersCount: 0,
+        todaySalesAmount: 0,
+        status: 'active',
+        userId: user.id
+      };
+      this.saveSalesman(synthesized);
+      return synthesized;
+    }
+
+    return undefined;
   }
 
   public saveSalesman(salesman: Salesman): Salesman {
@@ -1693,12 +1758,12 @@ class Database {
       if (fs.existsSync(vPath)) {
         const parsed = JSON.parse(fs.readFileSync(vPath, 'utf-8'));
         this.data.appVersionConfig = {
-          version: parsed.version || '1.3.2',
-          versionCode: Number(parsed.versionCode) || 132,
+          version: parsed.version || '1.3.4',
+          versionCode: Number(parsed.versionCode) || 134,
           downloadUrl: parsed.downloadUrl || 'https://aryanagency.in/download/aryan-agency-app.apk',
           apkUrl: parsed.apkUrl || parsed.downloadUrl || 'https://aryanagency.in/download/aryan-agency-app.apk',
           updatedAt: parsed.updatedAt || new Date().toISOString(),
-          releaseNotes: parsed.releaseNotes || 'Aryan Agency v1.3.2: बारकोड स्कैनर और ऑटो-फिल',
+          releaseNotes: parsed.releaseNotes || 'Aryan Agency v1.3.4: In-app update compatibility fix',
           fileSize: parsed.fileSize || '7.7 MB',
           minAndroidVersion: parsed.minAndroidVersion || 'Android 8.0+'
         };
@@ -1710,12 +1775,12 @@ class Database {
 
     if (!this.data.appVersionConfig) {
       this.data.appVersionConfig = {
-        version: '1.3.2',
-        versionCode: 132,
+        version: '1.3.4',
+        versionCode: 134,
         downloadUrl: 'https://aryanagency.in/download/aryan-agency-app.apk',
         apkUrl: 'https://aryanagency.in/download/aryan-agency-app.apk',
         updatedAt: new Date().toISOString(),
-        releaseNotes: 'Aryan Agency Retailer & Distributor App v1.3.2',
+        releaseNotes: 'Aryan Agency Retailer & Distributor App v1.3.4',
         fileSize: '7.7 MB',
         minAndroidVersion: 'Android 8.0+'
       };
@@ -1985,6 +2050,25 @@ class Database {
     return task;
   }
 
+  public updateSalesmanTask(id: string, updates: Partial<SalesmanTask>): SalesmanTask | null {
+    if (!this.data.salesmanTasks) return null;
+    const idx = this.data.salesmanTasks.findIndex(t => t.id === id);
+    if (idx < 0) return null;
+    const current = this.data.salesmanTasks[idx];
+    const updated: SalesmanTask = {
+      ...current,
+      ...updates,
+      id,
+      updatedAt: new Date().toISOString()
+    };
+    if (updates.status === 'completed' && !current.completedAt) {
+      updated.completedAt = new Date().toISOString();
+    }
+    this.data.salesmanTasks[idx] = updated;
+    this.saveData(this.data);
+    return updated;
+  }
+
   public deleteSalesmanTask(id: string): boolean {
     if (!this.data.salesmanTasks) return false;
     const initLen = this.data.salesmanTasks.length;
@@ -2111,11 +2195,19 @@ class Database {
     return staff;
   }
 
-  public deleteStaffMember(id: string): boolean {
+  public deleteStaffMember(id: string, options?: { cascadeTestRecords?: boolean }): boolean {
     if (!this.data.staffMembers) return false;
     const initialLen = this.data.staffMembers.length;
     this.data.staffMembers = this.data.staffMembers.filter(s => s.id !== id);
     if (this.data.staffMembers.length !== initialLen) {
+      if (options?.cascadeTestRecords) {
+        if (this.data.staffAttendance) {
+          this.data.staffAttendance = this.data.staffAttendance.filter(a => a.staffId !== id);
+        }
+        if (this.data.staffPayrolls) {
+          this.data.staffPayrolls = this.data.staffPayrolls.filter(p => p.staffId !== id);
+        }
+      }
       this.saveData(this.data);
       return true;
     }
@@ -2158,9 +2250,18 @@ class Database {
     const staff = this.getStaffMemberById(record.staffId);
     const nowIso = new Date().toISOString();
     const existingIdx = this.data.staffAttendance.findIndex(a => a.staffId === record.staffId && a.date === record.date);
+    const isSelfCheckIn = record.checkInMethod === 'self_check_in';
 
     if (existingIdx >= 0) {
       const existing = this.data.staffAttendance[existingIdx];
+      // Business Rule: Salesmen cannot submit duplicate attendance or overwrite an existing check-in for the same date
+      if (isSelfCheckIn) {
+        const currentAppr = existing.approvalStatus || (existing.checkInMethod === 'admin_marked' ? 'approved' : 'pending');
+        const formattedAppr = currentAppr === 'pending' ? 'Pending Approval' : currentAppr === 'approved' ? 'Approved' : currentAppr === 'rejected' ? 'Rejected' : 'Correction Required';
+        throw new Error(`Attendance already recorded for ${record.date}. Current status: ${formattedAppr}. Duplicate check-in submissions are not permitted.`);
+      }
+
+      // Admin or manager updating an existing attendance record
       const history = existing.correctionHistory || [];
       if (existing.status !== record.status) {
         history.push({
@@ -2176,6 +2277,7 @@ class Database {
         ...existing,
         ...record,
         status: record.status,
+        approvalStatus: record.approvalStatus !== undefined ? record.approvalStatus : existing.approvalStatus,
         checkInTime: record.checkInTime !== undefined ? record.checkInTime : existing.checkInTime,
         checkOutTime: record.checkOutTime !== undefined ? record.checkOutTime : existing.checkOutTime,
         remarks: record.remarks !== undefined ? record.remarks : existing.remarks,
@@ -2186,6 +2288,7 @@ class Database {
       this.saveData(this.data);
       return { success: true, attendance: updated, isUpdate: true };
     } else {
+      const approvalStatus = record.approvalStatus || (isSelfCheckIn ? 'pending' : 'approved');
       const newRecord: StaffAttendance = {
         id: `att_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
         staffId: record.staffId,
@@ -2194,11 +2297,33 @@ class Database {
         role: staff?.role || record.role || 'salesman',
         date: record.date,
         status: record.status,
+        approvalStatus,
         checkInTime: record.checkInTime,
         checkOutTime: record.checkOutTime,
         checkInMethod: record.checkInMethod || 'admin_marked',
         workingHours: record.workingHours || (record.status === 'present' ? 8.5 : record.status === 'half_day' ? 4.5 : 0),
         remarks: record.remarks || '',
+        approvedBy: isSelfCheckIn ? undefined : (markedBy || 'Admin'),
+        approvedAt: isSelfCheckIn ? undefined : nowIso,
+        approvalAuditTrail: [
+          isSelfCheckIn ? {
+            action: 'submitted',
+            actorId: record.staffId,
+            actorName: staff?.name || record.staffName || 'Staff Member',
+            actorRole: staff?.role || 'salesman',
+            timestamp: nowIso,
+            newApprovalStatus: 'pending',
+            reason: record.remarks || 'Self check-in via mobile dashboard'
+          } : {
+            action: 'approved',
+            actorId: 'admin',
+            actorName: markedBy || 'Admin',
+            actorRole: 'admin',
+            timestamp: nowIso,
+            newApprovalStatus: 'approved',
+            reason: 'Direct attendance marked by Administrator'
+          }
+        ],
         correctionHistory: [],
         createdAt: nowIso,
         updatedAt: nowIso
@@ -2207,6 +2332,103 @@ class Database {
       this.saveData(this.data);
       return { success: true, attendance: newRecord, isUpdate: false };
     }
+  }
+
+  public approveStaffAttendance(id: string, approverName: string, approverId?: string): { success: boolean; attendance?: StaffAttendance; error?: string } {
+    if (!this.data.staffAttendance) return { success: false, error: 'Attendance table empty' };
+    const idx = this.data.staffAttendance.findIndex(a => a.id === id);
+    if (idx === -1) return { success: false, error: 'Attendance record not found' };
+
+    const current = this.data.staffAttendance[idx];
+    const nowIso = new Date().toISOString();
+    const audit = current.approvalAuditTrail || [];
+    audit.push({
+      action: 'approved',
+      actorId: approverId || 'admin',
+      actorName: approverName || 'Admin',
+      actorRole: 'admin',
+      timestamp: nowIso,
+      previousApprovalStatus: current.approvalStatus || 'pending',
+      newApprovalStatus: 'approved',
+      reason: 'Approved by Administrator'
+    });
+
+    current.approvalStatus = 'approved';
+    current.approvedBy = approverName || 'Admin';
+    current.approvedById = approverId;
+    current.approvedAt = nowIso;
+    current.rejectionReason = undefined;
+    current.correctionReason = undefined;
+    current.approvalAuditTrail = audit;
+    current.updatedAt = nowIso;
+    this.saveData(this.data);
+    return { success: true, attendance: current };
+  }
+
+  public rejectStaffAttendance(id: string, reason: string, approverName: string, approverId?: string): { success: boolean; attendance?: StaffAttendance; error?: string } {
+    if (!this.data.staffAttendance) return { success: false, error: 'Attendance table empty' };
+    const idx = this.data.staffAttendance.findIndex(a => a.id === id);
+    if (idx === -1) return { success: false, error: 'Attendance record not found' };
+    if (!reason || !reason.trim()) {
+      return { success: false, error: 'Mandatory rejection reason must be provided.' };
+    }
+
+    const current = this.data.staffAttendance[idx];
+    const nowIso = new Date().toISOString();
+    const audit = current.approvalAuditTrail || [];
+    audit.push({
+      action: 'rejected',
+      actorId: approverId || 'admin',
+      actorName: approverName || 'Admin',
+      actorRole: 'admin',
+      timestamp: nowIso,
+      previousApprovalStatus: current.approvalStatus || 'pending',
+      newApprovalStatus: 'rejected',
+      reason: reason.trim()
+    });
+
+    current.approvalStatus = 'rejected';
+    current.rejectionReason = reason.trim();
+    current.approvedBy = approverName || 'Admin';
+    current.approvedById = approverId;
+    current.approvedAt = nowIso;
+    current.approvalAuditTrail = audit;
+    current.updatedAt = nowIso;
+    this.saveData(this.data);
+    return { success: true, attendance: current };
+  }
+
+  public requestCorrectionStaffAttendance(id: string, reason: string, approverName: string, approverId?: string): { success: boolean; attendance?: StaffAttendance; error?: string } {
+    if (!this.data.staffAttendance) return { success: false, error: 'Attendance table empty' };
+    const idx = this.data.staffAttendance.findIndex(a => a.id === id);
+    if (idx === -1) return { success: false, error: 'Attendance record not found' };
+    if (!reason || !reason.trim()) {
+      return { success: false, error: 'Correction reason must be provided.' };
+    }
+
+    const current = this.data.staffAttendance[idx];
+    const nowIso = new Date().toISOString();
+    const audit = current.approvalAuditTrail || [];
+    audit.push({
+      action: 'correction_requested',
+      actorId: approverId || 'admin',
+      actorName: approverName || 'Admin',
+      actorRole: 'admin',
+      timestamp: nowIso,
+      previousApprovalStatus: current.approvalStatus || 'pending',
+      newApprovalStatus: 'correction_required',
+      reason: reason.trim()
+    });
+
+    current.approvalStatus = 'correction_required';
+    current.correctionReason = reason.trim();
+    current.approvedBy = approverName || 'Admin';
+    current.approvedById = approverId;
+    current.approvedAt = nowIso;
+    current.approvalAuditTrail = audit;
+    current.updatedAt = nowIso;
+    this.saveData(this.data);
+    return { success: true, attendance: current };
   }
 
   public correctStaffAttendance(id: string, newStatus: AttendanceStatus, reason: string, correctedBy: string): { success: boolean; attendance?: StaffAttendance; error?: string } {
@@ -2269,9 +2491,11 @@ class Database {
     const totalDaysInMonth = new Date(year, month, 0).getDate();
 
     const attendance = (this.data.staffAttendance || []).filter(a => a.staffId === staffId && a.date.startsWith(period));
-    const presentDays = attendance.filter(a => a.status === 'present').length;
-    const paidLeaves = attendance.filter(a => a.status === 'paid_leave').length;
-    const halfDays = attendance.filter(a => a.status === 'half_day').length;
+    // Business Rule: ONLY approved attendance counts toward payable attendance days and salary calculations
+    const approvedAttendance = attendance.filter(a => a.approvalStatus === 'approved' || (!a.approvalStatus && a.checkInMethod === 'admin_marked'));
+    const presentDays = approvedAttendance.filter(a => a.status === 'present').length;
+    const paidLeaves = approvedAttendance.filter(a => a.status === 'paid_leave').length;
+    const halfDays = approvedAttendance.filter(a => a.status === 'half_day').length;
     const unpaidLeaves = attendance.filter(a => a.status === 'unpaid_leave').length;
     const absentDays = attendance.filter(a => a.status === 'absent').length;
     let weeklyOffs = attendance.filter(a => a.status === 'weekly_off').length;
@@ -2471,6 +2695,48 @@ class Database {
     }
 
     return { isValid: false, error: 'Incorrect password. Please verify and try again.' };
+  }
+
+  // ==========================================
+  // Centralized Business Profile Management
+  // ==========================================
+  public getBusinessProfile(): any {
+    if (!this.data.businessProfile) {
+      this.data.businessProfile = {
+        businessName: 'Aryan Agency',
+        businessType: 'FMCG Distribution — Trusted FMCG Supplier',
+        tagline: 'FMCG Distribution — Trusted FMCG Supplier',
+        shortTagline: 'Authorised Super Stockist & Wholesale FMCG Depot',
+        address: 'Hatan Road, Gurudyaldeeh',
+        road: 'Hatan Road',
+        area: 'Gurudyaldeeh',
+        city: 'Utraula',
+        district: 'Balrampur',
+        state: 'Uttar Pradesh',
+        pincode: '271604',
+        fullAddress: 'Hatan Road, Gurudyaldeeh, Utraula, Balrampur, Uttar Pradesh – 271604',
+        primaryMobile: '9140529661',
+        supportPhoneFormatted: '+91 9140529661',
+        email: 'aryanagency@zohomail.in',
+        gstin: '09BOGPG2620P1ZQ',
+        panNumber: 'BOGPG2620P',
+        fssaiNumber: '11223344556677',
+        website: 'https://aryanagency.in',
+        officialDomain: 'aryanagency.in'
+      };
+      this.saveData(this.data);
+    }
+    return this.data.businessProfile;
+  }
+
+  public saveBusinessProfile(profile: any): any {
+    this.data.businessProfile = {
+      ...this.getBusinessProfile(),
+      ...profile,
+      updatedAt: new Date().toISOString()
+    };
+    this.saveData(this.data);
+    return this.data.businessProfile;
   }
 }
 

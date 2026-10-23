@@ -1,6 +1,7 @@
 {
-  "version": "1.3.3",
-  "downloadUrl": "https://github.com/nikhilcsc18-alt/aryan-agency-app/releases/latest/download/aryan-agency-app.apk",
-  "updatedAt": "2026-10-16T15:56:12Z",
-  "releaseNotes": "Aryan Agency App v1.3.3 release build."
+  "version": "1.3.4",
+  "versionCode": 134,
+  "downloadUrl": "https://aryanagency.in/download/aryan-agency-app.apk",
+  "updatedAt": "2026-10-22T04:36:00Z",
+  "releaseNotes": "Aryan Agency App v1.3.4 - In-app APK update compatibility fix, persistent signing configuration, and package ID alignment."
 }

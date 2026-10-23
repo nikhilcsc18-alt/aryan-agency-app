@@ -30,15 +30,21 @@ import {
   KeyRound,
   Mail,
   Calendar,
-  Clock
+  Clock,
+  CheckCircle2,
+  ChevronRight,
+  IndianRupee,
+  ListTodo
 } from 'lucide-react';
-import { Salesman, Retailer, User, UserRole, SalesmanTask, SalesTarget, TaskType, TaskPriority } from '../types';
+import { Salesman, Retailer, User, UserRole, SalesmanTask, SalesTarget, TaskType, TaskPriority, TaskStatus, Order, PaymentRecord } from '../types';
 import { formatINR, api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 
 interface SalesmenViewProps {
   salesmen: Salesman[];
   retailers?: Retailer[];
+  orders?: Order[];
+  payments?: PaymentRecord[];
   onSaveSalesman: (salesman: Partial<Salesman>) => Promise<void>;
   onDeleteSalesman?: (id: string) => Promise<void>;
   onDeleteBeat?: (beatName: string) => Promise<void>;
@@ -74,6 +80,8 @@ const isPurgedStore = (r: Retailer) => {
 export const SalesmenView: React.FC<SalesmenViewProps> = ({
   salesmen,
   retailers = [],
+  orders = [],
+  payments = [],
   onSaveSalesman,
   onDeleteSalesman,
   onDeleteBeat,
@@ -96,17 +104,28 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
   const [adminTargets, setAdminTargets] = useState<SalesTarget[]>([]);
   const [loadingTasksTargets, setLoadingTasksTargets] = useState(false);
   const [tasksSalesmanFilter, setTasksSalesmanFilter] = useState<string>('all');
+  const [tasksStatusFilter, setTasksStatusFilter] = useState<string>('all');
+  const [tasksTypeFilter, setTasksTypeFilter] = useState<string>('all');
   
   // Assign Task Modal State
   const [isAssignTaskModalOpen, setIsAssignTaskModalOpen] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [assignTaskSalesmanId, setAssignTaskSalesmanId] = useState('');
-  const [assignTaskTitle, setAssignTaskTitle] = useState('');
-  const [assignTaskType, setAssignTaskType] = useState<TaskType>('visit');
   const [assignTaskRetailerId, setAssignTaskRetailerId] = useState('');
-  const [assignTaskDueDate, setAssignTaskDueDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [assignTaskPriority, setAssignTaskPriority] = useState<TaskPriority>('medium');
+  const [assignTaskType, setAssignTaskType] = useState<TaskType>('visit');
+  const [assignTaskTitle, setAssignTaskTitle] = useState('');
   const [assignTaskDescription, setAssignTaskDescription] = useState('');
+  const [assignTaskTargetAmount, setAssignTaskTargetAmount] = useState<number | ''>('');
+  const [assignTaskTargetQuantity, setAssignTaskTargetQuantity] = useState<number | ''>('');
+  const [assignTaskStartDate, setAssignTaskStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [assignTaskDueDate, setAssignTaskDueDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [assignTaskPriority, setAssignTaskPriority] = useState<TaskPriority>('normal');
+  const [assignTaskFollowUpDate, setAssignTaskFollowUpDate] = useState('');
+  const [assignTaskNotes, setAssignTaskNotes] = useState('');
+  const [assignTaskModalError, setAssignTaskModalError] = useState<string | null>(null);
   const [isSavingAssignTask, setIsSavingAssignTask] = useState(false);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
 
   // Update Quota / Target Modal State
   const [isUpdateTargetModalOpen, setIsUpdateTargetModalOpen] = useState(false);
@@ -231,6 +250,160 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
       loadAdminTasksAndTargets();
     }
   }, [activeSection, isAdmin]);
+
+  const resetAssignTaskForm = () => {
+    setEditingTaskId(null);
+    setAssignTaskSalesmanId(salesmen[0]?.id || '');
+    setAssignTaskRetailerId('');
+    setAssignTaskType('visit');
+    setAssignTaskTitle('');
+    setAssignTaskDescription('');
+    setAssignTaskTargetAmount('');
+    setAssignTaskTargetQuantity('');
+    setAssignTaskStartDate(new Date().toISOString().split('T')[0]);
+    setAssignTaskDueDate(new Date().toISOString().split('T')[0]);
+    setAssignTaskPriority('normal');
+    setAssignTaskFollowUpDate('');
+    setAssignTaskNotes('');
+    setAssignTaskModalError(null);
+  };
+
+  const handleOpenAssignTask = (salesmanId?: string, retailerId?: string) => {
+    resetAssignTaskForm();
+    if (salesmanId) setAssignTaskSalesmanId(salesmanId);
+    if (retailerId) setAssignTaskRetailerId(retailerId);
+    setIsAssignTaskModalOpen(true);
+  };
+
+  const handleEditTask = (task: SalesmanTask) => {
+    setEditingTaskId(task.id);
+    setAssignTaskSalesmanId(task.salesmanId);
+    setAssignTaskRetailerId(task.retailerId || '');
+    setAssignTaskType(task.taskType || 'visit');
+    setAssignTaskTitle(task.title);
+    setAssignTaskDescription(task.description || '');
+    setAssignTaskTargetAmount(task.targetAmount !== undefined ? task.targetAmount : '');
+    setAssignTaskTargetQuantity(task.targetQuantity !== undefined ? task.targetQuantity : '');
+    setAssignTaskStartDate(task.startDate || new Date().toISOString().split('T')[0]);
+    setAssignTaskDueDate(task.dueDate || new Date().toISOString().split('T')[0]);
+    setAssignTaskPriority(task.priority || 'normal');
+    setAssignTaskFollowUpDate(task.followUpDate || '');
+    setAssignTaskNotes(task.completionNotes || '');
+    setAssignTaskModalError(null);
+    setIsAssignTaskModalOpen(true);
+  };
+
+  const handleSaveAssignTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignTaskTitle.trim()) {
+      setAssignTaskModalError('Please enter a task title.');
+      return;
+    }
+    if (!assignTaskSalesmanId) {
+      setAssignTaskModalError('Please select a sales executive.');
+      return;
+    }
+
+    setIsSavingAssignTask(true);
+    setAssignTaskModalError(null);
+
+    try {
+      const selectedSalesman = salesmen.find(s => s.id === assignTaskSalesmanId);
+      const selectedRetailer = validRetailers.find(r => r.id === assignTaskRetailerId);
+      const payload: Partial<SalesmanTask> = {
+        salesmanId: assignTaskSalesmanId,
+        salesmanName: selectedSalesman?.name || undefined,
+        retailerId: assignTaskRetailerId || undefined,
+        retailerName: selectedRetailer?.storeName || undefined,
+        retailerPhone: selectedRetailer?.phone || undefined,
+        retailerAddress: selectedRetailer?.address || undefined,
+        beatName: selectedRetailer?.beatName || undefined,
+        taskType: assignTaskType,
+        title: assignTaskTitle.trim(),
+        description: assignTaskDescription.trim() || undefined,
+        priority: assignTaskPriority,
+        startDate: assignTaskStartDate,
+        dueDate: assignTaskDueDate,
+        targetAmount: assignTaskTargetAmount !== '' ? Number(assignTaskTargetAmount) : undefined,
+        targetQuantity: assignTaskTargetQuantity !== '' ? Number(assignTaskTargetQuantity) : undefined,
+        followUpDate: assignTaskFollowUpDate || undefined,
+        status: 'pending'
+      };
+
+      if (editingTaskId) {
+        await api.updateSalesmanTask(editingTaskId, payload);
+        setStatusMessage({ type: 'success', text: 'Task successfully updated and reassigned.' });
+      } else {
+        await api.saveSalesmanTask(payload);
+        setStatusMessage({ type: 'success', text: 'Task successfully assigned to Sales Executive!' });
+      }
+
+      setIsAssignTaskModalOpen(false);
+      resetAssignTaskForm();
+      await loadAdminTasksAndTargets();
+    } catch (err: any) {
+      console.error('Save task error:', err);
+      setAssignTaskModalError(err?.message || 'Failed to save and assign task.');
+    } finally {
+      setIsSavingAssignTask(false);
+    }
+  };
+
+  const handleSaveTargetUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!targetUpdateSalesmanId) {
+      setStatusMessage({ type: 'error', text: 'Please select a sales executive.' });
+      return;
+    }
+    if (!targetUpdateAmount || Number(targetUpdateAmount) <= 0) {
+      setStatusMessage({ type: 'error', text: 'Please enter a valid target amount.' });
+      return;
+    }
+
+    setIsSavingTargetUpdate(true);
+    try {
+      await api.saveSalesTarget({
+        salesmanId: targetUpdateSalesmanId,
+        period: targetUpdatePeriod,
+        targetAmount: Number(targetUpdateAmount),
+        effectiveStartDate: targetUpdateEffectiveDate,
+        notes: targetUpdateNotes.trim() || undefined
+      });
+      setStatusMessage({ type: 'success', text: `Sales target of ${formatINR(Number(targetUpdateAmount))} assigned successfully!` });
+      setIsUpdateTargetModalOpen(false);
+      await loadAdminTasksAndTargets();
+    } catch (err: any) {
+      console.error('Save target error:', err);
+      setStatusMessage({ type: 'error', text: err?.message || 'Failed to save sales target.' });
+    } finally {
+      setIsSavingTargetUpdate(false);
+    }
+  };
+
+  const handleUpdateTaskStatus = async (taskId: string, newStatus: TaskStatus) => {
+    try {
+      await api.updateSalesmanTaskStatus(taskId, newStatus);
+      setStatusMessage({ type: 'success', text: `Task marked as "${newStatus}".` });
+      await loadAdminTasksAndTargets();
+    } catch (err: any) {
+      setStatusMessage({ type: 'error', text: err?.message || 'Failed to update task status.' });
+    }
+  };
+
+  const handleConfirmDeleteTask = async () => {
+    if (!deletingTaskId) return;
+    try {
+      setIsDeletingTask(true);
+      await api.deleteSalesmanTask(deletingTaskId);
+      setStatusMessage({ type: 'success', text: 'Task deleted successfully.' });
+      setDeletingTaskId(null);
+      await loadAdminTasksAndTargets();
+    } catch (err: any) {
+      setStatusMessage({ type: 'error', text: err?.message || 'Failed to delete task.' });
+    } finally {
+      setIsDeletingTask(false);
+    }
+  };
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
     try {
@@ -702,16 +875,11 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
           {isAdmin && activeSection === 'tasks_targets' && (
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => {
-                  setAssignTaskSalesmanId(salesmen[0]?.id || '');
-                  setAssignTaskTitle('');
-                  setAssignTaskDescription('');
-                  setIsAssignTaskModalOpen(true);
-                }}
+                onClick={() => handleOpenAssignTask()}
                 className="px-3.5 py-2 text-xs font-semibold rounded-lg bg-purple-600 hover:bg-purple-700 text-white shadow-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer whitespace-nowrap"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Assign Task</span>
+                <span>+ Assign Task</span>
               </button>
               <button
                 onClick={() => {
@@ -1151,6 +1319,498 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
           )}
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* SECTION: FIELD TASKS & SALES TARGETS MANAGEMENT                           */}
+      {/* ========================================================================= */}
+      {activeSection === 'tasks_targets' && isAdmin && (() => {
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        // Filter tasks
+        const filteredTasks = adminTasks.filter(t => {
+          if (tasksSalesmanFilter !== 'all' && t.salesmanId !== tasksSalesmanFilter) return false;
+          if (tasksTypeFilter !== 'all' && t.taskType !== tasksTypeFilter) return false;
+          if (tasksStatusFilter === 'pending') return t.status === 'pending' || t.status === 'in_progress';
+          if (tasksStatusFilter === 'completed') return t.status === 'completed';
+          if (tasksStatusFilter === 'overdue') return (t.status === 'pending' || t.status === 'in_progress') && t.dueDate < todayStr;
+          if (tasksStatusFilter === 'cancelled') return t.status === 'cancelled';
+          if (tasksStatusFilter === 'closed') return t.status === 'closed';
+          return true;
+        });
+
+        const totalTasks = adminTasks.length;
+        const pendingTasks = adminTasks.filter(t => t.status === 'pending' || t.status === 'in_progress').length;
+        const completedTasks = adminTasks.filter(t => t.status === 'completed').length;
+        const overdueTasks = adminTasks.filter(t => (t.status === 'pending' || t.status === 'in_progress') && t.dueDate < todayStr).length;
+
+        // Calculate total sales achievements from genuine orders
+        const currentMonth = todayStr.slice(0, 7);
+        const monthOrders = (orders || []).filter(o => o.orderDate?.startsWith(currentMonth) && o.status !== 'cancelled');
+        const totalMonthSales = monthOrders.reduce((sum, o) => sum + (o.grandTotal || o.totalAmount || 0), 0);
+        const totalTargetsAmount = adminTargets.filter(tgt => tgt.period === 'monthly').reduce((sum, t) => sum + (t.targetAmount || 0), 0);
+        const achievementPct = totalTargetsAmount > 0 ? Math.round((totalMonthSales / totalTargetsAmount) * 100) : 0;
+
+        return (
+          <div className="space-y-6">
+            {/* KPI Metric Summary Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500">Total Tasks</span>
+                  <ListTodo className="w-4 h-4 text-purple-600" />
+                </div>
+                <p className="text-2xl font-black text-slate-900 mt-1">{totalTasks}</p>
+                <span className="text-[10px] text-slate-400">Assigned across field force</span>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-amber-600">Pending</span>
+                  <Clock className="w-4 h-4 text-amber-500" />
+                </div>
+                <p className="text-2xl font-black text-amber-600 mt-1">{pendingTasks}</p>
+                <span className="text-[10px] text-slate-400">In-progress / queued</span>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-emerald-600">Completed</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                </div>
+                <p className="text-2xl font-black text-emerald-600 mt-1">{completedTasks}</p>
+                <span className="text-[10px] text-slate-400">Successfully closed</span>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-rose-600">Overdue</span>
+                  <AlertCircle className="w-4 h-4 text-rose-500" />
+                </div>
+                <p className="text-2xl font-black text-rose-600 mt-1">{overdueTasks}</p>
+                <span className="text-[10px] text-rose-500 font-medium">Due date passed</span>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs col-span-2 sm:col-span-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-blue-600">Achievement</span>
+                  <Target className="w-4 h-4 text-blue-500" />
+                </div>
+                <p className="text-2xl font-black text-blue-600 mt-1">{achievementPct}%</p>
+                <span className="text-[10px] text-slate-400">{formatINR(totalMonthSales)} of {formatINR(totalTargetsAmount || 1)}</span>
+              </div>
+            </div>
+
+            {/* Filter and Control Bar */}
+            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-xs space-y-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-bold text-slate-700 flex items-center gap-1">
+                    <Filter className="w-3.5 h-3.5 text-slate-500" /> Filter:
+                  </span>
+                  
+                  {/* Salesman Filter */}
+                  <select
+                    value={tasksSalesmanFilter}
+                    onChange={(e) => setTasksSalesmanFilter(e.target.value)}
+                    className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  >
+                    <option value="all">All Sales Executives ({salesmen.length})</option>
+                    {salesmen.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.employeeCode || s.id})</option>
+                    ))}
+                  </select>
+
+                  {/* Task Type Filter */}
+                  <select
+                    value={tasksTypeFilter}
+                    onChange={(e) => setTasksTypeFilter(e.target.value)}
+                    className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  >
+                    <option value="all">All Task Types</option>
+                    <option value="visit">Retailer Visit</option>
+                    <option value="target">Sales Target</option>
+                    <option value="order_booking">Order Booking</option>
+                    <option value="collection">Payment Recovery</option>
+                    <option value="follow_up">Follow-up</option>
+                    <option value="other">Other</option>
+                  </select>
+
+                  {/* Status Pills */}
+                  <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-lg">
+                    {[
+                      { id: 'all', label: 'All' },
+                      { id: 'pending', label: 'Pending' },
+                      { id: 'completed', label: 'Completed' },
+                      { id: 'overdue', label: 'Overdue' }
+                    ].map(st => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => setTasksStatusFilter(st.id)}
+                        className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer ${
+                          tasksStatusFilter === st.id 
+                            ? 'bg-white text-purple-700 shadow-2xs' 
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAssignTask()}
+                    className="px-3.5 py-2 text-xs font-bold rounded-lg bg-purple-600 hover:bg-purple-700 text-white shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer whitespace-nowrap"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Assign Retailer Task</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTargetUpdateSalesmanId(salesmen[0]?.id || '');
+                      setTargetUpdatePeriod('monthly');
+                      setTargetUpdateAmount(1800000);
+                      setIsUpdateTargetModalOpen(true);
+                    }}
+                    className="px-3.5 py-2 text-xs font-bold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer whitespace-nowrap"
+                  >
+                    <Target className="w-3.5 h-3.5" />
+                    <span>Set Sales Target</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Task Assignments Table & Cards */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <ListTodo className="w-4 h-4 text-purple-600" />
+                    <span>Assigned Retailer Tasks & Objectives ({filteredTasks.length})</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Tasks and targets saved to database and synchronized live to Salesman mobile dashboard
+                  </p>
+                </div>
+                {loadingTasksTargets && (
+                  <div className="flex items-center space-x-1 text-xs text-purple-600">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Syncing...</span>
+                  </div>
+                )}
+              </div>
+
+              {filteredTasks.length === 0 ? (
+                <div className="p-12 text-center text-slate-400 space-y-2">
+                  <ListTodo className="w-10 h-10 mx-auto text-slate-300" />
+                  <p className="text-sm font-semibold text-slate-600">No tasks match your current filter</p>
+                  <p className="text-xs text-slate-400">Click &ldquo;+ Assign Retailer Task&rdquo; to assign a new field task to a sales representative.</p>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAssignTask()}
+                    className="mt-3 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold inline-flex items-center space-x-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Assign First Task</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {filteredTasks.map((task) => {
+                    const isTaskOverdue = (task.status === 'pending' || task.status === 'in_progress') && task.dueDate < todayStr;
+                    const assignedSalesman = salesmen.find(s => s.id === task.salesmanId);
+                    
+                    // Live tracking from genuine orders & payments
+                    const taskOrders = (orders || []).filter(o => 
+                      task.retailerId 
+                        ? o.retailerId === task.retailerId && o.status !== 'cancelled'
+                        : o.salesmanId === task.salesmanId && o.status !== 'cancelled'
+                    );
+                    const bookedSales = taskOrders.reduce((sum, o) => sum + (o.grandTotal || o.totalAmount || 0), 0);
+                    const deliveredSales = taskOrders.filter(o => o.status === 'delivered').reduce((sum, o) => sum + (o.grandTotal || o.totalAmount || 0), 0);
+                    const retailerPayments = (payments || []).filter(p => task.retailerId && p.retailerId === task.retailerId);
+                    const collectedPayments = retailerPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+                    // Target progress
+                    const targetAmt = task.targetAmount || 0;
+                    const targetProgressPct = targetAmt > 0 ? Math.min(100, Math.round((bookedSales / targetAmt) * 100)) : 0;
+
+                    return (
+                      <div key={task.id} className="p-4 sm:p-5 hover:bg-slate-50/60 transition-colors">
+                        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+                          {/* Task Main Info */}
+                          <div className="space-y-2 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {/* Task Type Badge */}
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                task.taskType === 'visit' ? 'bg-blue-100 text-blue-800' :
+                                task.taskType === 'target' ? 'bg-purple-100 text-purple-800' :
+                                task.taskType === 'order_booking' ? 'bg-emerald-100 text-emerald-800' :
+                                task.taskType === 'collection' ? 'bg-amber-100 text-amber-800' :
+                                task.taskType === 'follow_up' ? 'bg-cyan-100 text-cyan-800' :
+                                'bg-slate-100 text-slate-800'
+                              }`}>
+                                {task.taskType.replace('_', ' ')}
+                              </span>
+
+                              {/* Priority Badge */}
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                task.priority === 'urgent' ? 'bg-rose-100 text-rose-800 border border-rose-200' :
+                                task.priority === 'high' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                                'bg-slate-100 text-slate-700'
+                              }`}>
+                                {task.priority.toUpperCase()} PRIORITY
+                              </span>
+
+                              {/* Status Badge */}
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 ${
+                                task.status === 'completed' ? 'bg-emerald-100 text-emerald-800' :
+                                isTaskOverdue ? 'bg-rose-100 text-rose-800 animate-pulse' :
+                                task.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                                task.status === 'cancelled' ? 'bg-slate-100 text-slate-500 line-through' :
+                                'bg-amber-50 text-amber-800 border border-amber-200'
+                              }`}>
+                                {isTaskOverdue ? '⚠️ OVERDUE' : task.status.replace('_', ' ').toUpperCase()}
+                              </span>
+                            </div>
+
+                            <h4 className="text-sm font-bold text-slate-900 leading-snug">
+                              {task.title}
+                            </h4>
+
+                            {task.description && (
+                              <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-200/80 leading-relaxed">
+                                {task.description}
+                              </p>
+                            )}
+
+                            {/* Details Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 pt-1 text-xs text-slate-600">
+                              <div className="flex items-center space-x-1.5">
+                                <Users className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span>Salesman: <b>{task.salesmanName || assignedSalesman?.name || 'Unassigned'}</b></span>
+                              </div>
+
+                              {task.retailerName && (
+                                <div className="flex items-center space-x-1.5">
+                                  <Store className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                  <span>Retailer: <b>{task.retailerName}</b> {task.beatName ? `(${task.beatName})` : ''}</span>
+                                </div>
+                              )}
+
+                              <div className="flex items-center space-x-1.5">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                <span>Due: <b className={isTaskOverdue ? 'text-rose-600' : ''}>{task.dueDate}</b></span>
+                              </div>
+
+                              {task.targetAmount !== undefined && task.targetAmount > 0 && (
+                                <div className="flex items-center space-x-1.5">
+                                  <IndianRupee className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  <span>Sales Target: <b>{formatINR(task.targetAmount)}</b></span>
+                                </div>
+                              )}
+
+                              {task.targetQuantity !== undefined && task.targetQuantity > 0 && (
+                                <div className="flex items-center space-x-1.5">
+                                  <Layers className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                                  <span>Qty Target: <b>{task.targetQuantity} cases/units</b></span>
+                                </div>
+                              )}
+
+                              {task.followUpDate && (
+                                <div className="flex items-center space-x-1.5">
+                                  <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                                  <span>Follow-up: <b>{task.followUpDate}</b></span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Actual Performance Tracking vs Target from Genuine Orders */}
+                            {(task.targetAmount !== undefined && task.targetAmount > 0) && (
+                              <div className="mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1.5">
+                                <div className="flex items-center justify-between font-semibold">
+                                  <span className="text-slate-700">Live Sales Target Achievement:</span>
+                                  <span className={targetProgressPct >= 100 ? 'text-emerald-700 font-bold' : 'text-blue-700 font-bold'}>
+                                    {targetProgressPct}% ({formatINR(bookedSales)} / {formatINR(task.targetAmount)})
+                                  </span>
+                                </div>
+                                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                                  <div 
+                                    className={`h-2 rounded-full transition-all duration-300 ${targetProgressPct >= 100 ? 'bg-emerald-600' : 'bg-blue-600'}`}
+                                    style={{ width: `${Math.min(100, targetProgressPct)}%` }}
+                                  />
+                                </div>
+                                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-0.5">
+                                  <span>Booked: {formatINR(bookedSales)}</span>
+                                  <span>Delivered: {formatINR(deliveredSales)}</span>
+                                  <span>Recovered: {formatINR(collectedPayments)}</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Completion Remarks */}
+                            {task.completionNotes && (
+                              <div className="mt-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-900">
+                                <p className="font-bold flex items-center gap-1 text-[11px] text-emerald-800">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Field Completion Notes & Evidence:</span>
+                                </p>
+                                <p className="mt-0.5 leading-relaxed">{task.completionNotes}</p>
+                                {task.completedAt && (
+                                  <p className="text-[10px] text-emerald-700 mt-1">Submitted: {new Date(task.completedAt).toLocaleString()}</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Admin Action Buttons */}
+                          <div className="flex lg:flex-col items-center lg:items-end justify-end space-x-2 lg:space-x-0 lg:space-y-2 shrink-0 border-t lg:border-t-0 pt-3 lg:pt-0">
+                            {task.status !== 'completed' && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateTaskStatus(task.id, 'completed')}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-2xs transition-colors flex items-center space-x-1 cursor-pointer"
+                                title="Mark Task as Completed"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Complete</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleEditTask(task)}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-1 cursor-pointer"
+                              title="Edit Instructions, Target, or Reassign"
+                            >
+                              <Edit className="w-3.5 h-3.5 text-slate-500" />
+                              <span>Edit / Reassign</span>
+                            </button>
+
+                            {task.status !== 'cancelled' && task.status !== 'closed' && (
+                              <button
+                                type="button"
+                                onClick={() => handleUpdateTaskStatus(task.id, 'cancelled')}
+                                className="px-3 py-1.5 bg-slate-50 hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                                title="Cancel this task"
+                              >
+                                Cancel Task
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => setDeletingTaskId(task.id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Permanently Delete Task"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Salesmen Monthly Quota & Targets Management Section */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Target className="w-4 h-4 text-blue-600" />
+                    <span>Sales Representatives Target Quotas</span>
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Monthly & Daily sales targets configured for each Sales Executive
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTargetUpdateSalesmanId(salesmen[0]?.id || '');
+                    setTargetUpdatePeriod('monthly');
+                    setTargetUpdateAmount(1800000);
+                    setIsUpdateTargetModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center space-x-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Update Sales Target</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {salesmen.map((slm) => {
+                  const slmTarget = adminTargets.find(t => t.salesmanId === slm.id && t.period === 'monthly') || {
+                    targetAmount: slm.monthlyTargetAmount || 1500000
+                  };
+                  const slmOrders = (orders || []).filter(o => o.salesmanId === slm.id && o.orderDate?.startsWith(currentMonth) && o.status !== 'cancelled');
+                  const actualSales = slmOrders.reduce((sum, o) => sum + (o.grandTotal || o.totalAmount || 0), 0);
+                  const progressPct = slmTarget.targetAmount > 0 ? Math.round((actualSales / slmTarget.targetAmount) * 100) : 0;
+
+                  return (
+                    <div key={slm.id} className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold flex items-center justify-center text-xs">
+                            {slm.name.slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900 text-xs">{slm.name}</p>
+                            <p className="text-[10px] text-slate-500">{slm.employeeCode || slm.id}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTargetUpdateSalesmanId(slm.id);
+                            setTargetUpdatePeriod('monthly');
+                            setTargetUpdateAmount(slmTarget.targetAmount || 1800000);
+                            setIsUpdateTargetModalOpen(true);
+                          }}
+                          className="p-1 text-slate-400 hover:text-blue-600 rounded cursor-pointer"
+                          title="Edit Target"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500 font-medium">Monthly Target:</span>
+                          <span className="font-bold text-slate-900">{formatINR(slmTarget.targetAmount)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-slate-500 font-medium">Actual Booked:</span>
+                          <span className="font-bold text-emerald-700">{formatINR(actualSales)}</span>
+                        </div>
+                        <div className="w-full bg-slate-200 rounded-full h-2 mt-1.5 overflow-hidden">
+                          <div 
+                            className={`h-2 rounded-full ${progressPct >= 100 ? 'bg-emerald-600' : 'bg-blue-600'}`}
+                            style={{ width: `${Math.min(100, progressPct)}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-right font-bold text-slate-500 pt-0.5">
+                          {progressPct}% achieved this month
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        );
+      })()}
 
       {/* ========================================================================= */}
       {/* SECTION 3: STAFF ROLES & PERMISSIONS                                      */}
@@ -1855,6 +2515,413 @@ export const SalesmenView: React.FC<SalesmenViewProps> = ({
               >
                 {isDeletingBeat ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
                 <span>{isDeletingBeat ? 'Deleting...' : 'Yes, Delete Beat'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 7: ASSIGN / EDIT RETAILER TASK (ADMIN ONLY)                          */}
+      {/* ========================================================================= */}
+      {isAssignTaskModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-xl w-full max-h-[92vh] flex flex-col animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                  <ListTodo className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {editingTaskId ? 'Edit / Reassign Field Task' : 'Assign Retailer Task & Sales Target'}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {editingTaskId ? 'Modify instructions, target, or assigned salesman' : 'Assign specific retailer visit, sales target, or recovery goal to Sales Executive'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAssignTaskModalOpen(false);
+                  resetAssignTaskForm();
+                }}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveAssignTask} className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs">
+              {assignTaskModalError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-800 flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span className="font-semibold">{assignTaskModalError}</span>
+                </div>
+              )}
+
+              {/* Row 1: Salesman & Retailer Selection */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Select Sales Executive <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={assignTaskSalesmanId}
+                    onChange={(e) => setAssignTaskSalesmanId(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  >
+                    <option value="" disabled>Choose Sales Executive...</option>
+                    {salesmen.map(s => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.employeeCode || s.id})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Target Retail Outlet
+                  </label>
+                  <select
+                    value={assignTaskRetailerId}
+                    onChange={(e) => setAssignTaskRetailerId(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  >
+                    <option value="">-- General / Area Wide Task --</option>
+                    {validRetailers.map(r => (
+                      <option key={r.id} value={r.id}>
+                        {r.storeName} ({r.beatName || 'General Beat'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 2: Task Type & Priority */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Task Type <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={assignTaskType}
+                    onChange={(e) => setAssignTaskType(e.target.value as TaskType)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  >
+                    <option value="visit">📍 Retailer Visit</option>
+                    <option value="target">🎯 Sales Target</option>
+                    <option value="order_booking">📦 Order Booking</option>
+                    <option value="collection">💰 Payment Recovery</option>
+                    <option value="follow_up">📞 Follow-up</option>
+                    <option value="other">📋 Other / Custom Directive</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Priority Level <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={assignTaskPriority}
+                    onChange={(e) => setAssignTaskPriority(e.target.value as TaskPriority)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  >
+                    <option value="normal">🟢 Normal Priority</option>
+                    <option value="high">🟡 High Priority</option>
+                    <option value="urgent">🔴 Urgent / Escalated</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Task Title */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Task Title <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={assignTaskTitle}
+                  onChange={(e) => setAssignTaskTitle(e.target.value)}
+                  placeholder="e.g. Visit Paras Kirana, pitch Parle-G combo, collect overdue payment"
+                  required
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                />
+              </div>
+
+              {/* Instructions */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Instructions & Objectives
+                </label>
+                <textarea
+                  value={assignTaskDescription}
+                  onChange={(e) => setAssignTaskDescription(e.target.value)}
+                  rows={2}
+                  placeholder="Detailed guidelines for the sales representative during visit..."
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-normal text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                />
+              </div>
+
+              {/* Row 3: Target Amount & Target Quantity */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-purple-50/50 p-3 rounded-xl border border-purple-100">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Sales Target Amount (₹)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 font-bold text-slate-400">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="500"
+                      value={assignTaskTargetAmount}
+                      onChange={(e) => setAssignTaskTargetAmount(e.target.value === '' ? '' : Number(e.target.value))}
+                      placeholder="e.g. 25000"
+                      className="w-full pl-7 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Target Quantity (Cases / Pcs)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={assignTaskTargetQuantity}
+                    onChange={(e) => setAssignTaskTargetQuantity(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="e.g. 50 cases"
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* Row 4: Dates */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={assignTaskStartDate}
+                    onChange={(e) => setAssignTaskStartDate(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">
+                    Due Date <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={assignTaskDueDate}
+                    onChange={(e) => setAssignTaskDueDate(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Follow-up Date (Optional)</label>
+                  <input
+                    type="date"
+                    value={assignTaskFollowUpDate}
+                    onChange={(e) => setAssignTaskFollowUpDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-slate-800 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  disabled={isSavingAssignTask}
+                  onClick={() => {
+                    setIsAssignTaskModalOpen(false);
+                    resetAssignTaskForm();
+                  }}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingAssignTask}
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-75"
+                >
+                  {isSavingAssignTask ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>{isSavingAssignTask ? 'Saving Assignment...' : editingTaskId ? 'Update Task' : 'Save & Assign Task'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 8: SET SALES TARGET / QUOTA MODAL                                    */}
+      {/* ========================================================================= */}
+      {isUpdateTargetModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full animate-in fade-in zoom-in-95 duration-150 overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                  <Target className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Configure Sales Target</h3>
+                  <p className="text-xs text-slate-500">Assign official sales revenue target in ₹</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsUpdateTargetModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTargetUpdate} className="p-4 sm:p-5 space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Sales Executive <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={targetUpdateSalesmanId}
+                  onChange={(e) => setTargetUpdateSalesmanId(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  <option value="" disabled>Choose Sales Representative...</option>
+                  {salesmen.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.employeeCode || s.id})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Period</label>
+                  <select
+                    value={targetUpdatePeriod}
+                    onChange={(e) => setTargetUpdatePeriod(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="monthly">Monthly Target</option>
+                    <option value="daily">Daily Target</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Effective Date</label>
+                  <input
+                    type="date"
+                    value={targetUpdateEffectiveDate}
+                    onChange={(e) => setTargetUpdateEffectiveDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-mono text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">
+                  Target Amount (₹) <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2 font-bold text-slate-400">₹</span>
+                  <input
+                    type="number"
+                    min="1000"
+                    step="5000"
+                    value={targetUpdateAmount}
+                    onChange={(e) => setTargetUpdateAmount(Number(e.target.value))}
+                    required
+                    className="w-full pl-7 pr-3 py-2 bg-white border border-slate-300 rounded-lg font-mono font-bold text-base text-slate-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Notes / Instructions</label>
+                <input
+                  type="text"
+                  value={targetUpdateNotes}
+                  onChange={(e) => setTargetUpdateNotes(e.target.value)}
+                  placeholder="e.g. Diwali festive wholesale drive target"
+                  className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg font-medium text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end space-x-2">
+                <button
+                  type="button"
+                  disabled={isSavingTargetUpdate}
+                  onClick={() => setIsUpdateTargetModalOpen(false)}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg font-semibold cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingTargetUpdate}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-xs transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-75"
+                >
+                  {isSavingTargetUpdate ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>{isSavingTargetUpdate ? 'Saving Target...' : 'Save Sales Target'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL 9: DELETE TASK CONFIRMATION                                         */}
+      {/* ========================================================================= */}
+      {deletingTaskId && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-slate-200 max-w-sm w-full p-5 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center space-x-3 text-rose-600">
+              <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Delete Assigned Task?</h3>
+                <p className="text-[11px] text-slate-500">Remove task assignment from system</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to permanently delete this task? It will be removed immediately from both the Admin Console and the Salesman dashboard.
+            </p>
+
+            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isDeletingTask}
+                onClick={() => setDeletingTaskId(null)}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingTask}
+                onClick={handleConfirmDeleteTask}
+                className="px-3.5 py-1.5 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-xs cursor-pointer flex items-center space-x-1.5 disabled:opacity-75"
+              >
+                {isDeletingTask ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>{isDeletingTask ? 'Deleting...' : 'Yes, Delete Task'}</span>
               </button>
             </div>
           </div>
