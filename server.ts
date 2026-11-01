@@ -45,8 +45,8 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Enable CORS for mobile devices, Capacitor Android apps, and external browser origins
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-Id, X-User-Role, Accept, Cache-Control');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-Id, X-User-Role, Accept, Cache-Control, Range');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
@@ -4710,6 +4710,24 @@ Disallow: /staff/
 User-agent: Googlebot
 Allow: /
 Allow: /assets/
+
+User-agent: facebookexternalhit
+Allow: /
+Allow: /assets/
+Allow: /download/
+Allow: /icon.png
+
+User-agent: Facebot
+Allow: /
+Allow: /assets/
+Allow: /download/
+Allow: /icon.png
+
+User-agent: meta-externalagent
+Allow: /
+Allow: /assets/
+Allow: /download/
+Allow: /icon.png
 
 Sitemap: https://aryanagency.in/sitemap.xml
 `

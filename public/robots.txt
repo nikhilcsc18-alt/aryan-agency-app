@@ -34,4 +34,37 @@ Allow: /*.svg$
 Allow: /*.webp$
 Allow: /*.ico$
 
+User-agent: facebookexternalhit
+Allow: /
+Allow: /assets/
+Allow: /download/
+Allow: /icon.png
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.svg$
+Allow: /*.webp$
+
+User-agent: Facebot
+Allow: /
+Allow: /assets/
+Allow: /download/
+Allow: /icon.png
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.svg$
+Allow: /*.webp$
+
+User-agent: meta-externalagent
+Allow: /
+Allow: /assets/
+Allow: /download/
+Allow: /icon.png
+Allow: /*.png$
+Allow: /*.jpg$
+Allow: /*.jpeg$
+Allow: /*.svg$
+Allow: /*.webp$
+
 Sitemap: https://aryanagency.in/sitemap.xml
