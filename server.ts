@@ -4698,36 +4698,36 @@ app.get('/robots.txt', (req, res) => {
     return res.sendFile(robotsPath);
   }
   return res.send(
-`User-agent: *
+`User-agent: facebookexternalhit
 Allow: /
-Allow: /assets/
-Allow: /download/
-Disallow: /api/
-Disallow: /admin/
-Disallow: /dashboard/
-Disallow: /staff/
+
+User-agent: Facebot
+Allow: /
+
+User-agent: meta-externalagent
+Allow: /
+
+User-agent: meta-externalfetcher
+Allow: /
 
 User-agent: Googlebot
 Allow: /
 Allow: /assets/
+Allow: /download/
 
-User-agent: facebookexternalhit
+User-agent: Googlebot-Image
+Allow: /assets/
+Allow: /download/
+
+User-agent: *
 Allow: /
 Allow: /assets/
 Allow: /download/
-Allow: /icon.png
-
-User-agent: Facebot
-Allow: /
-Allow: /assets/
-Allow: /download/
-Allow: /icon.png
-
-User-agent: meta-externalagent
-Allow: /
-Allow: /assets/
-Allow: /download/
-Allow: /icon.png
+Allow: /favicon.ico
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /staff/
 
 Sitemap: https://aryanagency.in/sitemap.xml
 `
@@ -4770,11 +4770,19 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith('index.html')) {
+          res.setHeader('X-Robots-Tag', 'all');
+        }
+      }
+    }));
     app.get('*', (req, res) => {
+      res.setHeader('Content-Type', 'text/html; charset=UTF-8');
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
+      res.setHeader('X-Robots-Tag', 'all');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

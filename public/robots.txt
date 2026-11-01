@@ -1,23 +1,17 @@
 # Robots.txt for Apna Store • Powered by Aryan Agency
 # Official website: https://aryanagency.in/
 
-User-agent: *
+User-agent: facebookexternalhit
 Allow: /
-Allow: /assets/
-Allow: /download/
-Allow: /favicon*
-Allow: /*.css$
-Allow: /*.js$
-Allow: /*.png$
-Allow: /*.jpg$
-Allow: /*.jpeg$
-Allow: /*.svg$
-Allow: /*.webp$
-Allow: /*.ico$
-Disallow: /api/
-Disallow: /admin/
-Disallow: /dashboard/
-Disallow: /staff/
+
+User-agent: Facebot
+Allow: /
+
+User-agent: meta-externalagent
+Allow: /
+
+User-agent: meta-externalfetcher
+Allow: /
 
 User-agent: Googlebot
 Allow: /
@@ -27,44 +21,15 @@ Allow: /download/
 User-agent: Googlebot-Image
 Allow: /assets/
 Allow: /download/
-Allow: /*.png$
-Allow: /*.jpg$
-Allow: /*.jpeg$
-Allow: /*.svg$
-Allow: /*.webp$
-Allow: /*.ico$
 
-User-agent: facebookexternalhit
+User-agent: *
 Allow: /
 Allow: /assets/
 Allow: /download/
-Allow: /icon.png
-Allow: /*.png$
-Allow: /*.jpg$
-Allow: /*.jpeg$
-Allow: /*.svg$
-Allow: /*.webp$
-
-User-agent: Facebot
-Allow: /
-Allow: /assets/
-Allow: /download/
-Allow: /icon.png
-Allow: /*.png$
-Allow: /*.jpg$
-Allow: /*.jpeg$
-Allow: /*.svg$
-Allow: /*.webp$
-
-User-agent: meta-externalagent
-Allow: /
-Allow: /assets/
-Allow: /download/
-Allow: /icon.png
-Allow: /*.png$
-Allow: /*.jpg$
-Allow: /*.jpeg$
-Allow: /*.svg$
-Allow: /*.webp$
+Allow: /favicon.ico
+Disallow: /api/
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /staff/
 
 Sitemap: https://aryanagency.in/sitemap.xml
