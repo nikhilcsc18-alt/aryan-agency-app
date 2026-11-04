@@ -81,7 +81,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     );
   };
   const activeValidRetailers = retailers.filter(r => !isPurgedStore(r));
-  const pendingVerificationsCount = activeValidRetailers.filter(r => r.verificationStatus === 'pending').length;
+  const pendingVerificationsCount = activeValidRetailers.filter(r => r.verificationStatus === 'pending' && r.status !== 'active').length;
 
   // Current salesman profile
   const mySalesmanProfile = salesmen.find(s => s.id === currentUser?.salesmanId || s.name === currentUser?.name);

@@ -186,7 +186,7 @@ export const AccountDetailsModal: React.FC<AccountDetailsModalProps> = ({
   const roleConfig = getRoleConfig(currentUser.role);
 
   // Check verification status
-  const verificationStatus = currentUser.verificationStatus || linkedRetailer?.verificationStatus || (currentUser.role === 'admin' ? 'verified' : 'pending');
+  const verificationStatus = currentUser.verificationStatus || linkedRetailer?.verificationStatus || (currentUser.role === 'admin' || currentUser.status === 'active' || linkedRetailer?.status === 'active' ? 'verified' : 'pending');
 
   // Regional Hub Presets for Aryan Agency operational territory (Uttar Pradesh B2B Network)
   const REGIONAL_PRESETS = [

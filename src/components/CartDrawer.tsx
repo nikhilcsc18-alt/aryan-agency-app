@@ -99,8 +99,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const selectedRetailer = retailers.find(r => r.id === selectedRetailerId) || retailers[0];
   const isRetailerUnverified = isRetailer && (
-    (currentUser?.verificationStatus && currentUser.verificationStatus !== 'verified') ||
-    (selectedRetailer && selectedRetailer.verificationStatus !== 'verified')
+    (currentUser?.verificationStatus === 'rejected' || (currentUser?.verificationStatus === 'pending' && currentUser?.status !== 'active')) ||
+    (selectedRetailer && (selectedRetailer.verificationStatus === 'rejected' || (selectedRetailer.verificationStatus === 'pending' && selectedRetailer.status !== 'active')))
   );
   const isCreditAllowed = Boolean(selectedRetailer && isCreditEnabledForRetailer(selectedRetailer));
 

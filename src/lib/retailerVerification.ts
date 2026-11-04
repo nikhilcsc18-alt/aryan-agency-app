@@ -93,7 +93,7 @@ export function applyVerificationOverrides(retailers: Retailer[]): Retailer[] {
     // If retailer was verified in database/server, it should stay verified!
     const effectiveStatus = (retailer.verificationStatus === 'verified' || override?.verificationStatus === 'verified')
       ? 'verified'
-      : (override?.verificationStatus || retailer.verificationStatus || 'pending');
+      : (override?.verificationStatus || retailer.verificationStatus || ((retailer.status as string) === 'rejected' ? 'rejected' : 'verified'));
 
     return {
       ...retailer,

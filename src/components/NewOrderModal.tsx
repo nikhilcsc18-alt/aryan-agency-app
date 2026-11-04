@@ -98,7 +98,12 @@ export const NewOrderModal: React.FC<NewOrderModalProps> = ({
   if (!isOpen) return null;
 
   const currentRetailer = validRetailers.find(r => r.id === selectedRetailerId) || retailers.find(r => r.id === selectedRetailerId);
-  const isRetailerUnverified = Boolean(currentRetailer && currentRetailer.verificationStatus !== 'verified');
+  const isRetailerUnverified = Boolean(
+    currentRetailer && (
+      currentRetailer.verificationStatus === 'rejected' || 
+      (currentRetailer.verificationStatus === 'pending' && currentRetailer.status !== 'active')
+    )
+  );
   const currentSalesman = salesmen.find(s => s.id === selectedSalesmanId);
 
   // Credit calculation

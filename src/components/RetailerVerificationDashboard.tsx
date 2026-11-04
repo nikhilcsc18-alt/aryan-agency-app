@@ -220,10 +220,7 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
 
   // Filters & View Mode
   const [viewMode, setViewMode] = useState<'timeline' | 'cards' | 'table'>('timeline');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>(() => {
-    const hasPending = (retailers || []).some(r => r.verificationStatus === 'pending');
-    return hasPending ? 'pending' : 'all';
-  });
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
   const [selectedBeat, setSelectedBeat] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
@@ -309,8 +306,12 @@ export const RetailerVerificationDashboard: React.FC<RetailerVerificationDashboa
     };
 
     return retailers.filter(r => !isPurgedStore(r)).map(r => {
-      const status = r.verificationStatus || 'pending';
-      const submittedDate = r.submittedAt || r.createdAt || '2026-09-30T10:00:00Z';
+      const isRejected = r.verificationStatus === 'rejected' || r.status === 'rejected';
+      const isExplicitPending = r.verificationStatus === 'pending' && r.status !== 'active';
+      const status: 'verified' | 'pending' | 'rejected' = isRejected 
+        ? 'rejected' 
+        : (isExplicitPending ? 'pending' : (r.verificationStatus || (r.status === 'active' || r.isVerified ? 'verified' : 'verified')));
+      const submittedDate = r.submittedAt || r.createdAt || new Date().toISOString();
       
       // Synthesize timeline if not present
       let timeline = r.verificationTimeline || [];

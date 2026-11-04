@@ -480,11 +480,10 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
       (creditAccessFilter === 'enabled' && isCreditOn) ||
       (creditAccessFilter === 'disabled' && !isCreditOn);
 
-    const vStatus = r.verificationStatus || 'pending';
+    const vStatus = r.verificationStatus || (r.status === 'rejected' ? 'rejected' : 'verified');
     const matchesVerification = 
       verificationFilter === 'all' ||
-      r.verificationStatus === verificationFilter ||
-      (verificationFilter === 'pending' && !r.verificationStatus);
+      vStatus === verificationFilter;
 
     return matchesSearch && matchesBeat && matchesStatus && matchesCreditAccess && matchesVerification;
   });
@@ -810,11 +809,11 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
       setModalError(null);
 
       // Business Rule: Salesmen can only onboard retailers. Verification authority is Admin-only.
+      const existingRetailer = editingRetailer.id ? localRetailers.find(r => r.id === editingRetailer.id) : null;
+      const defaultStatus = (editingRetailer.status === 'rejected' || existingRetailer?.status === 'rejected') ? 'rejected' : 'verified';
       const resolvedVerificationStatus = isAdmin 
-        ? (editingRetailer.verificationStatus || 'pending')
-        : (editingRetailer.id 
-            ? (localRetailers.find(r => r.id === editingRetailer.id)?.verificationStatus || 'pending')
-            : 'pending');
+        ? (editingRetailer.verificationStatus || defaultStatus)
+        : (existingRetailer?.verificationStatus || defaultStatus);
 
       const toSave = {
         ...editingRetailer,
@@ -2076,7 +2075,7 @@ export const RetailersView: React.FC<RetailersViewProps> = ({
                     <div>
                       <label className="block text-slate-700 font-semibold mb-1 text-xs">Verification Status</label>
                       <select
-                        value={editingRetailer.verificationStatus || 'pending'}
+                        value={editingRetailer.verificationStatus || (editingRetailer.status === 'rejected' ? 'rejected' : 'verified')}
                         onChange={(e) => setEditingRetailer({ ...editingRetailer, verificationStatus: e.target.value as any })}
                         className="w-full px-3 py-2 bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2563eb] text-xs font-semibold"
                       >

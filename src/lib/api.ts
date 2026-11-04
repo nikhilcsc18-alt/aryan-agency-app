@@ -755,12 +755,19 @@ export const api = {
           lat: existing.lat !== undefined ? existing.lat : sr.lat,
           lng: existing.lng !== undefined ? existing.lng : sr.lng,
           // If either says verified, it is verified!
-          verificationStatus: (existing.verificationStatus === 'verified' || sr.verificationStatus === 'verified') ? 'verified' : (sr.verificationStatus || existing.verificationStatus || 'pending'),
+          verificationStatus: (existing.verificationStatus === 'verified' || sr.verificationStatus === 'verified') 
+            ? 'verified' 
+            : (existing.verificationStatus === 'rejected' || sr.verificationStatus === 'rejected' 
+                ? 'rejected' 
+                : (sr.verificationStatus || existing.verificationStatus || ((existing.status as string) === 'rejected' || (sr.status as string) === 'rejected' ? 'rejected' : 'verified'))),
           creditEnabled: existing.creditEnabled !== undefined ? existing.creditEnabled : sr.creditEnabled,
           creditLimit: existing.creditLimit !== undefined ? existing.creditLimit : sr.creditLimit
         });
       } else {
-        map.set(sr.id, sr);
+        map.set(sr.id, {
+          ...sr,
+          verificationStatus: sr.verificationStatus || ((sr.status as string) === 'rejected' ? 'rejected' : 'verified')
+        });
       }
     });
 

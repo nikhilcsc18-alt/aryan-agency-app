@@ -41,7 +41,7 @@ export const RetailerVerificationPendingModal: React.FC<RetailerVerificationPend
   const ownerName = linkedRetailer?.ownerName || currentUser.name || 'Proprietor';
   const phone = linkedRetailer?.phone || currentUser.phone || '';
   const beat = linkedRetailer?.beatName || 'Assigned Beat Route';
-  const status = linkedRetailer?.verificationStatus || currentUser.verificationStatus || 'pending';
+  const status = linkedRetailer?.verificationStatus || currentUser.verificationStatus || ((linkedRetailer?.status === 'active' || currentUser.status === 'active') ? 'verified' : 'pending');
   const isRejected = status === 'rejected';
 
   return (

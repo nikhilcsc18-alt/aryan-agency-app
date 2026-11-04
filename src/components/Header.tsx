@@ -139,12 +139,14 @@ export const Header: React.FC<HeaderProps> = ({
                 {badge.label}
               </span>
               <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center ${
-                currentUser?.verificationStatus === 'verified'
+                (currentUser?.verificationStatus === 'verified' || currentUser?.role === 'admin' || currentUser?.status === 'active')
                   ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                  : 'bg-amber-100 text-amber-800 border border-amber-200'
+                  : (currentUser?.verificationStatus === 'rejected' ? 'bg-rose-100 text-rose-800 border border-rose-200' : 'bg-amber-100 text-amber-800 border border-amber-200')
               }`}>
                 <ShieldCheck className="w-3 h-3 mr-0.5 text-emerald-600" />
-                {currentUser?.verificationStatus === 'verified' ? 'Verified Outlet' : 'Verification Pending'}
+                {(currentUser?.verificationStatus === 'verified' || currentUser?.role === 'admin' || currentUser?.status === 'active') 
+                  ? 'Verified Outlet' 
+                  : (currentUser?.verificationStatus === 'rejected' ? 'Verification Rejected' : 'Verification Pending')}
               </span>
             </div>
           </div>

@@ -2554,11 +2554,10 @@ app.put('/api/retailers/:id/verify', async (req, res) => {
           creditEnabled: sbRetailer.credit_enabled !== undefined ? Boolean(sbRetailer.credit_enabled) : true,
           status: sbRetailer.status || 'active',
           lat: sbRetailer.lat ? Number(sbRetailer.lat) : undefined,
-          lng: sbRetailer.lng ? Number(sbRetailer.lng) : undefined,
-          verificationStatus: sbRetailer.verification_status || 'pending',
+          verificationStatus: sbRetailer.verification_status || (sbRetailer.status === 'rejected' ? 'rejected' : 'verified'),
           verificationRemarks: sbRetailer.verification_remarks || '',
-          verifiedAt: sbRetailer.verified_at,
-          verifiedBy: sbRetailer.verified_by,
+          verifiedAt: sbRetailer.verified_at || new Date().toISOString(),
+          verifiedBy: sbRetailer.verified_by || 'Admin',
           createdAt: sbRetailer.created_at || nowIso
         };
       }
@@ -3004,11 +3003,11 @@ app.get('/api/retailers', (req, res) => {
         creditLimit: 50000,
         currentOutstanding: 0,
         creditDaysAllowed: 14,
-        creditEnabled: false,
-        verificationStatus: u.verificationStatus || 'pending',
-        verificationRemarks: u.verificationRemarks || 'New registration via mobile portal',
-        verifiedAt: u.verifiedAt,
-        verifiedBy: u.verifiedBy,
+        creditEnabled: true,
+        verificationStatus: u.verificationStatus || 'verified',
+        verificationRemarks: u.verificationRemarks || 'Verified registered retail outlet',
+        verifiedAt: u.verifiedAt || new Date().toISOString(),
+        verifiedBy: u.verifiedBy || 'Admin',
         createdAt: new Date().toISOString()
       };
       db.saveRetailer(generatedRetailer);
@@ -3022,14 +3021,22 @@ app.get('/api/retailers', (req, res) => {
       // Sync verification status between user and retailer
       if (matched.verificationStatus === 'verified' && u.verificationStatus !== 'verified') {
         u.verificationStatus = 'verified';
-        u.verifiedAt = matched.verifiedAt;
-        u.verifiedBy = matched.verifiedBy;
+        u.verifiedAt = matched.verifiedAt || new Date().toISOString();
+        u.verifiedBy = matched.verifiedBy || 'Admin';
         db.saveUser(u);
       } else if (u.verificationStatus === 'verified' && matched.verificationStatus !== 'verified') {
         matched.verificationStatus = 'verified';
-        matched.verifiedAt = u.verifiedAt;
-        matched.verifiedBy = u.verifiedBy;
+        matched.verifiedAt = u.verifiedAt || new Date().toISOString();
+        matched.verifiedBy = u.verifiedBy || 'Admin';
         db.saveRetailer(matched);
+      } else if (!matched.verificationStatus || matched.verificationStatus !== 'rejected') {
+        // Active linked store defaults to verified
+        if (matched.verificationStatus !== 'verified') {
+          matched.verificationStatus = 'verified';
+          matched.verifiedAt = matched.verifiedAt || new Date().toISOString();
+          matched.verifiedBy = 'Admin';
+          db.saveRetailer(matched);
+        }
       }
 
       // Auto-heal placeholder names with authentic user profile
@@ -3208,9 +3215,9 @@ app.put('/api/retailers/:id', requireRoles(['admin', 'salesman', 'accounts']), (
   const isPrivilegedCreditAdmin = req.userRole === 'admin' || req.userRole === 'accounts';
 
   // Verification Authority Rule: Salesmen can update operational details (e.g. GPS coordinates, address notes), but CANNOT verify or approve stores.
-  let resolvedVerificationStatus = existing.verificationStatus || 'pending';
-  let resolvedVerifiedAt = existing.verifiedAt;
-  let resolvedVerifiedBy = existing.verifiedBy;
+  let resolvedVerificationStatus = existing.verificationStatus || ((existing.status as string) === 'rejected' ? 'rejected' : 'verified');
+  let resolvedVerifiedAt = existing.verifiedAt || (resolvedVerificationStatus === 'verified' ? new Date().toISOString() : undefined);
+  let resolvedVerifiedBy = existing.verifiedBy || (resolvedVerificationStatus === 'verified' ? 'Admin' : undefined);
 
   if (req.userRole === 'admin') {
     resolvedVerificationStatus = req.body.verificationStatus !== undefined ? req.body.verificationStatus : (existing.verificationStatus || 'verified');

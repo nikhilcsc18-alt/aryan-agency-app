@@ -225,7 +225,12 @@ function MainApp() {
 
   const isRetailerPendingVerification = currentUser?.role === 'retailer' && (
     currentUser.verificationStatus === 'rejected' ||
-    (linkedRetailer ? linkedRetailer.verificationStatus !== 'verified' : (currentUser.verificationStatus !== 'verified'))
+    linkedRetailer?.verificationStatus === 'rejected' ||
+    (
+      (currentUser.verificationStatus === 'pending' || linkedRetailer?.verificationStatus === 'pending') &&
+      linkedRetailer?.status !== 'active' &&
+      currentUser.status !== 'active'
+    )
   );
 
   // Sync active tab with user role permissions
@@ -342,7 +347,10 @@ function MainApp() {
 
     // Block order booking if retailer verification is not verified
     if (currentUser?.role === 'retailer') {
-      const isVerified = (targetRetailer && targetRetailer.verificationStatus === 'verified') || currentUser.verificationStatus === 'verified';
+      const isVerified = 
+        (targetRetailer && (targetRetailer.verificationStatus === 'verified' || targetRetailer.status === 'active')) || 
+        currentUser.verificationStatus === 'verified' ||
+        currentUser.status === 'active';
       if (!isVerified) {
         showToast('Verification Pending: wholesale orders cannot be placed until your store account is verified by Admin.', 'error');
         return;
@@ -895,7 +903,7 @@ function MainApp() {
     );
   };
   const activeValidRetailers = retailers.filter(r => !isPurgedStore(r));
-  const pendingVerificationsCount = activeValidRetailers.filter(r => r.verificationStatus === 'pending').length;
+  const pendingVerificationsCount = activeValidRetailers.filter(r => r.verificationStatus === 'pending' && r.status !== 'active').length;
   const criticalBatchesCount = products.reduce((acc, p) => {
     const today = new Date();
     const count = p.batches.filter(b => {

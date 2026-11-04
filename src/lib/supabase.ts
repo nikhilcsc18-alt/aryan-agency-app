@@ -197,7 +197,7 @@ function mapDbUser(row: any): User {
     gstin: row.gstin || row.gst_number || row.gstin_number,
     panNumber: row.pan_number || row.panNumber,
     locationCoordinates: row.location_coordinates || (row.lat && row.lng ? { lat: row.lat, lng: row.lng } : undefined),
-    verificationStatus: row.verification_status || (row.role === 'admin' ? 'verified' : (row.is_verified ? 'verified' : undefined)),
+    verificationStatus: row.verification_status || (row.role === 'admin' ? 'verified' : (row.is_verified ? 'verified' : (row.status === 'rejected' ? 'rejected' : 'verified'))),
     verificationRemarks: row.verification_remarks || undefined,
     verifiedAt: row.verified_at || undefined,
     verifiedBy: row.verified_by || undefined
@@ -368,7 +368,7 @@ function mapDbRetailer(row: any): Retailer {
     isActive: row.is_active !== undefined ? Boolean(row.is_active) : (row.status !== 'inactive' && row.status !== 'deleted'),
     createdAt: row.created_at || new Date().toISOString(),
     creditEnabled: row.credit_enabled !== undefined ? Boolean(row.credit_enabled) : undefined,
-    verificationStatus: row.verification_status || (row.is_verified ? 'verified' : 'pending'),
+    verificationStatus: row.verification_status || (row.is_verified ? 'verified' : (row.status === 'rejected' ? 'rejected' : 'verified')),
     verificationRemarks: row.verification_remarks || '',
     verifiedAt: row.verified_at,
     verifiedBy: row.verified_by,
@@ -383,7 +383,9 @@ function mapDbRetailer(row: any): Retailer {
     creditEnabled: creditSettings.creditEnabled,
     creditLimit: creditSettings.creditLimit !== undefined ? creditSettings.creditLimit : Number(row.credit_limit || 50000),
     creditDaysAllowed: creditSettings.creditDaysAllowed !== undefined ? creditSettings.creditDaysAllowed : Number(row.credit_days_allowed || 14),
-    verificationStatus: verificationOverride ? verificationOverride.verificationStatus : (base.verificationStatus || 'pending'),
+    verificationStatus: (base.verificationStatus === 'verified' || verificationOverride?.verificationStatus === 'verified') 
+      ? 'verified' 
+      : (verificationOverride ? verificationOverride.verificationStatus : (base.verificationStatus || 'verified')),
     verificationRemarks: verificationOverride?.verificationRemarks !== undefined ? verificationOverride.verificationRemarks : base.verificationRemarks,
     verifiedAt: verificationOverride?.verifiedAt !== undefined ? verificationOverride.verifiedAt : base.verifiedAt,
     verifiedBy: verificationOverride?.verifiedBy !== undefined ? verificationOverride.verifiedBy : base.verifiedBy
