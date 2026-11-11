@@ -23,7 +23,11 @@ import {
   StaffSalaryPaymentPayload,
   PayrollPaymentRecord,
   AttendanceStatus,
-  SalaryType
+  SalaryType,
+  Coupon,
+  CouponRedemption,
+  UpiDiscountConfig,
+  CouponValidationResult
 } from '../types';
 import { supabaseService, isSupabaseConfigured, supabaseUrl } from './supabase';
 import { applyCreditControlsToRetailers, setRetailerCreditControl } from './retailerCredit';
@@ -1829,6 +1833,114 @@ export const api = {
   async updateBusinessProfile(payload: any): Promise<{ success: boolean; profile: any }> {
     return safeMutationFetch<{ success: boolean; profile: any }>('/api/business-profile', {
       method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  },
+
+  // Smart Coupon & UPI Discount API
+  async getCoupons(): Promise<Coupon[]> {
+    const res = await safeJsonFetch<{ success: boolean; coupons: Coupon[] }>('/api/coupons', {}, { success: true, coupons: [] });
+    return res?.coupons || [];
+  },
+
+  async saveCoupon(couponData: Partial<Coupon> & { code: string }): Promise<Coupon> {
+    const res = await safeMutationFetch<{ success: boolean; coupon: Coupon; message: string }>('/api/coupons', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(couponData)
+    });
+    return res.coupon;
+  },
+
+  async deleteCoupon(id: string): Promise<boolean> {
+    const res = await safeMutationFetch<{ success: boolean; message: string }>(`/api/coupons/${id}`, {
+      method: 'DELETE'
+    });
+    return Boolean(res?.success);
+  },
+
+  async validateCoupon(params: {
+    code: string;
+    items: Array<{ productId: string; cases: number; loosePcs?: number; grossAmount?: number }>;
+    customerId?: string;
+    paymentMode?: string;
+  }): Promise<CouponValidationResult> {
+    return safeMutationFetch<CouponValidationResult>('/api/coupons/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    });
+  },
+
+  async getUpiDiscountConfig(): Promise<UpiDiscountConfig> {
+    const res = await safeJsonFetch<{ success: boolean; config: UpiDiscountConfig }>('/api/settings/upi-discount', {}, {
+      success: true,
+      config: { isEnabled: true, percentage: 0.5 }
+    });
+    return res?.config || { isEnabled: true, percentage: 0.5 };
+  },
+
+  async updateUpiDiscountConfig(config: Partial<UpiDiscountConfig>): Promise<UpiDiscountConfig> {
+    const res = await safeMutationFetch<{ success: boolean; config: UpiDiscountConfig; message: string }>('/api/settings/upi-discount', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config)
+    });
+    return res.config;
+  },
+
+  async getCouponReports(): Promise<{
+    summary: {
+      totalCoupons: number;
+      activeCoupons: number;
+      totalCouponDiscounts: number;
+      totalUpiDiscounts: number;
+      honeyBunnyCouponDiscounts: number;
+      honeyBunnySalesVolume: number;
+      totalPrepaidCollection: number;
+      totalOrdersCount: number;
+      totalCodOrdersCount: number;
+      totalUpiOrdersCount: number;
+      upiAdoptionPercentage: number;
+    };
+    couponStats: Array<{
+      id: string;
+      code: string;
+      title: string;
+      applicableTo: string;
+      targetBrand?: string;
+      discountType: string;
+      discountValue: number;
+      redemptionsCount: number;
+      totalDiscountGiven: number;
+      totalSalesVolume: number;
+      isActive: boolean;
+    }>;
+    recentRedemptions: CouponRedemption[];
+  }> {
+    return safeJsonFetch('/api/coupons/reports', {}, {
+      summary: {
+        totalCoupons: 0,
+        activeCoupons: 0,
+        totalCouponDiscounts: 0,
+        totalUpiDiscounts: 0,
+        honeyBunnyCouponDiscounts: 0,
+        honeyBunnySalesVolume: 0,
+        totalPrepaidCollection: 0,
+        totalOrdersCount: 0,
+        totalCodOrdersCount: 0,
+        totalUpiOrdersCount: 0,
+        upiAdoptionPercentage: 0
+      },
+      couponStats: [],
+      recentRedemptions: []
+    });
+  },
+
+  async verifyUpiPayment(payload: { orderId: string; upiRefNumber: string; amount?: number }): Promise<{ success: boolean; verified: boolean; order?: Order; message: string }> {
+    return safeMutationFetch<{ success: boolean; verified: boolean; order?: Order; message: string }>('/api/payments/verify-upi', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });

@@ -32,6 +32,7 @@ import { UpiConnectModal } from './components/UpiConnectModal';
 import { ReportsView } from './components/ReportsView';
 import { CatalogueView } from './components/CatalogueView';
 import { StaffManagementView } from './components/StaffManagementView';
+import { CouponManagementView } from './components/CouponManagementView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { 
   buildLiveNotifications, 
@@ -494,6 +495,12 @@ function MainApp() {
     if (mdrCharge > 0) {
       orderRemarks += ` [Govt MDR: ₹${mdrCharge}]`;
     }
+    if (paymentDetails?.couponCode) {
+      orderRemarks += ` [Coupon: ${paymentDetails.couponCode} (-₹${(paymentDetails.couponDiscount || 0).toFixed(2)})]`;
+    }
+    if (paymentDetails?.upiDiscountAmount && paymentDetails.upiDiscountAmount > 0) {
+      orderRemarks += ` [UPI Discount: -₹${paymentDetails.upiDiscountAmount.toFixed(2)}]`;
+    }
 
     const orderPayload = {
       retailerId: targetRetailer.id,
@@ -522,6 +529,16 @@ function MainApp() {
       deliveryCharge,
       mdrCharge,
       roundOff: 0,
+      // Smart Coupon & UPI Discount Fields
+      originalAmount: paymentDetails?.originalAmount !== undefined ? paymentDetails.originalAmount : grossSubtotal,
+      couponCode: paymentDetails?.couponCode || undefined,
+      couponDiscount: paymentDetails?.couponDiscount || 0,
+      upiDiscountPercentage: paymentDetails?.upiDiscountPercentage || 0,
+      upiDiscountAmount: paymentDetails?.upiDiscountAmount || 0,
+      finalPayableAmount: finalBillAmount,
+      paymentVerificationStatus: (isPaid && (mode === 'qr' || mode === 'upi')) ? ('verified' as const) : ('unverified' as const),
+      paymentVerificationRef: paymentDetails?.upiRefNumber || undefined,
+      paymentVerifiedAt: isPaid ? new Date().toISOString() : undefined,
       grandTotal: finalBillAmount,
       totalAmount: finalBillAmount,
       amountPaid: paidAmount,
@@ -1092,6 +1109,25 @@ function MainApp() {
               onOpenDeliveryRun={() => setActiveTab('delivery')}
               onDeleteOrder={handleDeleteOrder}
             />
+          </ProtectedRoute>
+        )}
+
+        {/* Coupons & Offers View - Protected (Admin Only) */}
+        {activeTab === 'coupons' && (
+          <ProtectedRoute 
+            pageName="Coupons & UPI Offers Management"
+            allowedRoles={['admin']}
+            onNavigateHome={() => setActiveTab(getRoleHomeTab())}
+          >
+            <ErrorBoundary fallbackTitle="Coupons & UPI Offers">
+              <CouponManagementView
+                products={products}
+                onSelectOrder={(orderId) => {
+                  const found = orders.find(o => o.id === orderId);
+                  if (found) setActiveInvoiceOrder(found);
+                }}
+              />
+            </ErrorBoundary>
           </ProtectedRoute>
         )}
 

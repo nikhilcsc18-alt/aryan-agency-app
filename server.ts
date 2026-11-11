@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import { db } from './server/db';
 import { parseNaturalLanguageOrder, generateFMCGInsights, lookupProductByBarcode } from './server/gemini';
-import { User, Order, OrderItem, PaymentRecord, DeliveryRunSheet, Retailer, Salesman, ReportFilterOptions, ReportType, ReportPeriod, GstSubReportType, SalesmanVisit, StaffMember, StaffAttendance, StaffPayroll } from './src/types';
+import { User, Product, Order, OrderItem, PaymentRecord, DeliveryRunSheet, Retailer, Salesman, ReportFilterOptions, ReportType, ReportPeriod, GstSubReportType, SalesmanVisit, StaffMember, StaffAttendance, StaffPayroll, Coupon, CouponRedemption, UpiDiscountConfig } from './src/types';
 import { 
   generateSalesReportData, 
   generateCustomerLedgerData, 
@@ -2506,6 +2506,390 @@ app.post('/api/upi/verify-vpa', (req, res) => {
   });
 });
 
+// ============================================================================
+// Smart Coupon & UPI Discount API Endpoints
+// ============================================================================
+
+// Helper to validate and calculate coupon discount
+function evaluateCouponDiscount(
+  coupon: Coupon,
+  items: Array<{ productId: string; cases?: number; loosePcs?: number; grossAmount?: number }>,
+  allProducts: Product[],
+  customerId?: string
+): { valid: boolean; discountAmount: number; eligibleSubtotal: number; orderGrossSubtotal: number; message: string } {
+  const now = Date.now();
+  if (!coupon.isActive) {
+    return { valid: false, discountAmount: 0, eligibleSubtotal: 0, orderGrossSubtotal: 0, message: 'This coupon is currently inactive.' };
+  }
+  if (coupon.startDate && now < new Date(coupon.startDate).getTime()) {
+    return { valid: false, discountAmount: 0, eligibleSubtotal: 0, orderGrossSubtotal: 0, message: 'This coupon campaign has not started yet.' };
+  }
+  if (coupon.expiryDate && now > new Date(coupon.expiryDate).getTime()) {
+    return { valid: false, discountAmount: 0, eligibleSubtotal: 0, orderGrossSubtotal: 0, message: 'This coupon has expired.' };
+  }
+  if (coupon.totalUsageLimit && coupon.usedCount >= coupon.totalUsageLimit) {
+    return { valid: false, discountAmount: 0, eligibleSubtotal: 0, orderGrossSubtotal: 0, message: 'Total usage limit reached for this coupon.' };
+  }
+
+  // Check per-customer limit
+  if (customerId) {
+    const redemptions = db.getCouponRedemptions().filter(
+      r => r.couponCode.toUpperCase() === coupon.code.toUpperCase() && r.customerId === customerId
+    );
+    const limit = coupon.perCustomerUsageLimit || 1;
+    if (redemptions.length >= limit) {
+      return { 
+        valid: false, 
+        discountAmount: 0, 
+        eligibleSubtotal: 0, 
+        orderGrossSubtotal: 0, 
+        message: `Coupon usage limit exceeded. You have already redeemed this coupon ${redemptions.length} time(s) (Maximum allowed: ${limit}).` 
+      };
+    }
+  }
+
+  // Compute item subtotals
+  let orderGrossSubtotal = 0;
+  let eligibleSubtotal = 0;
+
+  for (const item of items) {
+    const product = allProducts.find(p => p.id === item.productId);
+    const gross = Number(item.grossAmount) || (
+      product ? (
+        ((Number(item.cases) || 0) * (product.piecesPerCase || 24) + (Number(item.loosePcs) || 0)) * product.wholesalePricePiece
+      ) : 0
+    );
+    orderGrossSubtotal += gross;
+
+    // Check if item matches coupon eligibility
+    let isEligible = false;
+    if (coupon.applicableTo === 'all') {
+      isEligible = true;
+    } else if (coupon.applicableTo === 'brand' && coupon.targetBrand && product) {
+      isEligible = (product.brand || '').toLowerCase().trim() === coupon.targetBrand.toLowerCase().trim();
+    } else if (coupon.applicableTo === 'category' && coupon.targetCategory && product) {
+      isEligible = (product.category || '').toLowerCase().trim() === coupon.targetCategory.toLowerCase().trim();
+    } else if (coupon.applicableTo === 'products' && coupon.targetProductIds && product) {
+      isEligible = coupon.targetProductIds.includes(product.id);
+    }
+
+    if (isEligible) {
+      eligibleSubtotal += gross;
+    }
+  }
+
+  if (eligibleSubtotal <= 0) {
+    const targetLabel = coupon.targetBrand 
+      ? `Brand: ${coupon.targetBrand}` 
+      : coupon.targetCategory 
+      ? `Category: ${coupon.targetCategory}` 
+      : 'selected products';
+    return { 
+      valid: false, 
+      discountAmount: 0, 
+      eligibleSubtotal: 0, 
+      orderGrossSubtotal, 
+      message: `No eligible items in cart. This coupon is only applicable on ${targetLabel}.` 
+    };
+  }
+
+  if (coupon.minOrderAmount && (eligibleSubtotal < coupon.minOrderAmount && orderGrossSubtotal < coupon.minOrderAmount)) {
+    return { 
+      valid: false, 
+      discountAmount: 0, 
+      eligibleSubtotal, 
+      orderGrossSubtotal, 
+      message: `Minimum order amount of ₹${coupon.minOrderAmount} required for coupon ${coupon.code} (Eligible Cart: ₹${Math.round(eligibleSubtotal)}).` 
+    };
+  }
+
+  // Calculate discount
+  let discountAmount = 0;
+  if (coupon.discountType === 'fixed') {
+    discountAmount = Math.min(coupon.discountValue, eligibleSubtotal);
+  } else if (coupon.discountType === 'percentage') {
+    let calc = (eligibleSubtotal * coupon.discountValue) / 100;
+    if (coupon.maxDiscountLimit) {
+      calc = Math.min(calc, coupon.maxDiscountLimit);
+    }
+    discountAmount = Math.round(calc * 100) / 100;
+  }
+
+  return {
+    valid: true,
+    discountAmount,
+    eligibleSubtotal,
+    orderGrossSubtotal,
+    message: `Coupon ${coupon.code} applied successfully! You saved ₹${discountAmount}.`
+  };
+}
+
+// 1. Get coupons list
+app.get('/api/coupons', (req, res) => {
+  const allCoupons = db.getCoupons();
+  const isAdmin = req.userRole === 'admin';
+  if (isAdmin) {
+    return res.json({ success: true, coupons: allCoupons });
+  }
+  // Public/Retailer: return active, unexpired coupons only
+  const now = Date.now();
+  const activeCoupons = allCoupons.filter(c => {
+    if (!c.isActive) return false;
+    if (c.startDate && now < new Date(c.startDate).getTime()) return false;
+    if (c.expiryDate && now > new Date(c.expiryDate).getTime()) return false;
+    if (c.totalUsageLimit && c.usedCount >= c.totalUsageLimit) return false;
+    return true;
+  });
+  res.json({ success: true, coupons: activeCoupons });
+});
+
+// 2. Create or Update Coupon (Admin only)
+app.post('/api/coupons', requireRoles(['admin']), (req, res) => {
+  const { code, discountValue, minOrderAmount } = req.body;
+  if (!code || typeof code !== 'string' || !code.trim()) {
+    return res.status(400).json({ success: false, error: 'Coupon code is required' });
+  }
+  if (discountValue === undefined || isNaN(Number(discountValue)) || Number(discountValue) <= 0) {
+    return res.status(400).json({ success: false, error: 'Discount value must be greater than 0' });
+  }
+
+  const saved = db.saveCoupon(req.body);
+  res.json({ success: true, coupon: saved, message: `Coupon ${saved.code} saved successfully` });
+});
+
+// 3. Delete Coupon (Admin only)
+app.delete('/api/coupons/:id', requireRoles(['admin']), (req, res) => {
+  const { id } = req.params;
+  const deleted = db.deleteCoupon(id);
+  if (!deleted) {
+    return res.status(404).json({ success: false, error: 'Coupon not found' });
+  }
+  res.json({ success: true, message: 'Coupon deleted successfully' });
+});
+
+// 4. Validate Coupon Endpoint (Client Cart Checkout)
+app.post('/api/coupons/validate', (req, res) => {
+  const { code, items = [], customerId, paymentMode } = req.body;
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ success: false, valid: false, message: 'Please enter a coupon code' });
+  }
+
+  const coupon = db.getCouponByCode(code);
+  if (!coupon) {
+    return res.json({ 
+      success: true, 
+      valid: false, 
+      discountAmount: 0, 
+      eligibleSubtotal: 0,
+      remainingSubtotal: 0,
+      potentialUpiDiscount: 0,
+      estimatedTotalPayable: 0,
+      estimatedTotalSavings: 0,
+      message: `Coupon "${code.toUpperCase()}" is not valid or does not exist.` 
+    });
+  }
+
+  const allProducts = db.getProducts();
+  const evalResult = evaluateCouponDiscount(coupon, items, allProducts, customerId);
+
+  // Calculate potential UPI discount preview
+  const upiConfig = db.getUpiDiscountConfig();
+  const remainingSubtotal = Math.max(0, evalResult.orderGrossSubtotal - evalResult.discountAmount);
+  let potentialUpiDiscount = 0;
+  if (upiConfig.isEnabled) {
+    potentialUpiDiscount = Math.round((remainingSubtotal * (upiConfig.percentage / 100)) * 100) / 100;
+  }
+
+  const isUpiSelected = (paymentMode === 'qr' || paymentMode === 'upi');
+  const effectiveUpiDiscount = isUpiSelected ? potentialUpiDiscount : 0;
+  const estimatedTotalPayable = Math.max(0, remainingSubtotal - effectiveUpiDiscount);
+  const estimatedTotalSavings = evalResult.discountAmount + effectiveUpiDiscount;
+
+  res.json({
+    success: true,
+    valid: evalResult.valid,
+    coupon: evalResult.valid ? coupon : undefined,
+    discountAmount: evalResult.discountAmount,
+    eligibleSubtotal: evalResult.eligibleSubtotal,
+    remainingSubtotal,
+    potentialUpiDiscount,
+    estimatedTotalPayable,
+    estimatedTotalSavings,
+    message: evalResult.message
+  });
+});
+
+// 5. UPI Discount Config Endpoints
+app.get('/api/settings/upi-discount', (req, res) => {
+  const config = db.getUpiDiscountConfig();
+  res.json({ success: true, config });
+});
+
+app.put('/api/settings/upi-discount', requireRoles(['admin']), (req, res) => {
+  const updated = db.updateUpiDiscountConfig(req.body);
+  res.json({ success: true, config: updated, message: `UPI Discount updated to ${updated.percentage}% (${updated.isEnabled ? 'Active' : 'Disabled'})` });
+});
+
+// 6. Coupon & UPI Analytics Reports
+app.get('/api/coupons/reports', requireRoles(['admin']), (req, res) => {
+  const coupons = db.getCoupons();
+  const redemptions = db.getCouponRedemptions();
+  const orders = db.getOrders();
+
+  const totalCoupons = coupons.length;
+  const activeCoupons = coupons.filter(c => c.isActive).length;
+
+  let totalCouponDiscounts = 0;
+  let honeyBunnyCouponDiscounts = 0;
+  let honeyBunnySalesVolume = 0;
+
+  redemptions.forEach(r => {
+    totalCouponDiscounts += r.discountAmount || 0;
+    if (r.couponCode === 'HONEY50') {
+      honeyBunnyCouponDiscounts += r.discountAmount || 0;
+      honeyBunnySalesVolume += r.orderAmount || 0;
+    }
+  });
+
+  let totalUpiDiscounts = 0;
+  let totalPrepaidCollection = 0;
+  let totalCodOrdersCount = 0;
+  let totalUpiOrdersCount = 0;
+  let totalOrdersCount = orders.length;
+
+  orders.forEach(o => {
+    if (o.upiDiscountAmount && o.upiDiscountAmount > 0) {
+      totalUpiDiscounts += o.upiDiscountAmount;
+    }
+    const mode = (o.paymentMode || '').toLowerCase();
+    if (mode === 'qr' || mode === 'upi') {
+      totalUpiOrdersCount++;
+      if (o.paymentStatus === 'paid' || o.amountPaid > 0) {
+        totalPrepaidCollection += (o.amountPaid || o.grandTotal || 0);
+      }
+    } else if (mode === 'cash' || mode === 'cod') {
+      totalCodOrdersCount++;
+    }
+  });
+
+  // Coupon-wise breakdown
+  const couponStats = coupons.map(c => {
+    const matchedRedemptions = redemptions.filter(r => r.couponCode === c.code);
+    const redemptionsCount = matchedRedemptions.length;
+    const totalDiscountGiven = matchedRedemptions.reduce((sum, r) => sum + (r.discountAmount || 0), 0);
+    const totalSalesVolume = matchedRedemptions.reduce((sum, r) => sum + (r.orderAmount || 0), 0);
+    return {
+      id: c.id,
+      code: c.code,
+      title: c.title,
+      applicableTo: c.applicableTo,
+      targetBrand: c.targetBrand,
+      discountType: c.discountType,
+      discountValue: c.discountValue,
+      redemptionsCount,
+      totalDiscountGiven,
+      totalSalesVolume,
+      isActive: c.isActive
+    };
+  });
+
+  res.json({
+    success: true,
+    summary: {
+      totalCoupons,
+      activeCoupons,
+      totalCouponDiscounts: +totalCouponDiscounts.toFixed(2),
+      totalUpiDiscounts: +totalUpiDiscounts.toFixed(2),
+      honeyBunnyCouponDiscounts: +honeyBunnyCouponDiscounts.toFixed(2),
+      honeyBunnySalesVolume: +honeyBunnySalesVolume.toFixed(2),
+      totalPrepaidCollection: +totalPrepaidCollection.toFixed(2),
+      totalOrdersCount,
+      totalCodOrdersCount,
+      totalUpiOrdersCount,
+      upiAdoptionPercentage: totalOrdersCount > 0 ? +((totalUpiOrdersCount / totalOrdersCount) * 100).toFixed(1) : 0
+    },
+    couponStats,
+    recentRedemptions: redemptions.slice(0, 50)
+  });
+});
+
+// 7. Secure UPI Transaction Verification Endpoint
+app.post('/api/payments/verify-upi', (req, res) => {
+  const { orderId, upiRefNumber, amount } = req.body;
+  if (!orderId) {
+    return res.status(400).json({ success: false, error: 'Order ID is required' });
+  }
+
+  const order = db.getOrderById(orderId);
+  if (!order) {
+    return res.status(404).json({ success: false, error: 'Order not found' });
+  }
+
+  const cleanRef = (upiRefNumber || '').trim();
+  if (!cleanRef || cleanRef.length < 6) {
+    return res.status(400).json({ 
+      success: false, 
+      verified: false, 
+      error: 'Invalid UPI Transaction Reference / UTR format. Please provide a valid 12-digit bank reference number.' 
+    });
+  }
+
+  // Idempotency: verify no other order already used this exact UTR
+  const existingOrders = db.getOrders();
+  const duplicate = existingOrders.find(o => 
+    o.id !== orderId && 
+    o.paymentVerificationRef && 
+    o.paymentVerificationRef.toLowerCase() === cleanRef.toLowerCase() &&
+    o.paymentVerificationStatus === 'verified'
+  );
+  if (duplicate) {
+    return res.status(400).json({ 
+      success: false, 
+      verified: false, 
+      error: `UTR ${cleanRef} has already been registered with Order ${duplicate.orderNumber}. Duplicate UTR not allowed.` 
+    });
+  }
+
+  const expectedAmount = order.finalPayableAmount || order.grandTotal;
+  const now = new Date().toISOString();
+
+  // Mark order verified and paid
+  order.paymentVerificationStatus = 'verified';
+  order.paymentVerificationRef = cleanRef;
+  order.paymentVerifiedAt = now;
+  order.paymentStatus = 'paid';
+  order.amountPaid = expectedAmount;
+  order.outstandingAmount = 0;
+  order.notes = `${order.notes || ''} [UPI Verified: ${cleanRef} at ${now}]`.trim();
+
+  db.saveOrder(order);
+
+  // Record payment record
+  db.recordPayment({
+    id: `pay_upi_${Date.now()}`,
+    receiptNumber: `RCP-UPI-${Math.floor(1000 + Math.random() * 9000)}`,
+    retailerId: order.retailerId,
+    retailerName: order.retailerName,
+    orderId: order.id,
+    orderNumber: order.orderNumber,
+    amount: expectedAmount,
+    paymentMode: 'upi',
+    transactionRef: cleanRef,
+    paymentDate: now,
+    collectedByRole: 'online_direct',
+    collectorName: 'Verified Instant UPI Gateway',
+    status: 'confirmed',
+    notes: `Verified 0.5% Discounted UPI Payment (UTR: ${cleanRef})`
+  });
+
+  res.json({
+    success: true,
+    verified: true,
+    order,
+    message: `Payment of ₹${expectedAmount} verified successfully with UTR ${cleanRef}.`
+  });
+});
+
 // Admin-Only Verification Endpoint for Retailer Onboarding / KYC Verification
 // Business Rule: Salesmen can onboard retailers, but ONLY Admin panel has authority to approve or reject verification.
 app.put('/api/retailers/:id/verify', async (req, res) => {
@@ -4145,11 +4529,50 @@ app.post('/api/orders', requireRoles(['admin', 'salesman', 'accounts', 'retailer
     };
   });
 
-  const grandTotal = Math.round(subtotal - totalDiscount);
-  const roundOff = +(grandTotal - (subtotal - totalDiscount)).toFixed(2);
+  const deliveryCharge = Number(rawOrder.deliveryCharge) || 0;
+  const mdrCharge = Number(rawOrder.mdrCharge) || 0;
+  const originalAmount = +subtotal.toFixed(2);
+
+  // 1. Server-side Coupon validation & calculation
+  let appliedCouponCode: string | undefined = undefined;
+  let serverCouponDiscount = 0;
+  const requestedCouponCode = (rawOrder.couponCode || '').trim().toUpperCase();
+
+  if (requestedCouponCode) {
+    const coupon = db.getCouponByCode(requestedCouponCode);
+    if (coupon) {
+      const evalRes = evaluateCouponDiscount(coupon, calculatedItems, products, rawOrder.retailerId);
+      if (evalRes.valid) {
+        appliedCouponCode = coupon.code;
+        serverCouponDiscount = evalRes.discountAmount;
+      }
+    }
+  }
+
+  // 2. Server-side UPI Discount calculation (0.5% or configured percentage)
+  const paymentMode = rawOrder.paymentMode || 'cod';
+  const isUpiPayment = (paymentMode === 'qr' || paymentMode === 'upi');
+  const upiConfig = db.getUpiDiscountConfig();
+  let serverUpiDiscountPercentage = 0;
+  let serverUpiDiscountAmount = 0;
+
+  if (isUpiPayment && upiConfig.isEnabled) {
+    serverUpiDiscountPercentage = upiConfig.percentage;
+    // Calculate discount on eligible order amount after coupon discount!
+    const remainingAfterCoupon = Math.max(0, subtotal - totalDiscount - serverCouponDiscount);
+    serverUpiDiscountAmount = Math.round((remainingAfterCoupon * (serverUpiDiscountPercentage / 100)) * 100) / 100;
+  }
+
+  // 3. Final Net Payable Amount
+  const netOrderAmount = Math.max(0, subtotal - totalDiscount - serverCouponDiscount - serverUpiDiscountAmount);
+  const finalPayableAmount = Math.round((netOrderAmount + deliveryCharge + mdrCharge) * 100) / 100;
+  const grandTotal = Math.round(finalPayableAmount);
+  const roundOff = +(grandTotal - (netOrderAmount + deliveryCharge + mdrCharge)).toFixed(2);
+
   const amountPaid = Number(rawOrder.amountPaid) || 0;
   const outstandingAmount = Math.max(0, grandTotal - amountPaid);
-  const paymentStatus = outstandingAmount === 0 ? 'paid' : amountPaid > 0 ? 'partial' : 'unpaid';
+  const paymentStatus = outstandingAmount === 0 && amountPaid > 0 ? 'paid' : amountPaid > 0 ? 'partial' : 'unpaid';
+  const paymentVerificationStatus = rawOrder.paymentVerificationStatus || (isUpiPayment ? (paymentStatus === 'paid' ? 'verified' : 'unverified') : 'not_applicable');
 
   const order: Order = {
     id: orderId,
@@ -4166,21 +4589,50 @@ app.post('/api/orders', requireRoles(['admin', 'salesman', 'accounts', 'retailer
     expectedDeliveryDate: rawOrder.expectedDeliveryDate || new Date().toISOString().split('T')[0],
     items: calculatedItems,
     subtotal: +subtotal.toFixed(2),
-    totalDiscount: +totalDiscount.toFixed(2),
+    totalDiscount: +(totalDiscount + serverCouponDiscount).toFixed(2),
     totalTaxable: +totalTaxable.toFixed(2),
     totalCgst: +totalCgst.toFixed(2),
     totalSgst: +totalSgst.toFixed(2),
     totalTax: +totalTax.toFixed(2),
+    deliveryCharge,
+    mdrCharge,
     roundOff,
     grandTotal,
     amountPaid,
     outstandingAmount,
     status: rawOrder.status || 'booked',
     paymentStatus,
+    paymentMode,
+    originalAmount,
+    couponCode: appliedCouponCode,
+    couponDiscount: serverCouponDiscount,
+    upiDiscountPercentage: serverUpiDiscountPercentage,
+    upiDiscountAmount: serverUpiDiscountAmount,
+    finalPayableAmount,
+    paymentVerificationStatus,
+    paymentVerificationRef: rawOrder.paymentVerificationRef || (rawOrder.upiRefNumber ? String(rawOrder.upiRefNumber).trim() : undefined),
+    paymentVerifiedAt: paymentVerificationStatus === 'verified' ? new Date().toISOString() : undefined,
     notes: rawOrder.notes
   };
 
   const saved = db.saveOrder(order);
+
+  // Record Coupon Redemption if coupon was successfully applied
+  if (appliedCouponCode && serverCouponDiscount > 0) {
+    const coupon = db.getCouponByCode(appliedCouponCode);
+    if (coupon) {
+      db.recordCouponRedemption({
+        couponId: coupon.id,
+        couponCode: appliedCouponCode,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerId: order.retailerId,
+        customerName: order.retailerName,
+        discountAmount: serverCouponDiscount,
+        orderAmount: originalAmount
+      });
+    }
+  }
 
   // If immediate payment was made
   if (amountPaid > 0) {

@@ -233,10 +233,22 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({ order, onClose }) =>
                   <span className="font-bold">{formatINR(order.mdrCharge)}</span>
                 </div>
               )}
+              {order.couponDiscount !== undefined && order.couponDiscount > 0 && (
+                <div className="flex justify-between text-amber-700 font-semibold bg-amber-50/70 -mx-1 px-1 py-0.5 rounded">
+                  <span className="font-sans">Coupon Discount ({order.couponCode}):</span>
+                  <span>-{formatINRDecimals(order.couponDiscount)}</span>
+                </div>
+              )}
+              {order.upiDiscountAmount !== undefined && order.upiDiscountAmount > 0 && (
+                <div className="flex justify-between text-emerald-700 font-semibold bg-emerald-50 -mx-1 px-1 py-0.5 rounded border border-emerald-200">
+                  <span className="font-sans">UPI Payment Discount ({order.upiDiscountPercentage || 0.5}%):</span>
+                  <span>-{formatINRDecimals(order.upiDiscountAmount)}</span>
+                </div>
+              )}
 
               <div className="border-t border-slate-400 pt-2 flex justify-between items-baseline font-bold text-slate-900">
                 <span className="font-sans text-sm">Invoice Grand Total:</span>
-                <span className="text-base text-[#1e293b]">{formatINR(order.grandTotal)}</span>
+                <span className="text-base text-[#1e293b]">{formatINR(order.finalPayableAmount || order.grandTotal)}</span>
               </div>
 
               <div className="flex justify-between text-emerald-700 text-[11px] font-semibold pt-1 border-t border-slate-200">

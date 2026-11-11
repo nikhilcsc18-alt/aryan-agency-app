@@ -23,7 +23,8 @@ import {
   BarChart3,
   BookOpen,
   UserCheck,
-  Award
+  Award,
+  Tag
 } from 'lucide-react';
 import { NavTab } from '../types';
 export type { NavTab };
@@ -76,6 +77,7 @@ export const Navigation: React.FC<NavigationProps> = ({
       { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" />, description: 'FMCG Metrics & Analytics' },
       { id: 'verifications', label: 'Store Verifications', icon: <ShieldCheck className="w-5 h-5" />, badge: pendingVerificationsBadge, description: 'KYC & Approval Timeline' },
       { id: 'orders', label: 'Orders & Dispatch', icon: <ShoppingCart className="w-5 h-5" />, badge: ordersBadge, description: 'Bookings & Invoicing' },
+      { id: 'coupons', label: 'Coupons & Offers', icon: <Tag className="w-5 h-5" />, description: 'Honey Bunny & UPI Discount' },
       { id: 'products', label: 'Products & Schemes', icon: <Package className="w-5 h-5" />, description: 'Catalog & Trade Margins' },
       { id: 'inventory', label: 'Warehouse & Batches', icon: <Boxes className="w-5 h-5" />, badge: lowStockBadge, description: 'Stock & Expiry Tracking' },
       { id: 'retailers', label: 'Retailers & Credits', icon: <Store className="w-5 h-5" />, description: 'Outlets, Ledgers & KYC' },

@@ -672,7 +672,7 @@
       "mrpPiece": 600,
       "wholesalePricePiece": 450,
       "casePrice": 5400,
-      "currentStockCases": 35,
+      "currentStockCases": 24,
       "currentStockLoosePcs": 4,
       "reorderLevelCases": 10,
       "imageUrl": "https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=500&auto=format&fit=crop&q=80",
@@ -694,7 +694,8 @@
         "minQtyCases": 1,
         "discountFlatRs": 150,
         "isActive": true
-      }
+      },
+      "product_sku": "HB-DIAPER-S1"
     },
     {
       "id": "prd_1790085157350_idvp",
@@ -1024,6 +1025,19 @@
       ],
       "lat": 27.317236516776973,
       "lng": 82.42314570583076
+    },
+    {
+      "id": "ret_01",
+      "storeName": "Gupta General Store",
+      "ownerName": "Nikhil (Admin)",
+      "phone": "+91 96284 62862",
+      "address": "Utraula,  Balrampur,  Uttar Pradesh",
+      "area": "Utraula Central",
+      "beatName": "Daily Beat",
+      "status": "active",
+      "creditLimit": 50000,
+      "currentOutstanding": 0,
+      "creditDaysAllowed": 15
     }
   ],
   "salesmen": [
@@ -1128,8 +1142,145 @@
       ]
     }
   ],
-  "orders": [],
-  "payments": [],
+  "orders": [
+    {
+      "id": "ord_1793806385730",
+      "orderNumber": "ORD-2026-8944",
+      "retailerId": "ret_01",
+      "retailerName": "Gupta General Store",
+      "retailerPhone": "+91 96284 62862",
+      "retailerAddress": "Utraula,  Balrampur,  Uttar Pradesh",
+      "beatName": "Daily Beat",
+      "salesmanId": "sales_01",
+      "orderDate": "2026-11-04T15:33:05.734Z",
+      "expectedDeliveryDate": "2026-11-04",
+      "items": [
+        {
+          "productId": "prd_15",
+          "sku": "HB-DIAPER-S1",
+          "productName": "Honey Bunny Diaper (S1 Small)",
+          "brand": "Honey Bunny",
+          "category": "Baby Care",
+          "hsnCode": "96190010",
+          "gstRate": 18,
+          "cases": 10,
+          "loosePcs": 0,
+          "totalPieces": 120,
+          "unitPrice": 12.5,
+          "grossAmount": 1500,
+          "discountAmount": 1500,
+          "taxableAmount": 0,
+          "cgstAmount": 0,
+          "sgstAmount": 0,
+          "igstAmount": 0,
+          "totalAmount": 0,
+          "schemeApplied": "Baby Care Festive Discount (₹150 off/case)",
+          "freePcsAwarded": 0
+        }
+      ],
+      "subtotal": 1500,
+      "totalDiscount": 1550,
+      "totalTaxable": 0,
+      "totalCgst": 0,
+      "totalSgst": 0,
+      "totalTax": 0,
+      "deliveryCharge": 0,
+      "mdrCharge": 0,
+      "roundOff": 0,
+      "grandTotal": 0,
+      "amountPaid": 0,
+      "outstandingAmount": 0,
+      "status": "booked",
+      "paymentStatus": "unpaid",
+      "paymentMode": "qr",
+      "originalAmount": 1500,
+      "couponCode": "HONEY50",
+      "couponDiscount": 50,
+      "upiDiscountPercentage": 0.5,
+      "upiDiscountAmount": 0,
+      "finalPayableAmount": 0,
+      "paymentVerificationStatus": "unverified"
+    },
+    {
+      "id": "ord_1793806579780",
+      "orderNumber": "ORD-2026-8954",
+      "retailerId": "ret_1791369179248",
+      "retailerName": "Neeyansh General store",
+      "retailerPhone": "+919044948582",
+      "retailerAddress": "Utraula, Balrampur (UP)",
+      "retailerGstin": "",
+      "beatName": "Utraula Retail Beat",
+      "orderDate": "2026-11-04T15:36:19.780Z",
+      "expectedDeliveryDate": "2026-11-04",
+      "items": [
+        {
+          "productId": "prd_15",
+          "sku": "HB-DIAPER-S1",
+          "productName": "Honey Bunny Diaper (S1 Small)",
+          "brand": "Honey Bunny",
+          "category": "Baby Care",
+          "hsnCode": "96190010",
+          "gstRate": 12,
+          "cases": 1,
+          "loosePcs": 0,
+          "totalPieces": 12,
+          "unitPrice": 450,
+          "grossAmount": 5400,
+          "discountAmount": 150,
+          "taxableAmount": 4687.5,
+          "cgstAmount": 281.25,
+          "sgstAmount": 281.25,
+          "igstAmount": 0,
+          "totalAmount": 5250,
+          "schemeApplied": "Baby Care Festive Discount (₹150 off/case)",
+          "freePcsAwarded": 0
+        }
+      ],
+      "subtotal": 5400,
+      "totalDiscount": 200,
+      "totalTaxable": 4687.5,
+      "totalCgst": 281.25,
+      "totalSgst": 281.25,
+      "totalTax": 562.5,
+      "deliveryCharge": 0,
+      "mdrCharge": 0,
+      "roundOff": 0,
+      "grandTotal": 5174,
+      "amountPaid": 10348,
+      "outstandingAmount": 0,
+      "status": "booked",
+      "paymentStatus": "paid",
+      "paymentMode": "qr",
+      "originalAmount": 5400,
+      "couponCode": "HONEY50",
+      "couponDiscount": 50,
+      "upiDiscountPercentage": 0.5,
+      "upiDiscountAmount": 26,
+      "finalPayableAmount": 5174,
+      "paymentVerificationStatus": "verified",
+      "paymentVerificationRef": "431289564721",
+      "paymentVerifiedAt": "2026-11-04T15:36:19.814Z",
+      "notes": "[UPI Verified: 431289564721 at 2026-11-04T15:36:19.814Z]"
+    }
+  ],
+  "payments": [
+    {
+      "id": "pay_upi_1793806579820",
+      "receiptNumber": "RCP-UPI-2252",
+      "retailerId": "ret_1791369179248",
+      "retailerName": "Neeyansh General store",
+      "orderId": "ord_1793806579780",
+      "orderNumber": "ORD-2026-8954",
+      "amount": 5174,
+      "paymentMode": "upi",
+      "transactionRef": "431289564721",
+      "paymentDate": "2026-11-04T15:36:19.814Z",
+      "collectedByRole": "online_direct",
+      "collectorName": "Verified Instant UPI Gateway",
+      "status": "confirmed",
+      "notes": "Verified 0.5% Discounted UPI Payment (UTR: 431289564721)"
+    }
+  ],
   "inventoryLogs": [
     {
       "id": "inv_log_1",
@@ -1158,6 +1309,34 @@
       "date": "2026-10-01T09:30:00Z",
       "performedBy": "Store Incharge",
       "reason": "Factory inward stock"
+    },
+    {
+      "id": "inv_1793806385734_ihy3h",
+      "type": "outward_dispatch",
+      "productId": "prd_15",
+      "productName": "Honey Bunny Diaper (S1 Small)",
+      "sku": "HB-DIAPER-S1",
+      "batchNumber": "HB-DPR-2026",
+      "cases": 10,
+      "loosePcs": 0,
+      "referenceId": "ORD-2026-8944",
+      "date": "2026-11-04T15:33:05.734Z",
+      "performedBy": "System",
+      "reason": "Order ORD-2026-8944 for Gupta General Store"
+    },
+    {
+      "id": "inv_1793806579780_jbs95",
+      "type": "outward_dispatch",
+      "productId": "prd_15",
+      "productName": "Honey Bunny Diaper (S1 Small)",
+      "sku": "HB-DIAPER-S1",
+      "batchNumber": "HB-DPR-2026",
+      "cases": 1,
+      "loosePcs": 0,
+      "referenceId": "ORD-2026-8954",
+      "date": "2026-11-04T15:36:19.780Z",
+      "performedBy": "System",
+      "reason": "Order ORD-2026-8954 for Neeyansh General store"
     }
   ],
   "banners": [
@@ -1463,5 +1642,76 @@
     "fssaiNumber": "11223344556677",
     "website": "https://aryanagency.in",
     "officialDomain": "aryanagency.in"
+  },
+  "coupons": [
+    {
+      "id": "cpn_honey50",
+      "code": "HONEY50",
+      "title": "Honey Bunny Baby Care Promotional Launch",
+      "description": "Flat ₹50 OFF on Honey Bunny baby care products on orders above ₹1,000",
+      "applicableTo": "brand",
+      "targetBrand": "Honey Bunny",
+      "discountType": "fixed",
+      "discountValue": 50,
+      "minOrderAmount": 1000,
+      "startDate": "2026-01-01T00:00:00.000Z",
+      "expiryDate": "2027-12-31T23:59:59.000Z",
+      "totalUsageLimit": 1000,
+      "perCustomerUsageLimit": 5,
+      "usedCount": 2,
+      "isActive": true,
+      "createdAt": "2026-11-01T00:00:00.000Z",
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    },
+    {
+      "id": "cpn_apna100",
+      "code": "APNA100",
+      "title": "Apna Store Super B2B Welcome Offer",
+      "description": "Flat ₹100 OFF on all grocery & FMCG wholesale orders above ₹2,000",
+      "applicableTo": "all",
+      "discountType": "fixed",
+      "discountValue": 100,
+      "minOrderAmount": 2000,
+      "startDate": "2026-01-01T00:00:00.000Z",
+      "expiryDate": "2027-12-31T23:59:59.000Z",
+      "totalUsageLimit": 1000,
+      "perCustomerUsageLimit": 3,
+      "usedCount": 0,
+      "isActive": true,
+      "createdAt": "2026-11-01T00:00:00.000Z",
+      "updatedAt": "2026-11-01T00:00:00.000Z"
+    }
+  ],
+  "couponRedemptions": [
+    {
+      "id": "red_1793806579799_mrjl",
+      "couponId": "cpn_honey50",
+      "couponCode": "HONEY50",
+      "orderId": "ord_1793806579780",
+      "orderNumber": "ORD-2026-8954",
+      "customerId": "ret_1791369179248",
+      "customerName": "Neeyansh General store",
+      "discountAmount": 50,
+      "orderAmount": 5400,
+      "redeemedAt": "2026-11-04T15:36:19.799Z"
+    },
+    {
+      "id": "red_1793806385743_x7rp",
+      "couponId": "cpn_honey50",
+      "couponCode": "HONEY50",
+      "orderId": "ord_1793806385730",
+      "orderNumber": "ORD-2026-8944",
+      "customerId": "ret_01",
+      "customerName": "Gupta General Store",
+      "discountAmount": 50,
+      "orderAmount": 1500,
+      "redeemedAt": "2026-11-04T15:33:05.743Z"
+    }
+  ],
+  "upiDiscountConfig": {
+    "isEnabled": true,
+    "percentage": 0.5,
+    "updatedAt": "2026-11-04T15:32:45.713Z",
+    "updatedBy": "Admin"
   }
 }

@@ -280,6 +280,15 @@ export interface Order {
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   paymentMode?: 'cash' | 'upi' | 'credit' | 'cheque' | 'bank_transfer' | 'qr';
+  originalAmount?: number; // Gross order amount before coupon/UPI discounts
+  couponCode?: string; // Applied coupon code e.g. HONEY50
+  couponDiscount?: number; // Discount ₹ from coupon
+  upiDiscountPercentage?: number; // e.g. 0.5%
+  upiDiscountAmount?: number; // Discount ₹ from UPI 0.5%
+  finalPayableAmount?: number; // Net payable after coupon + UPI discount
+  paymentVerificationStatus?: 'unverified' | 'verified' | 'failed' | 'not_applicable';
+  paymentVerificationRef?: string;
+  paymentVerifiedAt?: string;
   deliveryRunId?: string;
   driverName?: string;
   vehicleNumber?: string;
@@ -401,7 +410,8 @@ export type NavTab =
   | 'reports'
   | 'catalogue'
   | 'staff'
-  | 'idcard';
+  | 'idcard'
+  | 'coupons';
 
 export type ReportType = 
   | 'sales' 
@@ -776,5 +786,77 @@ export interface StaffSalaryPaymentPayload {
   paidByName?: string;
 }
 
+// ============================================================================
+// Smart Coupon & UPI Discount System Interfaces
+// ============================================================================
 
+export type CouponDiscountType = 'fixed' | 'percentage';
+export type CouponApplicableTo = 'all' | 'brand' | 'category' | 'products';
 
+export interface Coupon {
+  id: string;
+  code: string; // e.g. "HONEY50" (normalized to uppercase)
+  title: string; // e.g. "Honey Bunny Baby Care Promotional Launch"
+  description?: string; // e.g. "₹50 instant discount on Honey Bunny baby care products on orders above ₹1,000"
+  applicableTo: CouponApplicableTo; // 'all' | 'brand' | 'category' | 'products'
+  targetBrand?: string; // e.g. "Honey Bunny"
+  targetCategory?: ProductCategory;
+  targetProductIds?: string[]; // Array of product IDs if applicable
+  discountType: CouponDiscountType; // 'fixed' | 'percentage'
+  discountValue: number; // e.g. 50 (for ₹50 or 10 for 10%)
+  minOrderAmount: number; // e.g. 1000
+  maxDiscountLimit?: number; // e.g. 500 (max cap for percentage discounts)
+  startDate: string; // ISO String
+  expiryDate: string; // ISO String
+  totalUsageLimit?: number; // Total redemptions allowed across all users
+  perCustomerUsageLimit?: number; // Max redemptions per customer (e.g. 1 or 2, default 1)
+  usedCount: number; // Current redemption count
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CouponRedemption {
+  id: string;
+  couponId: string;
+  couponCode: string;
+  orderId: string;
+  orderNumber: string;
+  customerId: string; // Retailer ID or User ID
+  customerName: string;
+  discountAmount: number;
+  orderAmount: number;
+  redeemedAt: string;
+}
+
+export interface UpiDiscountConfig {
+  isEnabled: boolean; // default true
+  percentage: number; // default 0.5%
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface CouponValidationResult {
+  valid: boolean;
+  coupon?: Coupon;
+  discountAmount: number;
+  eligibleSubtotal: number;
+  remainingSubtotal: number;
+  potentialUpiDiscount: number;
+  estimatedTotalPayable: number;
+  estimatedTotalSavings: number;
+  message: string;
+}
+
+export interface OrderDiscountDetails {
+  originalAmount: number;
+  couponCode?: string;
+  couponDiscount: number;
+  upiDiscountPercentage: number;
+  upiDiscountAmount: number;
+  finalPayableAmount: number;
+  paymentMethod: 'cod' | 'upi' | 'qr' | 'credit' | 'cash';
+  paymentVerificationStatus: 'unverified' | 'verified' | 'failed' | 'not_applicable';
+  paymentVerificationRef?: string;
+  paymentVerifiedAt?: string;
+}

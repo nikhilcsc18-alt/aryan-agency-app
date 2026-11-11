@@ -29,17 +29,20 @@ import {
   Percent,
   Truck,
   Loader2,
-  ShieldAlert
+  ShieldAlert,
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
 import QRCode from 'qrcode';
-import { CartItem, Retailer, Product } from '../types';
-import { formatINR } from '../lib/api';
+import { CartItem, Retailer, Product, Coupon, UpiDiscountConfig } from '../types';
+import { formatINR, api } from '../lib/api';
 import { ProductImage } from './ProductImage';
 import { useAuth } from '../context/AuthContext';
 import { useDistributorSettings } from '../lib/settings';
 import { DistributorSettingsModal } from './DistributorSettingsModal';
 import { isCreditEnabledForRetailer } from '../lib/retailerCredit';
 import { calculateCartItemPricing } from '../lib/packingUtils';
+import { CouponApplyDrawer } from './CouponApplyDrawer';
 
 export interface CheckoutPaymentDetails {
   paymentMode: 'cod' | 'upi' | 'qr' | 'credit';
@@ -47,6 +50,12 @@ export interface CheckoutPaymentDetails {
   isPaidNow?: boolean;
   deliveryCharge?: number;
   mdrCharge?: number;
+  originalAmount?: number;
+  couponCode?: string;
+  couponDiscount?: number;
+  upiDiscountPercentage?: number;
+  upiDiscountAmount?: number;
+  finalPayableAmount?: number;
   grandTotal?: number;
 }
 
@@ -89,6 +98,24 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+  // Smart Coupon & UPI Discount states
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [upiConfig, setUpiConfig] = useState<UpiDiscountConfig>({ isEnabled: true, percentage: 0.5 });
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<Coupon | null>(null);
+  const [couponDiscount, setCouponDiscount] = useState<number>(0);
+  const [couponMessage, setCouponMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [isApplyingCoupon, setIsApplyingCoupon] = useState(false);
+  const [isAvailableCouponsOpen, setIsAvailableCouponsOpen] = useState(false);
+
+  // Load available coupons and UPI discount settings on open
+  useEffect(() => {
+    if (isOpen) {
+      api.getCoupons().then(setCoupons).catch(console.error);
+      api.getUpiDiscountConfig().then(setUpiConfig).catch(console.error);
+    }
+  }, [isOpen]);
 
   // Reset to items step whenever drawer opens
   useEffect(() => {
@@ -183,21 +210,36 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const itemsNetTotal = Math.max(0, subtotal - totalDiscount);
 
+  // 1. Coupon Discount calculation
+  const remainingAfterCoupon = Math.max(0, itemsNetTotal - couponDiscount);
+
+  // 2. Automatic UPI Discount (0.5% or configured)
+  // Applied strictly on remaining amount after coupon discount, and ONLY on UPI payments!
+  const isUpiPayment = (selectedPaymentMode === 'qr' || selectedPaymentMode === 'upi');
+  const upiDiscountRate = (isUpiPayment && upiConfig.isEnabled) ? (upiConfig.percentage || 0.5) : 0;
+  const upiDiscountAmount = isUpiPayment && upiDiscountRate > 0
+    ? Math.round((remainingAfterCoupon * (upiDiscountRate / 100)) * 100) / 100
+    : 0;
+
+  const netAfterAllDiscounts = Math.max(0, remainingAfterCoupon - upiDiscountAmount);
+
   // Delivery Charges calculation
   const isDeliveryEnabled = settings.enableDeliveryCharges ?? true;
   const freeDeliveryThreshold = settings.freeDeliveryAbove ?? 2000;
   const standardDeliveryCharge = settings.deliveryCharge ?? 50;
-  const isFreeDelivery = !isDeliveryEnabled || itemsNetTotal >= freeDeliveryThreshold;
+  const isFreeDelivery = !isDeliveryEnabled || netAfterAllDiscounts >= freeDeliveryThreshold;
   const deliveryCharge = isFreeDelivery ? 0 : standardDeliveryCharge;
 
   // Govt. MDR charges (0.04% by default on online UPI/QR)
   const isMdrEnabled = (settings.enableMdr ?? true) && (selectedPaymentMode === 'qr' || selectedPaymentMode === 'upi');
   const mdrRate = settings.mdrPercentage ?? 0.04;
   const mdrCharge = isMdrEnabled
-    ? Math.round(((itemsNetTotal + deliveryCharge) * (mdrRate / 100)) * 100) / 100
+    ? Math.round(((netAfterAllDiscounts + deliveryCharge) * (mdrRate / 100)) * 100) / 100
     : 0;
 
-  const grandTotal = Math.round(itemsNetTotal + deliveryCharge + mdrCharge);
+  const finalPayableAmount = Math.round((netAfterAllDiscounts + deliveryCharge + mdrCharge) * 100) / 100;
+  const grandTotal = Math.round(finalPayableAmount);
+  const totalSavings = totalDiscount + couponDiscount + upiDiscountAmount;
   const isCreditOverdue = selectedRetailer && (selectedRetailer.currentOutstanding + grandTotal > selectedRetailer.creditLimit);
 
   // Generate dynamic UPI QR Code URI whenever grandTotal, UPI ID or payee name changes
@@ -226,6 +268,49 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     setTimeout(() => setCopiedUpi(false), 2000);
   };
 
+  const handleApplyCoupon = async (codeToApply?: string) => {
+    const code = (codeToApply || couponInput).trim().toUpperCase();
+    if (!code) {
+      setCouponMessage({ text: 'Please enter a coupon code (e.g. HONEY50)', type: 'error' });
+      return;
+    }
+    setIsApplyingCoupon(true);
+    setCouponMessage(null);
+    try {
+      const res = await api.validateCoupon({
+        code,
+        items: cartItems.map(item => ({
+          productId: item.product.id,
+          cases: item.cases,
+          loosePcs: item.loosePcs,
+          grossAmount: item.selectedPacking ? (item.cases * item.selectedPacking.sellingPrice) : undefined
+        })),
+        customerId: selectedRetailer?.id || currentUser?.retailerId,
+        paymentMode: selectedPaymentMode
+      });
+
+      if (res.valid && res.coupon) {
+        setAppliedCoupon(res.coupon);
+        setCouponDiscount(res.discountAmount);
+        setCouponInput(res.coupon.code);
+        setCouponMessage({ text: res.message, type: 'success' });
+      } else {
+        setCouponMessage({ text: res.message || 'Invalid coupon code', type: 'error' });
+      }
+    } catch (err: any) {
+      setCouponMessage({ text: err?.message || 'Failed to validate coupon', type: 'error' });
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    setCouponInput('');
+    setCouponMessage(null);
+  };
+
   const handleBookNow = async () => {
     if (isSubmitting || isRetailerUnverified) return;
     setIsSubmitting(true);
@@ -237,6 +322,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         isPaidNow: selectedPaymentMode === 'qr' || selectedPaymentMode === 'upi',
         deliveryCharge,
         mdrCharge,
+        originalAmount: subtotal,
+        couponCode: appliedCoupon?.code,
+        couponDiscount,
+        upiDiscountPercentage: upiDiscountRate,
+        upiDiscountAmount,
+        finalPayableAmount,
         grandTotal
       });
     } finally {
@@ -663,18 +754,145 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   )}
                 </div>
 
+                {/* Smart Coupon Input & Offers Section */}
+                <div className="p-3 bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300/80 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-1.5">
+                      <div className="w-5 h-5 rounded bg-[#0B132B] text-amber-400 flex items-center justify-center">
+                        <Tag className="w-3 h-3" />
+                      </div>
+                      <span className="text-xs font-black text-slate-900 tracking-tight">
+                        Apply Coupon / कूपन लागू करें
+                      </span>
+                    </div>
+
+                    {coupons.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setIsAvailableCouponsOpen(true)}
+                        className="text-[11px] font-bold text-blue-700 hover:text-blue-900 underline flex items-center space-x-1 cursor-pointer"
+                      >
+                        <span>View Offers ({coupons.length})</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Applied Coupon Card */}
+                  {appliedCoupon ? (
+                    <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-300 flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono text-xs font-black px-2 py-0.5 rounded bg-emerald-700 text-white tracking-wider">
+                          {appliedCoupon.code}
+                        </span>
+                        <div>
+                          <p className="text-xs font-bold text-emerald-950">
+                            {appliedCoupon.title}
+                          </p>
+                          <p className="text-[10px] text-emerald-700 font-medium">
+                            Saved ₹{couponDiscount.toFixed(2)} on this order
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        className="text-xs font-bold text-rose-600 hover:text-rose-800 px-2 py-0.5 hover:bg-rose-100 rounded transition-colors cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          placeholder="e.g. HONEY50, APNA100"
+                          value={couponInput}
+                          onChange={(e) => {
+                            setCouponInput(e.target.value.toUpperCase());
+                            setCouponMessage(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleApplyCoupon();
+                            }
+                          }}
+                          className="flex-1 px-3 py-1.5 bg-white border border-slate-300 rounded-lg font-mono text-xs font-bold uppercase tracking-wider focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder:normal-case placeholder:font-normal placeholder:tracking-normal"
+                        />
+                        <button
+                          type="button"
+                          disabled={isApplyingCoupon || !couponInput.trim()}
+                          onClick={() => handleApplyCoupon()}
+                          className="px-3.5 py-1.5 bg-[#0B132B] hover:bg-slate-800 disabled:opacity-50 text-amber-400 font-bold text-xs rounded-lg shadow-2xs transition-all cursor-pointer flex items-center space-x-1"
+                        >
+                          {isApplyingCoupon ? <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" /> : <span>Apply</span>}
+                        </button>
+                      </div>
+
+                      {couponMessage && (
+                        <div className={`p-2 rounded-md text-[11px] font-medium flex items-center space-x-1.5 ${
+                          couponMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+                        }`}>
+                          {couponMessage.type === 'success' ? <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" /> : <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />}
+                          <span>{couponMessage.text}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 {/* Itemized Transparent Bill Breakdown Card */}
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1.5">
                   <div className="flex justify-between text-slate-600">
                     <span>Items Subtotal (Gross):</span>
                     <span className="font-mono font-bold text-slate-800">{formatINR(subtotal)}</span>
                   </div>
+
                   {totalDiscount > 0 && (
                     <div className="flex justify-between text-emerald-600">
                       <span>Trade Scheme Discounts:</span>
                       <span className="font-mono font-bold">-{formatINR(totalDiscount)}</span>
                     </div>
                   )}
+
+                  {couponDiscount > 0 && (
+                    <div className="flex justify-between items-center text-amber-700 font-semibold bg-amber-50/70 -mx-1 px-1 py-0.5 rounded">
+                      <span className="flex items-center space-x-1">
+                        <Tag className="w-3 h-3 text-amber-600" />
+                        <span>Coupon Discount ({appliedCoupon?.code}):</span>
+                      </span>
+                      <span className="font-mono font-bold text-amber-800">-₹{couponDiscount.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  {couponDiscount > 0 && (
+                    <div className="flex justify-between text-slate-500 text-[11px]">
+                      <span>Order Balance:</span>
+                      <span className="font-mono">{formatINR(remainingAfterCoupon)}</span>
+                    </div>
+                  )}
+
+                  {/* Automatic UPI Discount */}
+                  {isUpiPayment && upiDiscountAmount > 0 && (
+                    <div className="flex justify-between items-center text-emerald-700 font-semibold bg-emerald-50 -mx-1 px-1 py-0.5 rounded border border-emerald-200/80">
+                      <span className="flex items-center space-x-1">
+                        <Percent className="w-3 h-3 text-emerald-600" />
+                        <span>UPI Payment Discount ({upiDiscountRate}%):</span>
+                      </span>
+                      <span className="font-mono font-bold text-emerald-700">-₹{upiDiscountAmount.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  {/* Non-UPI tip */}
+                  {!isUpiPayment && upiConfig.isEnabled && (
+                    <div className="text-[10px] text-amber-900 bg-amber-50/70 p-1.5 rounded flex items-center justify-between">
+                      <span>💡 Switch to UPI & save extra {upiConfig.percentage}%:</span>
+                      <span className="font-mono font-bold text-emerald-700">Save ₹{(remainingAfterCoupon * (upiConfig.percentage / 100)).toFixed(2)}</span>
+                    </div>
+                  )}
+
                   {isDeliveryEnabled && (
                     <div className="flex justify-between items-center text-slate-600">
                       <span className="flex items-center space-x-1">
@@ -694,6 +912,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       )}
                     </div>
                   )}
+
                   {settings.enableMdr && (
                     <div className="flex justify-between items-center text-slate-600">
                       <span className="flex items-center space-x-1">
@@ -707,27 +926,57 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       )}
                     </div>
                   )}
+
                   <div className="border-t border-slate-200 pt-1.5 flex justify-between items-baseline font-black text-slate-900 text-sm">
                     <span>Final Bill Amount:</span>
                     <span className="text-blue-700 text-base font-mono">{formatINR(grandTotal)}</span>
                   </div>
+
+                  {totalSavings > 0 && (
+                    <div className="p-2 rounded-lg bg-emerald-100 text-emerald-950 font-bold text-xs flex items-center justify-between mt-1">
+                      <span className="flex items-center space-x-1">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>Total Savings on this Order:</span>
+                      </span>
+                      <span className="font-mono text-emerald-800 font-black">
+                        {formatINR(totalSavings)}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Select Payment Mode Section Header */}
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
-                    <CreditCard className="w-4 h-4 text-blue-600" />
-                    <span>Select Payment Option</span>
-                  </span>
-                  {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => setIsSettingsModalOpen(true)}
-                      className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center space-x-1 cursor-pointer"
-                    >
-                      <SlidersHorizontal className="w-3 h-3" />
-                      <span>Admin Settings</span>
-                    </button>
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center space-x-1.5">
+                      <CreditCard className="w-4 h-4 text-blue-600" />
+                      <span>Select Payment Option</span>
+                    </span>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => setIsSettingsModalOpen(true)}
+                        className="text-[11px] text-blue-600 hover:text-blue-800 font-semibold flex items-center space-x-1 cursor-pointer"
+                      >
+                        <SlidersHorizontal className="w-3 h-3" />
+                        <span>Admin Settings</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Extra UPI Savings Encouragement Callout */}
+                  {upiConfig.isEnabled && (
+                    <div className="p-2 rounded-xl bg-gradient-to-r from-emerald-500/15 to-emerald-500/5 border border-emerald-300 text-xs text-emerald-900 flex items-center justify-between">
+                      <div className="flex items-center space-x-1.5">
+                        <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span className="text-[11px] font-bold">
+                          Special Offer: Pay via UPI & get an extra {upiConfig.percentage}% instant discount!
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-emerald-800 bg-white px-2 py-0.5 rounded border border-emerald-200 shrink-0 ml-1">
+                        -{upiConfig.percentage}%
+                      </span>
+                    </div>
                   )}
                 </div>
 
@@ -749,13 +998,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <div className="flex items-center justify-between">
                       <Banknote className={`w-4 h-4 ${selectedPaymentMode === 'cod' ? 'text-blue-600' : 'text-slate-500'}`} />
                       <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                        settings.allowCOD ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
+                        settings.allowCOD ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-600'
                       }`}>
                         {settings.allowCOD ? 'COD' : 'Disabled'}
                       </span>
                     </div>
                     <p className="text-xs font-bold text-slate-900 mt-1.5">Cash on Delivery</p>
-                    <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Pay cash during van delivery</p>
+                    <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Pay cash (No UPI discount)</p>
                   </button>
 
                   {/* Scan UPI QR */}
@@ -764,18 +1013,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     onClick={() => setSelectedPaymentMode('qr')}
                     className={`p-3 rounded-xl border text-left transition-all cursor-pointer relative ${
                       selectedPaymentMode === 'qr'
-                        ? 'bg-blue-50 border-blue-600 ring-2 ring-blue-500/20'
-                        : 'bg-white border-slate-200 hover:border-slate-300'
+                        ? 'bg-emerald-50 border-emerald-600 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-emerald-300'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <QrCode className={`w-4 h-4 ${selectedPaymentMode === 'qr' ? 'text-blue-600' : 'text-slate-500'}`} />
-                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800">
-                        {settings.enableMdr ? `${mdrRate}% MDR` : 'Instant'}
+                      <QrCode className={`w-4 h-4 ${selectedPaymentMode === 'qr' ? 'text-emerald-600' : 'text-slate-500'}`} />
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        {upiConfig.isEnabled ? `${upiConfig.percentage}% EXTRA OFF` : 'Instant'}
                       </span>
                     </div>
                     <p className="text-xs font-bold text-slate-900 mt-1.5">Scan UPI QR</p>
-                    <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Instant GPay, PhonePe, Paytm</p>
+                    <p className="text-[10px] text-emerald-700 font-semibold leading-tight mt-0.5">Instant GPay, PhonePe, Paytm</p>
                   </button>
 
                   {/* Direct UPI App */}
@@ -784,18 +1033,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     onClick={() => setSelectedPaymentMode('upi')}
                     className={`p-3 rounded-xl border text-left transition-all cursor-pointer relative ${
                       selectedPaymentMode === 'upi'
-                        ? 'bg-purple-50 border-purple-600 ring-2 ring-purple-500/20'
-                        : 'bg-white border-slate-200 hover:border-slate-300'
+                        ? 'bg-purple-50 border-purple-600 ring-2 ring-purple-500/20 shadow-xs'
+                        : 'bg-white border-slate-200 hover:border-purple-300'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <Smartphone className={`w-4 h-4 ${selectedPaymentMode === 'upi' ? 'text-purple-600' : 'text-slate-500'}`} />
-                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-purple-100 text-purple-800">
-                        UPI App
+                      <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        {upiConfig.isEnabled ? `${upiConfig.percentage}% EXTRA OFF` : 'UPI App'}
                       </span>
                     </div>
                     <p className="text-xs font-bold text-slate-900 mt-1.5">UPI Direct Link</p>
-                    <p className="text-[10px] text-slate-500 leading-tight mt-0.5">Pay via installed banking app</p>
+                    <p className="text-[10px] text-emerald-700 font-semibold leading-tight mt-0.5">Pay via installed banking app</p>
                   </button>
 
                   {/* Wholesale Credit (15 Days Udhar) */}
@@ -1011,6 +1260,18 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           onClose={() => setIsSettingsModalOpen(false)}
         />
       )}
+
+      {/* Available Coupons Drawer */}
+      <CouponApplyDrawer
+        isOpen={isAvailableCouponsOpen}
+        onClose={() => setIsAvailableCouponsOpen(false)}
+        coupons={coupons}
+        cartItems={cartItems}
+        cartGrossTotal={subtotal}
+        appliedCouponCode={appliedCoupon?.code}
+        onApplyCoupon={(code) => handleApplyCoupon(code)}
+        onRemoveCoupon={handleRemoveCoupon}
+      />
     </div>
   );
 };

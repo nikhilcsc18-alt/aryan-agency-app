@@ -23,7 +23,10 @@ import {
   PayrollPaymentRecord,
   AttendanceStatus,
   SalaryType,
-  PayrollStatus
+  PayrollStatus,
+  Coupon,
+  CouponRedemption,
+  UpiDiscountConfig
 } from '../src/types';
 
 const DATA_DIR = path.join(process.cwd(), 'data');
@@ -72,6 +75,9 @@ export interface DatabaseSchema {
   staffPayrolls?: StaffPayroll[];
   staffSalaryPayments?: PayrollPaymentRecord[];
   businessProfile?: any;
+  coupons?: Coupon[];
+  couponRedemptions?: CouponRedemption[];
+  upiDiscountConfig?: UpiDiscountConfig;
 }
 
 function getBannerMainImageUrl(): string {
@@ -853,7 +859,53 @@ const INITIAL_DATA: DatabaseSchema = {
   staffMembers: INITIAL_STAFF_MEMBERS,
   staffAttendance: [],
   staffPayrolls: [],
-  staffSalaryPayments: []
+  staffSalaryPayments: [],
+  coupons: [
+    {
+      id: 'cpn_honey50',
+      code: 'HONEY50',
+      title: 'Honey Bunny Baby Care Promotional Launch',
+      description: 'Flat ₹50 OFF on Honey Bunny baby care products on orders above ₹1,000',
+      applicableTo: 'brand',
+      targetBrand: 'Honey Bunny',
+      discountType: 'fixed',
+      discountValue: 50,
+      minOrderAmount: 1000,
+      startDate: '2026-01-01T00:00:00.000Z',
+      expiryDate: '2027-12-31T23:59:59.000Z',
+      totalUsageLimit: 1000,
+      perCustomerUsageLimit: 5,
+      usedCount: 0,
+      isActive: true,
+      createdAt: '2026-11-01T00:00:00.000Z',
+      updatedAt: '2026-11-01T00:00:00.000Z'
+    },
+    {
+      id: 'cpn_apna100',
+      code: 'APNA100',
+      title: 'Apna Store Super B2B Welcome Offer',
+      description: 'Flat ₹100 OFF on all grocery & FMCG wholesale orders above ₹2,000',
+      applicableTo: 'all',
+      discountType: 'fixed',
+      discountValue: 100,
+      minOrderAmount: 2000,
+      startDate: '2026-01-01T00:00:00.000Z',
+      expiryDate: '2027-12-31T23:59:59.000Z',
+      totalUsageLimit: 1000,
+      perCustomerUsageLimit: 3,
+      usedCount: 0,
+      isActive: true,
+      createdAt: '2026-11-01T00:00:00.000Z',
+      updatedAt: '2026-11-01T00:00:00.000Z'
+    }
+  ],
+  couponRedemptions: [],
+  upiDiscountConfig: {
+    isEnabled: true,
+    percentage: 0.5,
+    updatedAt: '2026-11-01T00:00:00.000Z',
+    updatedBy: 'Admin'
+  }
 };
 
 class Database {
@@ -1135,6 +1187,31 @@ class Database {
 
         if (!Array.isArray(parsed.staffSalaryPayments)) {
           parsed.staffSalaryPayments = [];
+          modified = true;
+        }
+
+        if (!Array.isArray(parsed.coupons) || parsed.coupons.length === 0) {
+          parsed.coupons = JSON.parse(JSON.stringify(INITIAL_DATA.coupons));
+          modified = true;
+        } else {
+          if (!parsed.coupons.some((c: any) => (c.code || '').toUpperCase() === 'HONEY50')) {
+            parsed.coupons.push(INITIAL_DATA.coupons![0]);
+            modified = true;
+          }
+        }
+
+        if (!Array.isArray(parsed.couponRedemptions)) {
+          parsed.couponRedemptions = [];
+          modified = true;
+        }
+
+        if (!parsed.upiDiscountConfig) {
+          parsed.upiDiscountConfig = {
+            isEnabled: true,
+            percentage: 0.5,
+            updatedAt: new Date().toISOString(),
+            updatedBy: 'Admin'
+          };
           modified = true;
         }
 
@@ -2737,6 +2814,152 @@ class Database {
     };
     this.saveData(this.data);
     return this.data.businessProfile;
+  }
+
+  // ============================================================================
+  // Smart Coupon & Offers Methods
+  // ============================================================================
+
+  public getCoupons(): Coupon[] {
+    return this.data.coupons || [];
+  }
+
+  public getCouponById(id: string): Coupon | undefined {
+    return (this.data.coupons || []).find(c => c.id === id);
+  }
+
+  public getCouponByCode(code: string): Coupon | undefined {
+    const normalized = (code || '').trim().toUpperCase();
+    return (this.data.coupons || []).find(c => (c.code || '').toUpperCase() === normalized);
+  }
+
+  public saveCoupon(coupon: Partial<Coupon> & { code: string }): Coupon {
+    if (!this.data.coupons) this.data.coupons = [];
+    const normalizedCode = (coupon.code || '').trim().toUpperCase();
+    const existingIdx = coupon.id 
+      ? this.data.coupons.findIndex(c => c.id === coupon.id)
+      : this.data.coupons.findIndex(c => (c.code || '').toUpperCase() === normalizedCode);
+
+    const now = new Date().toISOString();
+    if (existingIdx >= 0) {
+      const updated: Coupon = {
+        ...this.data.coupons[existingIdx],
+        ...coupon,
+        code: normalizedCode,
+        discountValue: Number(coupon.discountValue !== undefined ? coupon.discountValue : this.data.coupons[existingIdx].discountValue),
+        minOrderAmount: Number(coupon.minOrderAmount !== undefined ? coupon.minOrderAmount : this.data.coupons[existingIdx].minOrderAmount),
+        maxDiscountLimit: coupon.maxDiscountLimit !== undefined && coupon.maxDiscountLimit !== null && (coupon.maxDiscountLimit as any) !== ''
+          ? Number(coupon.maxDiscountLimit) 
+          : undefined,
+        totalUsageLimit: coupon.totalUsageLimit !== undefined && coupon.totalUsageLimit !== null && (coupon.totalUsageLimit as any) !== ''
+          ? Number(coupon.totalUsageLimit)
+          : undefined,
+        perCustomerUsageLimit: coupon.perCustomerUsageLimit !== undefined && coupon.perCustomerUsageLimit !== null && (coupon.perCustomerUsageLimit as any) !== ''
+          ? Number(coupon.perCustomerUsageLimit)
+          : (this.data.coupons[existingIdx].perCustomerUsageLimit || 1),
+        updatedAt: now
+      };
+      this.data.coupons[existingIdx] = updated;
+      this.saveData(this.data);
+      return updated;
+    } else {
+      const created: Coupon = {
+        id: coupon.id || `cpn_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        code: normalizedCode,
+        title: coupon.title || normalizedCode,
+        description: coupon.description || '',
+        applicableTo: coupon.applicableTo || 'all',
+        targetBrand: coupon.targetBrand || undefined,
+        targetCategory: coupon.targetCategory || undefined,
+        targetProductIds: coupon.targetProductIds || undefined,
+        discountType: coupon.discountType || 'fixed',
+        discountValue: Number(coupon.discountValue) || 0,
+        minOrderAmount: Number(coupon.minOrderAmount) || 0,
+        maxDiscountLimit: coupon.maxDiscountLimit ? Number(coupon.maxDiscountLimit) : undefined,
+        startDate: coupon.startDate || now,
+        expiryDate: coupon.expiryDate || new Date(Date.now() + 365 * 86400000).toISOString(),
+        totalUsageLimit: coupon.totalUsageLimit ? Number(coupon.totalUsageLimit) : undefined,
+        perCustomerUsageLimit: coupon.perCustomerUsageLimit ? Number(coupon.perCustomerUsageLimit) : 1,
+        usedCount: 0,
+        isActive: coupon.isActive !== undefined ? coupon.isActive : true,
+        createdAt: now,
+        updatedAt: now
+      };
+      this.data.coupons.unshift(created);
+      this.saveData(this.data);
+      return created;
+    }
+  }
+
+  public deleteCoupon(id: string): boolean {
+    if (!this.data.coupons) return false;
+    const initialLen = this.data.coupons.length;
+    this.data.coupons = this.data.coupons.filter(c => c.id !== id);
+    if (this.data.coupons.length !== initialLen) {
+      this.saveData(this.data);
+      return true;
+    }
+    return false;
+  }
+
+  public getCouponRedemptions(): CouponRedemption[] {
+    return this.data.couponRedemptions || [];
+  }
+
+  public recordCouponRedemption(redemption: Omit<CouponRedemption, 'id' | 'redeemedAt'> & { id?: string; redeemedAt?: string }): CouponRedemption {
+    if (!this.data.couponRedemptions) this.data.couponRedemptions = [];
+    const rec: CouponRedemption = {
+      id: redemption.id || `red_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      couponId: redemption.couponId,
+      couponCode: (redemption.couponCode || '').toUpperCase(),
+      orderId: redemption.orderId,
+      orderNumber: redemption.orderNumber,
+      customerId: redemption.customerId,
+      customerName: redemption.customerName,
+      discountAmount: Number(redemption.discountAmount) || 0,
+      orderAmount: Number(redemption.orderAmount) || 0,
+      redeemedAt: redemption.redeemedAt || new Date().toISOString()
+    };
+    this.data.couponRedemptions.unshift(rec);
+
+    // Update usedCount on coupon
+    const c = this.getCouponByCode(rec.couponCode);
+    if (c) {
+      c.usedCount = (c.usedCount || 0) + 1;
+    }
+
+    this.saveData(this.data);
+    return rec;
+  }
+
+  // ============================================================================
+  // Automatic UPI Discount Config
+  // ============================================================================
+
+  public getUpiDiscountConfig(): UpiDiscountConfig {
+    if (!this.data.upiDiscountConfig) {
+      this.data.upiDiscountConfig = {
+        isEnabled: true,
+        percentage: 0.5,
+        updatedAt: new Date().toISOString(),
+        updatedBy: 'Admin'
+      };
+      this.saveData(this.data);
+    }
+    return this.data.upiDiscountConfig;
+  }
+
+  public updateUpiDiscountConfig(config: Partial<UpiDiscountConfig>): UpiDiscountConfig {
+    const current = this.getUpiDiscountConfig();
+    this.data.upiDiscountConfig = {
+      ...current,
+      ...config,
+      percentage: config.percentage !== undefined ? Number(config.percentage) : current.percentage,
+      isEnabled: config.isEnabled !== undefined ? Boolean(config.isEnabled) : current.isEnabled,
+      updatedAt: new Date().toISOString()
+    };
+    this.saveData(this.data);
+    return this.data.upiDiscountConfig;
   }
 }
 
