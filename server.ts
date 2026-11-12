@@ -1461,6 +1461,9 @@ app.get('/api/staff', (req, res) => {
   return res.json(db.getStaffMembers());
 });
 
+app.get('/api/staff/attendance', (req: any, res: any) => attendanceGetHandler(req, res));
+app.post('/api/staff/attendance', (req: any, res: any) => attendancePostHandler(req, res));
+
 app.get('/api/staff/:id', (req, res) => {
   const staff = db.getStaffMemberById(req.params.id);
   if (!staff) return res.status(404).json({ error: 'Staff member not found' });
@@ -1773,7 +1776,7 @@ app.get('/api/staff/audit-test-candidates', requireRoles(['admin']), (req, res) 
 // ==========================================
 // Staff Attendance API
 // ==========================================
-app.get('/api/staff-attendance', (req, res) => {
+const attendanceGetHandler = (req: any, res: any) => {
   const { staffId, date, month, startDate, endDate } = req.query as Record<string, string>;
   let targetStaffId = staffId;
 
@@ -1799,9 +1802,14 @@ app.get('/api/staff-attendance', (req, res) => {
 
   const list = db.getStaffAttendance({ staffId: targetStaffId, date, month, startDate, endDate });
   return res.json(list);
-});
+};
 
-app.post('/api/staff-attendance', (req, res) => {
+app.get('/api/staff-attendance', attendanceGetHandler);
+app.get('/api/staff_attendance', attendanceGetHandler);
+app.get('/api/staff/attendance', attendanceGetHandler);
+app.get('/api/attendance', attendanceGetHandler);
+
+const attendancePostHandler = (req: any, res: any) => {
   try {
     const { staffId, date, status, checkInTime, checkOutTime, remarks } = req.body;
     const now = new Date();
@@ -1956,7 +1964,12 @@ app.post('/api/staff-attendance', (req, res) => {
     const isValidationErr = err.message && (err.message.includes('already recorded') || err.message.includes('required') || err.message.includes('strictly permitted'));
     return res.status(isValidationErr ? 400 : 500).json({ error: err.message || 'Failed to record attendance.' });
   }
-});
+};
+
+app.post('/api/staff-attendance', attendancePostHandler);
+app.post('/api/staff_attendance', attendancePostHandler);
+app.post('/api/staff/attendance', attendancePostHandler);
+app.post('/api/attendance', attendancePostHandler);
 
 app.post('/api/staff-attendance/correction', requireRoles(['admin']), (req, res) => {
   const { id, newStatus, reason } = req.body;

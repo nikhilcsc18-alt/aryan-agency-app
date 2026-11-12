@@ -66,14 +66,22 @@ export function getServerBaseUrl(): string {
     if (customUrl && customUrl.trim()) {
       return customUrl.trim().replace(/\/+$/, '');
     }
+
     const origin = window.location.origin || '';
-    // Only prepend an absolute server URL if running inside a hybrid mobile app container (Capacitor/Cordova/file://)
-    if (origin.startsWith('capacitor') || origin.startsWith('file:') || origin.startsWith('ionic:') || !origin.startsWith('http')) {
+    const hostname = window.location.hostname || '';
+    const isCapacitorNative = Boolean((window as any).Capacitor?.isNativePlatform?.() || (window as any).Capacitor?.getPlatform?.() === 'android');
+    const isCordovaOrHybrid = Boolean((window as any).cordova || (window as any).PhoneGap);
+    const isLocalhostApp = (hostname === 'localhost' || hostname === '127.0.0.1') && !window.location.port; // In Capacitor Android, origin is http://localhost with NO port
+    const isSpecialScheme = origin.startsWith('capacitor') || origin.startsWith('file:') || origin.startsWith('ionic:') || !origin.startsWith('http');
+
+    // If running inside Android APK (Capacitor WebView, local assets, Cordova container)
+    if (isCapacitorNative || isCordovaOrHybrid || isLocalhostApp || isSpecialScheme) {
       const envUrl = ((import.meta as any)?.env?.VITE_APP_URL || (import.meta as any)?.env?.APP_URL || '').trim();
       return envUrl ? envUrl.replace(/\/+$/, '') : 'https://aryanagency.in';
     }
-    // In any web browser environment (localhost, AI Studio preview, production domain),
-    // return empty string so the browser natively issues same-origin relative requests (/api/...)
+
+    // In web browser environments (localhost:3000, AI Studio preview, deployed domain),
+    // return empty string so relative URLs hit the actual host server
     return '';
   }
   return '';
@@ -186,6 +194,38 @@ async function safeMutationFetch<T>(url: string, options: RequestInit = {}, fall
       if (res.status === 502 || res.status === 503 || res.status === 504) {
         throw new Error('Server service temporarily busy. Please retry in a few moments.');
       }
+
+      // If running inside Android APK or WebView and an unhandled relative route hit the SPA index.html,
+      // attempt retry directly against production official live endpoint https://aryanagency.in
+      if (!url.startsWith('http') && typeof window !== 'undefined') {
+        const liveUrl = `https://aryanagency.in${url.startsWith('/') ? '' : '/'}${url}`;
+        console.warn(`[safeMutationFetch] Local SPA intercept on ${url}. Retrying with remote production gateway: ${liveUrl}`);
+        const retryRes = await fetch(liveUrl, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            ...(activeToken ? { 'Authorization': `Bearer ${activeToken}` } : {}),
+            ...(activeUserId ? { 'X-User-Id': activeUserId } : {}),
+            ...(activeUserRole ? { 'X-User-Role': activeUserRole } : {}),
+            ...(activeUserEmail ? { 'X-User-Email': activeUserEmail } : {})
+          }
+        });
+        const retryText = await retryRes.text();
+        const retryTrimmed = retryText.trim();
+        if (!retryTrimmed.startsWith('<') && !retryTrimmed.toLowerCase().startsWith('<!doctype html>')) {
+          if (!retryRes.ok) {
+            let msg = `Operation failed with status ${retryRes.status}`;
+            try {
+              const parsed = JSON.parse(retryText);
+              if (parsed.error) msg = parsed.error;
+            } catch {}
+            throw new Error(msg);
+          }
+          return JSON.parse(retryText) as T;
+        }
+      }
+
       throw new Error(`Server returned HTML response instead of JSON for ${url} (HTTP ${res.status})`);
     }
 

@@ -1691,6 +1691,35 @@
       "correctionHistory": [],
       "createdAt": "2026-11-12T06:11:26.798Z",
       "updatedAt": "2026-11-12T06:11:26.798Z"
+    },
+    {
+      "id": "att_1794466967057_oa5k",
+      "staffId": "stf_admin_nikhil",
+      "employeeCode": "EMP-ADM-001",
+      "staffName": "Nikhil",
+      "role": "admin",
+      "date": "2026-11-12",
+      "status": "present",
+      "approvalStatus": "approved",
+      "checkInMethod": "admin_marked",
+      "workingHours": 8.5,
+      "remarks": "",
+      "approvedBy": "Nikhil (Admin)",
+      "approvedAt": "2026-11-12T07:02:47.057Z",
+      "approvalAuditTrail": [
+        {
+          "action": "approved",
+          "actorId": "admin",
+          "actorName": "Nikhil (Admin)",
+          "actorRole": "admin",
+          "timestamp": "2026-11-12T07:02:47.057Z",
+          "newApprovalStatus": "approved",
+          "reason": "Direct attendance marked by Administrator"
+        }
+      ],
+      "correctionHistory": [],
+      "createdAt": "2026-11-12T07:02:47.057Z",
+      "updatedAt": "2026-11-12T07:02:47.057Z"
     }
   ],
   "staffPayrolls": [],
