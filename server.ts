@@ -1780,17 +1780,21 @@ app.get('/api/staff-attendance', (req, res) => {
   // Non-admins can only see their own attendance
   if (req.userRole !== 'admin') {
     const slm = getAuthenticatedSalesman(req);
-    const userEmail = req.user?.email?.toLowerCase().trim();
-    const userId = req.user?.id;
+    const userEmail = (req.user?.email || (req.headers['x-user-email'] as string) || '').toLowerCase().trim();
+    const userId = req.user?.id || (req.headers['x-user-id'] as string);
     const selfStaff = db.getStaffMembers().find(s => 
+      (staffId && (s.id === staffId || s.salesmanId === staffId)) ||
       (slm && (s.salesmanId === slm.id || s.id === slm.id)) ||
       (userId && (s.userId === userId || s.id === userId)) ||
       (userEmail && s.email && s.email.toLowerCase().trim() === userEmail)
     );
-    if (!selfStaff) {
-      return res.json([]);
+    if (selfStaff) {
+      targetStaffId = selfStaff.id;
+    } else if (slm) {
+      targetStaffId = `stf_${slm.id}`;
+    } else if (staffId) {
+      targetStaffId = staffId;
     }
-    targetStaffId = selfStaff.id;
   }
 
   const list = db.getStaffAttendance({ staffId: targetStaffId, date, month, startDate, endDate });
@@ -1901,12 +1905,21 @@ app.post('/api/staff-attendance', (req, res) => {
       }
 
       targetStaffId = selfStaff.id;
-      // Self check-in is restricted to today only (accounting for IST timezone)
+      // Self check-in is restricted to today only (accounting for IST timezone and mobile clock drift)
       const istDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
-      const validTodayDates = [todayStr, istDateStr];
+      const yesterdayDate = new Date(now.getTime() - 86400000);
+      const tomorrowDate = new Date(now.getTime() + 86400000);
+      const yesterdayIstStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(yesterdayDate);
+      const tomorrowIstStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(tomorrowDate);
+
+      // Valid date window covering UTC day, IST day, and timezone boundary shifts
+      const validTodayDates = [todayStr, istDateStr, yesterdayIstStr, tomorrowIstStr];
       if (date && !validTodayDates.includes(date)) {
         return res.status(400).json({ error: 'Self check-in is strictly permitted for today only.' });
       }
+
+      // Canonicalize targetDate to Indian IST date (or provided date if valid)
+      const targetDate = (date && validTodayDates.includes(date)) ? (date === istDateStr ? istDateStr : (date === todayStr ? istDateStr : date)) : istDateStr;
       targetStatus = status || 'present';
       targetCheckInTime = checkInTime || now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
       method = 'self_check_in';
@@ -1924,9 +1937,12 @@ app.post('/api/staff-attendance', (req, res) => {
       return res.status(400).json({ error: 'Staff ID is required.' });
     }
 
+    const istNow = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(now);
+    const finalDate = date || istNow || todayStr;
+
     const result = db.markStaffAttendance({
       staffId: targetStaffId,
-      date: date || todayStr,
+      date: finalDate,
       status: targetStatus,
       checkInTime: targetCheckInTime,
       checkOutTime: targetCheckOutTime,

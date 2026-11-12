@@ -148,12 +148,23 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
   const [isIdCardOpen, setIsIdCardOpen] = useState(false);
   const [myStaffProfile, setMyStaffProfile] = useState<StaffMember | null>(null);
 
-  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-  const curMonthStr = useMemo(() => new Date().toISOString().slice(0, 7), []);
+  // Robust Indian Calendar Date calculation for mobile devices
+  const getIndianDateString = (d: Date = new Date()) => {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+    } catch {
+      const offset = 5.5 * 60 * 60 * 1000;
+      return new Date(d.getTime() + offset).toISOString().split('T')[0];
+    }
+  };
 
-  // Today's specific attendance record
+  const todayStr = useMemo(() => getIndianDateString(new Date()), []);
+  const curMonthStr = useMemo(() => todayStr.slice(0, 7), [todayStr]);
+
+  // Today's specific attendance record (matches either IST date or UTC date)
   const todayAttendance = useMemo(() => {
-    return myAttendanceList.find(a => a.date === todayStr);
+    const utcDateStr = new Date().toISOString().split('T')[0];
+    return myAttendanceList.find(a => a.date === todayStr || a.date === utcDateStr);
   }, [myAttendanceList, todayStr]);
 
   // Monthly Attendance Summary
@@ -183,7 +194,7 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
   const loadDashboardData = async () => {
     try {
       setLoadingTasks(true);
-      const curMonth = new Date().toISOString().slice(0, 7);
+      const curMonth = todayStr.slice(0, 7);
       const [fetchedTasks, fetchedVisits, fetchedAtt, fetchedPay, fetchedStaff, fetchedPayments] = await Promise.all([
         api.getSalesmanTasks(activeSalesman.id).catch(() => []),
         api.getVisits({ salesmanId: activeSalesman.id }).catch(() => []),
@@ -243,19 +254,29 @@ export const SalesmanHomeDashboard: React.FC<SalesmanHomeDashboardProps> = ({
     try {
       setIsPunchingAttendance(true);
       const now = new Date();
-      const timeStr = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' });
+      const timeStr = now.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false, hour: '2-digit', minute: '2-digit' });
+      const targetDate = getIndianDateString(now);
+
       const res = await api.markStaffAttendance({
         staffId: myStaffProfile?.id || activeSalesman.id,
-        date: todayStr,
+        date: targetDate,
         status: 'present',
         checkInTime: timeStr,
         remarks: 'Self check-in via mobile dashboard'
       });
+
       if (res && res.attendance) {
-        setMyAttendanceList(prev => [res.attendance, ...prev.filter(a => a.date !== todayStr)]);
+        setMyAttendanceList(prev => [res.attendance, ...prev.filter(a => a.date !== targetDate && a.date !== todayStr)]);
       }
+      await loadDashboardData();
     } catch (err: any) {
-      alert(err.message || 'Failed to punch attendance');
+      const errMsg = err?.message || 'Failed to punch attendance';
+      // If attendance was already recorded, re-fetch attendance so the UI displays the Checked In state
+      if (errMsg.toLowerCase().includes('already recorded') || errMsg.toLowerCase().includes('duplicate')) {
+        await loadDashboardData();
+      } else {
+        alert(errMsg);
+      }
     } finally {
       setIsPunchingAttendance(false);
     }
